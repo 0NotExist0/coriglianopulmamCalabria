@@ -3057,182 +3057,352 @@ body.mode-taxi {
 }
 
 /* ==========================================================================
-   TAXI NEAR YOU (INTELLIGENT LOCAL DISCOVERY) STYLES
+   GOOGLE LOCAL PACK TAXI & NCC REAL RESULTS STYLES
    ========================================================================== */
-.taxi-near-you-container {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border: 2px solid #f59e0b;
+.google-taxi-pack-container {
+  background: #181c24;
+  border: 1px solid #334155;
   border-radius: var(--radius-lg, 16px);
   padding: 22px 24px;
   margin-bottom: 24px;
   color: #ffffff;
-  box-shadow: 0 12px 30px -8px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
 }
 
-.taxi-near-you-head {
+.google-pack-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 14px;
+  margin-bottom: 16px;
 }
 
-.near-head-left {
-  flex: 1;
-  min-width: 250px;
-}
-
-.near-badge-pulse {
-  display: inline-flex;
+.google-pack-title-row {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  margin-bottom: 6px;
+  gap: 14px;
+  flex: 1;
+  min-width: 260px;
 }
 
-.near-title {
+.google-g-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #4285f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+  flex-shrink: 0;
+}
+
+.google-pack-heading {
   margin: 0 0 4px 0;
-  font-size: 1.3rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  color: #ffffff;
+  color: #f1f5f9;
 }
 
-.near-title strong {
-  color: #f59e0b;
+.google-pack-heading strong {
+  color: #60a5fa;
   text-decoration: underline;
   text-underline-offset: 4px;
 }
 
-.near-subtitle {
+.google-pack-sub {
   margin: 0;
   font-size: 0.825rem;
   color: #94a3b8;
 }
 
-.near-search-input-box {
+.google-pack-pills-row {
   display: flex;
   align-items: center;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: 12px;
-  padding: 4px 6px 4px 12px;
   gap: 8px;
-  flex: 1;
-  max-width: 420px;
-  min-width: 260px;
-}
-
-.near-search-input-box i {
-  color: #f59e0b;
-  font-size: 0.95rem;
-}
-
-.near-search-input-box input {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 0.9rem;
-  width: 100%;
-  outline: none;
-}
-
-.near-search-input-box input::placeholder {
-  color: #64748b;
-}
-
-.btn-search-taxi-city {
-  background: #f59e0b;
-  color: #0f172a;
-  border: none;
-  font-weight: 800;
-  font-size: 0.825rem;
-  padding: 8px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-search-taxi-city:hover {
-  background: #fbbf24;
-}
-
-.taxi-near-main-card {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 18px 20px;
-}
-
-.main-card-top {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 16px;
-}
-
-.taxi-icon-circle-lg {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
-  background: #f59e0b;
-  color: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.45rem;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
-}
-
-.main-card-top h4 {
-  margin: 0 0 4px 0;
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #ffffff;
-}
-
-.coverage-badge {
-  font-size: 0.8rem;
-  color: #cbd5e1;
-}
-
-.main-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.btn-gmaps-taxi-search {
-  background: rgba(66, 133, 244, 0.15);
-  border: 1px solid rgba(66, 133, 244, 0.4);
-  color: #ffffff !important;
-  font-weight: 700;
-  font-size: 0.9rem;
-  padding: 11px 18px;
-  border-radius: 10px;
+.g-pill {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   text-decoration: none;
   transition: all 0.2s ease;
 }
 
-.btn-gmaps-taxi-search:hover {
-  background: #4285f4;
-  border-color: #4285f4;
+.g-pill.active {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+}
+
+.g-pill-link {
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.3);
+}
+
+.g-pill-link:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #ffffff;
+}
+
+.google-businesses-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.g-business-item {
+  background: #202632;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.2s ease;
+}
+
+.g-business-item:hover {
+  border-color: #60a5fa;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.g-biz-title-wrap {
+  margin-bottom: 8px;
+}
+
+.g-biz-name {
+  margin: 0 0 6px 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.g-biz-rating-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+
+.g-rating-score {
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.g-stars-gold {
+  color: #fbbf24;
+  font-size: 0.85rem;
+  display: inline-flex;
+  gap: 2px;
+}
+
+.g-reviews-count {
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.g-dot-sep {
+  color: #475569;
+}
+
+.g-biz-category {
+  color: #94a3b8;
+  font-size: 0.825rem;
+}
+
+.g-biz-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.825rem;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.g-years-badge {
+  color: #94a3b8;
+}
+
+.g-address {
+  color: #cbd5e1;
+}
+
+.g-biz-phone-highlight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+}
+
+.g-biz-phone-highlight i {
+  color: #22c55e;
+}
+
+.g-biz-phone-highlight strong {
+  color: #4ade80;
+  font-weight: 800;
+}
+
+.g-open-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #22c55e;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.g-open-badge i {
+  font-size: 0.45rem;
+}
+
+.g-biz-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btn-g-call {
+  background: #16a34a;
   color: #ffffff !important;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 9px 16px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-g-call:hover {
+  background: #15803d;
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(66, 133, 244, 0.35);
+}
+
+.btn-g-wa {
+  background: #25d366;
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 9px 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-g-wa:hover {
+  background: #1ebd5a;
+  transform: translateY(-2px);
+}
+
+.btn-g-directions {
+  background: rgba(66, 133, 244, 0.15);
+  border: 1px solid rgba(66, 133, 244, 0.4);
+  color: #93c5fd !important;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 8px 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-g-directions:hover {
+  background: #4285f4;
+  color: #ffffff !important;
+}
+
+.btn-g-web {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cbd5e1 !important;
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-g-web:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff !important;
+}
+
+.google-pack-footer {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: center;
+}
+
+.btn-more-google-places {
+  background: rgba(66, 133, 244, 0.12);
+  border: 1px solid rgba(66, 133, 244, 0.35);
+  color: #93c5fd !important;
+  font-weight: 800;
+  font-size: 0.9rem;
+  padding: 10px 22px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-more-google-places:hover {
+  background: #4285f4;
+  color: #ffffff !important;
+  border-color: #4285f4;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(66, 133, 244, 0.4);
+}
+
+@media (max-width: 768px) {
+  .g-business-item {
+    grid-template-columns: 1fr;
+  }
+  .g-biz-actions-col {
+    justify-content: flex-start;
+  }
 }
 
 

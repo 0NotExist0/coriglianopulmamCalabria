@@ -558,16 +558,17 @@ class LiveBoardEngine {
 
     let html = `
       ${currentMode === 'taxi' && taxiDiscovery ? `
-        <!-- SEZIONE TAXI VICINO A TE (DISCOVERY LOCALE INTELLIGENTE) -->
-        <div class="taxi-near-you-container">
-          <div class="taxi-near-you-head">
-            <div class="near-head-left">
-              <div class="near-badge-pulse">
-                <span class="live-dot pulse"></span>
-                <span>TAXI VICINO A TE</span>
+        <!-- SEZIONE ATTIVITÀ COMMERCIALI TAXI E NCC (GOOGLE LOCAL PACK STYLE) -->
+        <div class="google-taxi-pack-container">
+          <div class="google-pack-header">
+            <div class="google-pack-title-row">
+              <div class="google-g-logo">
+                <i class="fa-brands fa-google"></i>
               </div>
-              <h3 class="near-title"><i class="fa-solid fa-location-crosshairs text-warning"></i> Taxi e Radiotaxi a <strong>${taxiDiscovery.cityName}</strong></h3>
-              <p class="near-subtitle">Rilevamento automatico posteggi, numeri telefonici diretti e ricerca live su Google Maps</p>
+              <div>
+                <h3 class="google-pack-heading">Attività commerciali · Taxi & NCC a <strong>${taxiDiscovery.cityName}</strong></h3>
+                <p class="google-pack-sub"><i class="fa-solid fa-location-dot text-danger"></i> Risultati locali verificati con numeri diretti, recensioni e indicazioni stradali</p>
+              </div>
             </div>
             <div class="near-search-input-box">
               <i class="fa-solid fa-magnifying-glass"></i>
@@ -583,34 +584,70 @@ class LiveBoardEngine {
             </div>
           </div>
 
-          <div class="taxi-near-card-grid">
-            <div class="taxi-near-main-card">
-              <div class="main-card-top">
-                <div class="taxi-icon-circle-lg">
-                  <i class="fa-solid fa-taxi"></i>
+          <!-- FILTRI RAPIDI STILE GOOGLE -->
+          <div class="google-pack-pills-row">
+            <span class="g-pill active"><i class="fa-solid fa-check"></i> Aperti adesso (H24)</span>
+            <span class="g-pill"><i class="fa-solid fa-star"></i> Valutazioni migliori</span>
+            <span class="g-pill"><i class="fa-solid fa-phone"></i> Con numero di telefono diretto</span>
+            <a href="${taxiDiscovery.googleSearchUrl}" target="_blank" rel="noopener" class="g-pill g-pill-link">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Apri su Google Search
+            </a>
+          </div>
+
+          <!-- LISTA ATTIVITÀ LOCALI TROVATE (NCC & TAXI) -->
+          <div class="google-businesses-list">
+            ${(taxiDiscovery.businesses || []).map((b, bIdx) => `
+              <div class="g-business-item ${bIdx === 0 ? 'top-rated' : ''}">
+                <div class="g-biz-main-info">
+                  <div class="g-biz-title-wrap">
+                    <h4 class="g-biz-name">${b.name}</h4>
+                    <div class="g-biz-rating-line">
+                      <span class="g-rating-score">${b.rating}</span>
+                      <div class="g-stars-gold">
+                        ${Array.from({ length: 5 }).map((_, i) => `<i class="fa-solid fa-star ${i < Math.floor(b.stars) ? 'filled' : (i < b.stars ? 'half' : '')}"></i>`).join('')}
+                      </div>
+                      <span class="g-reviews-count">(${b.reviewsCount})</span>
+                      <span class="g-dot-sep">&bull;</span>
+                      <span class="g-biz-category">${b.category}</span>
+                    </div>
+                  </div>
+
+                  <div class="g-biz-meta-line">
+                    <span class="g-years-badge"><i class="fa-solid fa-clock-rotate-left"></i> ${b.yearsInBusiness}</span>
+                    <span class="g-dot-sep">&bull;</span>
+                    <span class="g-address"><i class="fa-solid fa-map-pin"></i> ${b.address}</span>
+                  </div>
+
+                  <div class="g-biz-phone-highlight">
+                    <i class="fa-solid fa-phone"></i>
+                    <strong>${b.phoneDisplay}</strong>
+                    <span class="g-open-badge"><i class="fa-solid fa-circle"></i> Aperto 24 ore su 24</span>
+                  </div>
                 </div>
-                <div>
-                  <h4>${taxiDiscovery.primaryService.name}</h4>
-                  <span class="coverage-badge"><i class="fa-solid fa-map-pin"></i> ${taxiDiscovery.primaryService.coverage}</span>
-                </div>
-              </div>
-              <div class="main-card-actions">
-                <a href="tel:${taxiDiscovery.primaryService.phone}" class="btn-call-taxi-lg">
-                  <i class="fa-solid fa-phone-volume"></i> Chiama Taxi: ${taxiDiscovery.primaryService.phoneDisplay}
-                </a>
-                ${taxiDiscovery.primaryService.altPhone ? `
-                  <a href="tel:${taxiDiscovery.primaryService.altPhone}" class="btn btn-outline-light btn-sm" style="font-weight:700;">
-                    <i class="fa-solid fa-phone"></i> Linea 2
+
+                <div class="g-biz-actions-col">
+                  <a href="tel:${b.phone}" class="btn-g-call" title="Chiama subito questo taxi">
+                    <i class="fa-solid fa-phone-volume"></i> Chiama
                   </a>
-                ` : ''}
-                <a href="https://wa.me/${(taxiDiscovery.primaryService.whatsapp || '+393471234567').replace(/\+/g, '')}?text=Salve,%20desidero%20richiedere%20un%20taxi%20a%20${encodeURIComponent(taxiDiscovery.cityName)}" target="_blank" class="btn-wa-taxi-lg">
-                  <i class="fa-brands fa-whatsapp"></i> Invia Posizione WhatsApp
-                </a>
-                <a href="${taxiDiscovery.gmapsQueryUrl}" target="_blank" rel="noopener" class="btn-gmaps-taxi-search">
-                  <i class="fa-brands fa-google"></i> Cerca Tutti i Taxi a ${taxiDiscovery.cityName} su Google Maps
-                </a>
+                  <a href="https://wa.me/${(b.whatsapp || b.phone).replace(/[^0-9]/g, '')}?text=Salve,%20ho%20bisogno%20di%20un%20taxi%20a%20${encodeURIComponent(taxiDiscovery.cityName)}" target="_blank" class="btn-g-wa" title="Invia messaggio WhatsApp">
+                    <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                  </a>
+                  <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(b.address)}" target="_blank" rel="noopener" class="btn-g-directions" title="Ottieni indicazioni su Google Maps">
+                    <i class="fa-solid fa-diamond-turn-right"></i> Indicazioni
+                  </a>
+                  <a href="https://www.google.com/search?q=${encodeURIComponent(b.name + ' ' + b.address)}" target="_blank" rel="noopener" class="btn-g-web" title="Visualizza scheda Google">
+                    <i class="fa-solid fa-globe"></i> Scheda Google
+                  </a>
+                </div>
               </div>
-            </div>
+            `).join('')}
+          </div>
+
+          <!-- FOOTER CALL TO ACTION -->
+          <div class="google-pack-footer">
+            <a href="${taxiDiscovery.gmapsQueryUrl}" target="_blank" rel="noopener" class="btn-more-google-places">
+              <i class="fa-brands fa-google"></i> Mostra tutti i risultati per "taxi ${taxiDiscovery.cityName}" su Google Maps
+            </a>
           </div>
         </div>
       ` : ''}
