@@ -121,6 +121,12 @@ class AppController {
     const hub = regionalStop || modeStops[0];
     if (hub) {
       this.currentStopId = hub.id;
+      this.currentCity = "all";
+      if (!regionalStop && hub.region) {
+        this.currentRegion = hub.region;
+        safeStorageSet("italiabus_region", this.currentRegion);
+      }
+      safeStorageSet("italiabus_city", "all");
       safeStorageSet("italiabus_stop", this.currentStopId);
     }
 
@@ -130,7 +136,7 @@ class AppController {
 
     // Notifica tutti i componenti dello switch modalità
     document.dispatchEvent(new CustomEvent("transportModeChanged", {
-      detail: { mode: mode, modeData: modeData }
+      detail: { mode: mode, modeData: modeData, stopId: this.currentStopId, regionId: this.currentRegion }
     }));
     this.notifyLocationChange();
   }
