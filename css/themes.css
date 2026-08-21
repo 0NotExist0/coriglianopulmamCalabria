@@ -1,0 +1,616 @@
+/* ==========================================================================
+   CORIGLIANOBUS - PALETTE ESTIVE CALABRIA + MENU PERSONALIZZAZIONE
+   --------------------------------------------------------------------------
+   Ogni palette ridefinisce le variabili "brand" per tema chiaro e scuro.
+   Attivazione: <html data-palette="estate|mare|tramonto|agrumi">
+   Firmato 0Not_Exist0 — Not Exist Web Services
+   ========================================================================== */
+
+/* ==========================================================================
+   1. ESTATE — Sole & Agrumi di Calabria (DEFAULT: giallo / arancio)
+   ========================================================================== */
+:root[data-palette="estate"] {
+  --brand-primary: #e8590c;
+  --brand-primary-hover: #c2410c;
+  --brand-accent: #f59e0b;
+  --brand-primary-soft: rgba(232, 89, 12, 0.12);
+  --brand-glow: rgba(232, 89, 12, 0.30);
+  --brand-gradient: linear-gradient(135deg, #f59e0b, #e8590c);
+  --ticker-gradient: linear-gradient(90deg, #ea580c, #f59e0b);
+  --hero-gradient: linear-gradient(135deg, #7c2d12 0%, #c2410c 45%, #f59e0b 100%);
+  --hero-accent: #fde047;
+  --hero-glow: rgba(253, 224, 71, 0.22);
+}
+:root[data-palette="estate"][data-theme="dark"] {
+  --brand-primary: #fb923c;
+  --brand-primary-hover: #f97316;
+  --brand-accent: #fbbf24;
+  --brand-primary-soft: rgba(251, 146, 60, 0.16);
+  --brand-glow: rgba(251, 146, 60, 0.30);
+  --brand-gradient: linear-gradient(135deg, #fbbf24, #ea580c);
+  --ticker-gradient: linear-gradient(90deg, #ea580c, #f59e0b);
+  --hero-gradient: linear-gradient(135deg, #451a03 0%, #9a3412 50%, #ea580c 100%);
+  --hero-accent: #fde047;
+  --hero-glow: rgba(253, 224, 71, 0.18);
+}
+
+/* ==========================================================================
+   2. MARE — Mare Jonio (azzurro classico)
+   ========================================================================== */
+:root[data-palette="mare"] {
+  --brand-primary: #0284c7;
+  --brand-primary-hover: #0369a1;
+  --brand-accent: #38bdf8;
+  --brand-primary-soft: rgba(2, 132, 199, 0.10);
+  --brand-glow: rgba(2, 132, 199, 0.32);
+  --brand-gradient: linear-gradient(135deg, #0284c7, #0f172a);
+  --ticker-gradient: linear-gradient(90deg, #0284c7, #0369a1);
+  --hero-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%);
+  --hero-accent: #38bdf8;
+  --hero-glow: rgba(56, 189, 248, 0.15);
+}
+:root[data-palette="mare"][data-theme="dark"] {
+  --brand-primary: #38bdf8;
+  --brand-primary-hover: #0284c7;
+  --brand-accent: #7dd3fc;
+  --brand-primary-soft: rgba(56, 189, 248, 0.16);
+  --brand-glow: rgba(56, 189, 248, 0.30);
+  --brand-gradient: linear-gradient(135deg, #38bdf8, #0369a1);
+  --hero-accent: #7dd3fc;
+}
+
+/* ==========================================================================
+   3. TRAMONTO — Tramonto sullo Jonio (corallo / magenta)
+   ========================================================================== */
+:root[data-palette="tramonto"] {
+  --brand-primary: #db2777;
+  --brand-primary-hover: #be185d;
+  --brand-accent: #fb7185;
+  --brand-primary-soft: rgba(219, 39, 119, 0.12);
+  --brand-glow: rgba(219, 39, 119, 0.30);
+  --brand-gradient: linear-gradient(135deg, #f43f5e, #7c3aed);
+  --ticker-gradient: linear-gradient(90deg, #db2777, #f97316);
+  --hero-gradient: linear-gradient(135deg, #4c1d95 0%, #be185d 55%, #f97316 100%);
+  --hero-accent: #fda4af;
+  --hero-glow: rgba(251, 113, 133, 0.20);
+}
+:root[data-palette="tramonto"][data-theme="dark"] {
+  --brand-primary: #f472b6;
+  --brand-primary-hover: #ec4899;
+  --brand-accent: #fb7185;
+  --brand-primary-soft: rgba(244, 114, 182, 0.16);
+  --brand-glow: rgba(244, 114, 182, 0.30);
+  --brand-gradient: linear-gradient(135deg, #fb7185, #7c3aed);
+  --hero-gradient: linear-gradient(135deg, #2e1065 0%, #9d174d 55%, #ea580c 100%);
+  --hero-accent: #fda4af;
+}
+
+/* ==========================================================================
+   4. AGRUMI — Bergamotto & Cedro (verde / lime)
+   ========================================================================== */
+:root[data-palette="agrumi"] {
+  --brand-primary: #059669;
+  --brand-primary-hover: #047857;
+  --brand-accent: #84cc16;
+  --brand-primary-soft: rgba(5, 150, 105, 0.12);
+  --brand-glow: rgba(5, 150, 105, 0.28);
+  --brand-gradient: linear-gradient(135deg, #84cc16, #059669);
+  --ticker-gradient: linear-gradient(90deg, #059669, #84cc16);
+  --hero-gradient: linear-gradient(135deg, #064e3b 0%, #047857 55%, #84cc16 100%);
+  --hero-accent: #bef264;
+  --hero-glow: rgba(190, 242, 100, 0.20);
+}
+:root[data-palette="agrumi"][data-theme="dark"] {
+  --brand-primary: #34d399;
+  --brand-primary-hover: #10b981;
+  --brand-accent: #a3e635;
+  --brand-primary-soft: rgba(52, 211, 153, 0.16);
+  --brand-glow: rgba(52, 211, 153, 0.28);
+  --brand-gradient: linear-gradient(135deg, #a3e635, #059669);
+  --hero-gradient: linear-gradient(135deg, #022c22 0%, #065f46 55%, #16a34a 100%);
+  --hero-accent: #bef264;
+}
+
+/* ==========================================================================
+   5. STILE "MORBIDO" opzionale (bordi più arrotondati e ombre calde)
+   ========================================================================== */
+:root[data-style="soft"] {
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --radius-full: 9999px;
+}
+:root[data-style="sharp"] {
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+}
+
+/* ==========================================================================
+   6. BOTTONE PERSONALIZZAZIONE (header)
+   ========================================================================== */
+.btn-customizer {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: all var(--transition-fast);
+}
+.btn-customizer:hover {
+  background: var(--border-color);
+  color: var(--brand-primary);
+  transform: rotate(35deg);
+}
+
+/* ==========================================================================
+   7. PANNELLO PERSONALIZZAZIONE (slide-in da destra)
+   ========================================================================== */
+.customizer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 2900;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+}
+.customizer-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.customizer-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
+  width: min(380px, 90vw);
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-color);
+  box-shadow: var(--shadow-xl);
+  z-index: 3000;
+  transform: translateX(105%);
+  transition: transform var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+.customizer-panel.open {
+  transform: translateX(0);
+}
+
+.customizer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--brand-gradient);
+  color: #ffffff;
+}
+.customizer-head h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.customizer-head .modal-close-btn {
+  color: #ffffff;
+}
+
+.customizer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding-bottom: max(22px, env(safe-area-inset-bottom));
+}
+
+.cz-group-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Palette a griglia */
+.cz-palette-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.cz-palette-card {
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  cursor: pointer;
+  background: var(--bg-subtle);
+  transition: all var(--transition-fast);
+  text-align: left;
+}
+.cz-palette-card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+}
+.cz-palette-card.active {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-glow);
+}
+.cz-swatch-row {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.cz-swatch-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow-sm);
+}
+.cz-palette-name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  display: block;
+}
+.cz-palette-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Segmented (tema chiaro/scuro, stile) */
+.cz-segmented {
+  display: flex;
+  gap: 8px;
+}
+.cz-seg-btn {
+  flex: 1;
+  padding: 12px 10px;
+  border: 2px solid var(--border-color);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--transition-fast);
+}
+.cz-seg-btn.active {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+}
+
+/* Accento personalizzato */
+.cz-accent-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.cz-accent-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--border-color);
+  transition: transform var(--transition-fast);
+}
+.cz-accent-dot:hover {
+  transform: scale(1.15);
+}
+.cz-accent-dot.active {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 3px var(--brand-glow);
+}
+.cz-color-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.cz-color-input {
+  width: 46px;
+  height: 34px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.cz-reset-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.cz-signature {
+  margin-top: auto;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-color);
+}
+.cz-signature strong {
+  color: var(--brand-primary);
+}
+
+/* ==========================================================================
+   8. PANNELLO GEOLOCALIZZAZIONE & PERCORSO (nella mappa)
+   ========================================================================== */
+.geo-locate-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+}
+.btn-geo-locate {
+  flex: 1;
+  min-width: 210px;
+  background: var(--brand-gradient);
+  color: #ffffff;
+  border: none;
+  padding: 12px 18px;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 0.92rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 14px var(--brand-glow);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.btn-geo-locate:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--brand-glow);
+}
+.btn-geo-locate:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.geo-route-panel {
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--transition-smooth), padding var(--transition-smooth);
+  border-bottom: 1px solid transparent;
+}
+.geo-route-panel.open {
+  max-height: 640px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.geo-route-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1rem;
+  margin-bottom: 14px;
+  color: var(--text-primary);
+}
+.geo-route-head i {
+  color: var(--brand-primary);
+}
+
+.geo-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.geo-stat {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.geo-stat .lbl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.geo-stat .val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.15;
+}
+.geo-stat .val.accent {
+  color: var(--brand-primary);
+}
+.geo-stat .val.success {
+  color: var(--color-success);
+}
+.geo-stat .val.danger {
+  color: var(--color-danger);
+}
+
+.geo-departures-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 6px 0 10px;
+}
+.geo-dep-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--brand-primary);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+}
+.geo-dep-line {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #ffffff;
+  padding: 4px 9px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.geo-dep-info {
+  flex: 1;
+  min-width: 0;
+}
+.geo-dep-dest {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.geo-dep-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.geo-dep-count {
+  text-align: right;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--brand-primary);
+  white-space: nowrap;
+}
+.geo-dep-count small {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.geo-verdict {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.geo-verdict.ok {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--color-success);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.geo-verdict.run {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+.geo-verdict.miss {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--color-danger);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.geo-error {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Marker "tu sei qui" */
+.user-location-marker {
+  width: 22px;
+  height: 22px;
+  background: var(--brand-primary);
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px var(--brand-glow);
+  animation: userPulse 1.8s infinite;
+}
+@keyframes userPulse {
+  0%   { box-shadow: 0 0 0 0 var(--brand-glow); }
+  70%  { box-shadow: 0 0 0 14px rgba(0,0,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+}
+
+/* ==========================================================================
+   9. FIRMA — 0Not_Exist0 / Not Exist Web Services
+   ========================================================================== */
+.footer-signature {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.footer-signature .sig-brand {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.footer-signature .sig-company {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+.footer-signature .sig-company strong {
+  color: #cbd5e1;
+}
+
+@media (max-width: 600px) {
+  .cz-palette-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .geo-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light" data-palette="mare">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>ItaliaBus & Mobilità Italia | Orari Pullman, Timer Live e Tariffe</title>
+
+  <!-- Auto-cancella cache ad ogni ingresso -->
+  <script>
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for (var i = 0; i < names.length; i++) caches.delete(names[i]);
+      });
+    }
+  </script>
+
+  <!-- PWA / Mobile (iOS & Android) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ItaliaBus">
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Portale ufficiale e in tempo reale per i pullman e trasporti su gomma di tutte le regioni italiane. Tabellone partenze live, orari, mappa satellitare e prenotazione biglietti per viaggiare in tutta Italia.">
+  <meta name="keywords" content="pullman italia, bus italia, orari bus italiani, pullman nazionali, trasporti italia, biglietti pullman italia, viaggiare in bus italia">
+  <meta name="author" content="0Not_Exist0 — Not Exist Web Services">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- OpenGraph / Social Cards -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ItaliaBus & Mobilità Italia | Orari Pullman, Timer Live e Tariffe">
+  <meta property="og:description" content="Orari in tempo reale con timer a scalare, mappa interattiva dei bus e acquisto biglietti digitali per tutte le regioni d'Italia.">
+
+  <style>
+    .region-selector-bar {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color, #e2e8f0);
+      padding: 14px 0;
+      position: relative;
+      z-index: 15;
+    }
+    .region-selector-inner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .selector-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 220px;
+      min-width: 0;
+      width: 100%;
+    }
+    .selector-field label {
+      font-weight: 700;
+      font-size: 0.88rem;
+      white-space: nowrap;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .selector-field select {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+    }
+    .coming-soon-badge {
+      display: inline-block;
+      background: #fbbf24;
+      color: #0f172a;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      vertical-align: middle;
+      animation: pulse-badge 2s ease-in-out infinite;
+    }
+    .btn-coming-soon {
+      opacity: 0.85;
+      cursor: not-allowed;
+      position: relative;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+
+  <!-- Favicon Icon SVG -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'><path d='M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z'/></svg>">
+
+  <!-- Leaflet.js CSS for Interactive Map (Cloudflare CDN) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+
+  <!-- FontAwesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Project Stylesheets -->
+  <link rel="stylesheet" href="css/style.css?v=3.0">
+  <link rel="stylesheet" href="css/tickets.css?v=3.0">
+  <link rel="stylesheet" href="css/map.css?v=3.0">
+  <link rel="stylesheet" href="css/themes.css?v=3.0">
+  <link rel="stylesheet" href="css/responsive.css?v=3.0">
+</head>
+<body>
+
+  <!-- ==========================================
+       MENU A COMPARSA LATERALE SINISTRO (MODALITÀ DI TRASPORTO)
+       ========================================== -->
+  <div class="mode-sidebar-overlay" id="modeSidebarOverlay"></div>
+  <aside class="mode-sidebar-dock" id="modeSidebarDock" aria-label="Menu Modalità di Trasporto">
+    <div class="mode-dock-header">
+      <span class="mode-dock-title"><i class="fa-solid fa-layer-group"></i> <span>Trasporti</span></span>
+      <button class="btn-dock-toggle" id="toggleModeSidebar" title="Espandi / Riduci menu">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+    </div>
+    
+    <div class="mode-buttons-list">
+      <button class="btn-mode-card active" data-mode="pullman" title="Pullman, Bus & Autolinee">
+        <div class="mode-icon-box mode-icon-pullman">
+          <i class="fa-solid fa-bus"></i>
+        </div>
+        <div class="mode-info-box">
+          <strong class="mode-name">Pullman</strong>
+          <span class="mode-tagline">Autolinee & Bus</span>
+        </div>
+      </button>
+
+      <button class="btn-mode-card" data-mode="train" title="Treni & Alta Velocità">
+        <div class="mode-icon-box mode-icon-train">
+          <i class="fa-solid fa-train"></i>
+        </div>
+        <div class="mode-info-box">
+          <strong class="mode-name">Treni</strong>
+          <span class="mode-tagline">Frecciarossa, Italo & REG</span>
+        </div>
+      </button>
+
+      <button class="btn-mode-card" data-mode="tram" title="Tram & Metropolitane">
+        <div class="mode-icon-box mode-icon-tram">
+          <i class="fa-solid fa-train-tram"></i>
+        </div>
+        <div class="mode-info-box">
+          <strong class="mode-name">Tram</strong>
+          <span class="mode-tagline">Reti Urbane</span>
+        </div>
+      </button>
+
+      <button class="btn-mode-card" data-mode="taxi" title="Taxi & Radiotaxi">
+        <div class="mode-icon-box mode-icon-taxi">
+          <i class="fa-solid fa-taxi"></i>
+        </div>
+        <div class="mode-info-box">
+          <strong class="mode-name">Taxi</strong>
+          <span class="mode-tagline">Posteggi & Preventivi</span>
+        </div>
+      </button>
+    </div>
+
+    <div class="mode-dock-footer">
+      <span class="mode-active-indicator">Modalità: <strong id="activeModeLabel">Pullman</strong></span>
+    </div>
+  </aside>
+
+  <!-- ==========================================
+       HEADER & NAVIGATION BAR
+       ========================================== -->
+  <header class="app-header">
+    <div class="container header-inner">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button class="btn-open-modes" id="openModeSidebarBtn" title="Seleziona Mezzo di Trasporto (Pullman, Treni, Tram, Taxi)">
+          <i class="fa-solid fa-bars-staggered"></i>
+          <span class="btn-open-modes-text">Mezzi</span>
+        </button>
+
+        <a href="#" class="brand-logo" data-tab="live-board">
+          <div class="brand-icon" id="headerBrandIcon">
+            <i class="fa-solid fa-bus-simple"></i>
+          </div>
+          <div>
+            <span class="brand-title" id="headerBrandTitle">Italia<span>Bus</span></span>
+            <span class="brand-subtitle" id="headerBrandSubtitle">Mobilità e Trasporti in tutta Italia</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Desktop Nav -->
+      <nav class="desktop-nav">
+        <a href="#" class="nav-link active" data-tab="live-board">
+          <i class="fa-solid fa-clock"></i> Tabellone Live
+        </a>
+        <a href="#" class="nav-link" data-tab="search">
+          <i class="fa-solid fa-magnifying-glass-location"></i> Cerca & Prenota
+        </a>
+        <a href="#" class="nav-link" data-tab="map">
+          <i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS
+        </a>
+        <a href="#" class="nav-link" data-tab="fleet">
+          <i class="fa-solid fa-truck-front"></i> Flotta Mezzi
+        </a>
+        <a href="#" class="nav-link" data-tab="tariffs">
+          <i class="fa-solid fa-tags"></i> Tariffe & Abbonamenti
+        </a>
+        <a href="#" class="nav-link" data-tab="tickets">
+          <i class="fa-solid fa-wallet"></i> I Miei Biglietti
+          <span class="nav-badge-pill" id="walletBadgeCount" style="display: none;">0</span>
+        </a>
+      </nav>
+
+      <!-- Header Actions -->
+      <div class="header-actions">
+        <button class="btn-customizer" id="customizerToggleBtn" title="Personalizza colori e stile">
+          <i class="fa-solid fa-palette"></i>
+        </button>
+
+        <button class="btn-theme-toggle" id="themeToggleBtn" title="Cambia Tema">
+          <i class="fa-solid fa-moon"></i> <span>Tema Scuro</span>
+        </button>
+
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" title="Menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer Menu -->
+  <div class="mobile-drawer" id="mobileDrawer">
+    <div class="drawer-header">
+      <span class="brand-title" id="mobileDrawerBrandTitle">Italia<span>Bus</span></span>
+      <button class="modal-close-btn" id="closeMobileDrawer"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Mobile Mode Switcher -->
+    <div class="mobile-drawer-mode-select">
+      <span class="drawer-section-label">Scegli Mezzo di Trasporto:</span>
+      <div class="drawer-mode-chips">
+        <button class="drawer-mode-chip active" data-mode="pullman"><i class="fa-solid fa-bus"></i> Pullman</button>
+        <button class="drawer-mode-chip" data-mode="train"><i class="fa-solid fa-train"></i> Treni</button>
+        <button class="drawer-mode-chip" data-mode="tram"><i class="fa-solid fa-train-tram"></i> Tram</button>
+        <button class="drawer-mode-chip" data-mode="taxi"><i class="fa-solid fa-taxi"></i> Taxi</button>
+      </div>
+    </div>
+
+    <div class="drawer-nav">
+      <a href="#" class="nav-link active" data-tab="live-board"><i class="fa-solid fa-clock"></i> Tabellone Partenze Live</a>
+      <a href="#" class="nav-link" data-tab="search"><i class="fa-solid fa-magnifying-glass-location"></i> Cerca Corsa & Biglietti</a>
+      <a href="#" class="nav-link" data-tab="map"><i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS</a>
+      <a href="#" class="nav-link" data-tab="fleet"><i class="fa-solid fa-truck-front"></i> Parco Mezzi & Flotta</a>
+      <a href="#" class="nav-link" data-tab="tariffs"><i class="fa-solid fa-tags"></i> Tariffe Ufficiali</a>
+      <a href="#" class="nav-link" data-tab="alerts"><i class="fa-solid fa-bullhorn"></i> Avvisi Viabilità</a>
+      <a href="#" class="nav-link" data-tab="tickets"><i class="fa-solid fa-wallet"></i> Portafoglio Biglietti</a>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       PANNELLO PERSONALIZZAZIONE (COLORI & STILE)
+       ========================================== -->
+  <div class="customizer-overlay" id="customizerOverlay"></div>
+  <aside class="customizer-panel" id="customizerPanel" aria-label="Personalizzazione tema">
+    <div class="customizer-head">
+      <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Personalizza</h3>
+      <button class="modal-close-btn" id="closeCustomizer" title="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="customizer-body">
+
+      <!-- Palette -->
+      <div>
+        <div class="cz-group-title"><i class="fa-solid fa-swatchbook"></i> Palette Colori Estivi</div>
+        <div class="cz-palette-grid" id="czPaletteGrid">
+          <button class="cz-palette-card" data-palette="estate">
+            <div class="cz-swatch-row">
+              <span class="cz-swatch-dot" style="background:#f59e0b"></span>
+              <span class="cz-swatch-dot" style="background:#e8590c"></span>
+              <span class="cz-swatch-dot" style="background:#fde047"></span>
+            </div>
+            <span class="cz-palette-name">☀️ Estate Italiana</span>
+            <span class="cz-palette-sub">Sole & mare</span>
+          </button>
+          <button class="cz-palette-card" data-palette="tramonto">
+            <div class="cz-swatch-row">
+              <span class="cz-swatch-dot" style="background:#db2777"></span>
+              <span class="cz-swatch-dot" style="background:#7c3aed"></span>
+              <span class="cz-swatch-dot" style="background:#fb7185"></span>
+            </div>
+            <span class="cz-palette-name">🌅 Tramonto Mediterraneo</span>
+            <span class="cz-palette-sub">Corallo & magenta</span>
+          </button>
+          <button class="cz-palette-card" data-palette="agrumi">
+            <div class="cz-swatch-row">
+              <span class="cz-swatch-dot" style="background:#059669"></span>
+              <span class="cz-swatch-dot" style="background:#84cc16"></span>
+              <span class="cz-swatch-dot" style="background:#bef264"></span>
+            </div>
+            <span class="cz-palette-name">🍋 Agrumi d'Italia</span>
+            <span class="cz-palette-sub">Verde & lime</span>
+          </button>
+          <button class="cz-palette-card" data-palette="mare">
+            <div class="cz-swatch-row">
+              <span class="cz-swatch-dot" style="background:#0284c7"></span>
+              <span class="cz-swatch-dot" style="background:#0f172a"></span>
+              <span class="cz-swatch-dot" style="background:#38bdf8"></span>
+            </div>
+            <span class="cz-palette-name">🌊 Mare Italiano</span>
+            <span class="cz-palette-sub">Azzurro classico</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Accento personalizzato -->
+      <div>
+        <div class="cz-group-title"><i class="fa-solid fa-eye-dropper"></i> Colore Accento</div>
+        <div class="cz-accent-row" id="czAccentRow">
+          <span class="cz-accent-dot" data-accent="#e8590c" style="background:#e8590c" title="Arancio"></span>
+          <span class="cz-accent-dot" data-accent="#f59e0b" style="background:#f59e0b" title="Ambra"></span>
+          <span class="cz-accent-dot" data-accent="#eab308" style="background:#eab308" title="Giallo"></span>
+          <span class="cz-accent-dot" data-accent="#e11d48" style="background:#e11d48" title="Rosso"></span>
+          <span class="cz-accent-dot" data-accent="#db2777" style="background:#db2777" title="Magenta"></span>
+          <span class="cz-accent-dot" data-accent="#7c3aed" style="background:#7c3aed" title="Viola"></span>
+          <span class="cz-accent-dot" data-accent="#059669" style="background:#059669" title="Verde"></span>
+          <span class="cz-accent-dot" data-accent="#0284c7" style="background:#0284c7" title="Blu"></span>
+        </div>
+        <div class="cz-color-input-wrap">
+          <input type="color" class="cz-color-input" id="czColorPicker" value="#e8590c">
+          <span>Scegli un colore libero</span>
+        </div>
+      </div>
+
+      <!-- Tema chiaro / scuro -->
+      <div>
+        <div class="cz-group-title"><i class="fa-solid fa-circle-half-stroke"></i> Modalità</div>
+        <div class="cz-segmented" id="czThemeSeg">
+          <button class="cz-seg-btn" data-theme-choice="light"><i class="fa-solid fa-sun"></i> Chiaro</button>
+          <button class="cz-seg-btn" data-theme-choice="dark"><i class="fa-solid fa-moon"></i> Scuro</button>
+        </div>
+      </div>
+
+      <!-- Stile -->
+      <div>
+        <div class="cz-group-title"><i class="fa-solid fa-shapes"></i> Stile Bordi</div>
+        <div class="cz-segmented" id="czStyleSeg">
+          <button class="cz-seg-btn" data-style-choice="sharp"><i class="fa-solid fa-square"></i> Squadrato</button>
+          <button class="cz-seg-btn" data-style-choice="default"><i class="fa-solid fa-circle-notch"></i> Classico</button>
+          <button class="cz-seg-btn" data-style-choice="soft"><i class="fa-solid fa-cloud"></i> Morbido</button>
+        </div>
+      </div>
+
+      <button class="btn btn-outline cz-reset-btn" id="czResetBtn">
+        <i class="fa-solid fa-rotate-left"></i> Ripristina Predefinito
+      </button>
+
+      <div class="cz-signature">
+        Design & Sviluppo <strong>0Not_Exist0</strong><br>
+        Not Exist Web Services
+      </div>
+    </div>
+  </aside>
+
+  <!-- Service Alerts Ticker -->
+  <div class="service-alerts-ticker">
+    <div class="container ticker-inner" id="serviceAlertsTicker">
+      <!-- Inserito dinamicamente da app.js -->
+    </div>
+  </div>
+
+  <!-- ==========================================
+       HERO BANNER
+       ========================================== -->
+  <section class="hero-banner">
+    <div class="container hero-content">
+      <div>
+        <div class="hero-badge">
+          <span class="live-dot pulse"></span> Rete Integrata Trasporti Nazionali Italia
+        </div>
+        <h1 class="hero-title">
+          Viaggia in tutta <span>Italia</span> con orari in <span>tempo reale</span>.
+        </h1>
+        <p class="hero-description">
+          Monitoraggio satellitare dei pullman per il trasporto pubblico in tutte le 20 regioni italiane, collegamenti diretti interurbani, regionali e nazionali.
+        </p>
+        <div class="hero-quick-actions">
+          <button class="btn btn-primary btn-coming-soon" disabled>
+            <i class="fa-solid fa-ticket"></i> Acquista Biglietto Online
+            <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+          <button class="btn btn-secondary" onclick="window.app.switchTab('map')">
+            <i class="fa-solid fa-location-crosshairs"></i> Trova Pullman sulla Mappa
+          </button>
+        </div>
+      </div>
+
+      <div class="hero-stats-card">
+        <div class="stat-box">
+          <span class="stat-num">20 Regioni</span>
+          <span class="stat-label">Copertura Nazionale Completa</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num">100%</span>
+          <span class="stat-label">Tracciamento GPS Tracking</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num">da €1.20</span>
+          <span class="stat-label">Tariffe Urbane e Regionali</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-num">QR Pass</span>
+          <span class="stat-label">Bigliettazione Elettronica</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REGION, CITY & STOP SELECTOR BAR -->
+  <div class="region-selector-bar">
+    <div class="container region-selector-inner">
+      <div class="selector-field">
+        <label for="regionSelect"><i class="fa-solid fa-map-location-dot"></i> <span>Regione Attuale:</span></label>
+        <select id="regionSelect" class="custom-select region-select">
+          <!-- Populated by app.js -->
+        </select>
+      </div>
+
+      <div class="selector-field">
+        <label for="citySelect"><i class="fa-solid fa-city"></i> <span>Città / Comune:</span></label>
+        <select id="citySelect" class="custom-select city-select">
+          <!-- Populated by app.js -->
+        </select>
+      </div>
+
+      <div class="selector-field">
+        <label for="hubStopSelect"><i class="fa-solid fa-location-dot"></i> <span>Fermata / Via di Riferimento:</span></label>
+        <select id="hubStopSelect" class="custom-select stop-select">
+          <!-- Populated by app.js -->
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MAIN APP SECTIONS (SWITCHABLE TABS)
+       ========================================== -->
+  <main class="app-main-content">
+    <div class="container">
+
+      <!-- SECTION 1: TABELLONE PARTENZE LIVE -->
+      <section class="app-section active" id="section-live-board">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-satellite-dish text-primary"></i> Tabellone Partenze & Arrivi in Tempo Reale</h2>
+            <p>Conto alla rovescia al secondo, stato del servizio, banchina e modello veicolo per ciascuna linea.</p>
+          </div>
+          <button class="btn btn-sm btn-outline" id="toggleSoundBtn">
+            <i class="fa-solid fa-volume-xmark"></i> Attiva Annunci Audio
+          </button>
+        </div>
+
+        <!-- Barra di Controllo Tabellone -->
+        <div class="board-control-bar">
+          <div class="board-station-selector">
+            <label for="boardStopFilter"><i class="fa-solid fa-map-pin"></i> Seleziona Fermata / Hub:</label>
+            <select id="boardStopFilter" class="custom-select">
+              <!-- Popolato dinamicamente da live-board.js -->
+            </select>
+          </div>
+
+          <div class="form-group" style="min-width: 220px;">
+            <input type="text" id="boardSearchInput" class="form-control" placeholder="Cerca linea o destinazione...">
+          </div>
+
+          <div class="board-clock-box">
+            <span class="timer-label">Ora Locale:</span>
+            <span class="live-clock" id="liveSystemClock">--:--:--</span>
+          </div>
+        </div>
+
+        <!-- Filtro Categorie Tabellone -->
+        <div class="board-tabs-bar">
+          <button class="board-tab-btn active" data-category="all">Tutte le Corse</button>
+          <button class="board-tab-btn" data-category="urban">Urbano</button>
+          <button class="board-tab-btn" data-category="mare">🏖️ Navette Mare</button>
+          <button class="board-tab-btn" data-category="unical">🎓 Universitarie</button>
+          <button class="board-tab-btn" data-category="regional">🌍 Regionali</button>
+        </div>
+
+        <!-- Lista Corse e Countdown Ticking -->
+        <div id="liveBoardList">
+          <!-- Popolato dinamicamente da live-board.js -->
+        </div>
+      </section>
+
+      <!-- SECTION 2: RICERCA & PIANIFICAZIONE CORSE -->
+      <section class="app-section" id="section-search">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-route text-primary"></i> Pianificatore di Viaggio & Acquisto Biglietto</h2>
+            <p>Trova i percorsi migliori diretti e con cambio tra qualsiasi fermata nella tua regione.</p>
+          </div>
+        </div>
+
+        <div class="search-planner-card">
+          <form id="tripSearchForm">
+            <div class="search-form-grid-modern">
+              
+              <!-- BLOCCO PARTENZA (DA DOVE PARTI?) -->
+              <div class="search-location-card origin-card">
+                <div class="loc-card-header">
+                  <i class="fa-solid fa-circle-dot text-primary"></i>
+                  <h4>Punto di Partenza</h4>
+                </div>
+                <div class="loc-inputs-stack">
+                  <div class="form-group">
+                    <label for="searchOriginRegion"><i class="fa-solid fa-map"></i> Regione di Partenza:</label>
+                    <select id="searchOriginRegion" class="custom-select">
+                      <!-- Popolato dinamicamente -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="searchOriginCity"><i class="fa-solid fa-city"></i> Città di Partenza:</label>
+                    <select id="searchOriginCity" class="custom-select">
+                      <!-- Popolato dinamicamente -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="searchOrigin"><i class="fa-solid fa-location-pin"></i> Fermata / Via di Partenza:</label>
+                    <select id="searchOrigin" class="custom-select" required>
+                      <!-- Popolato dinamicamente -->
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- BOTTONE INVERTI -->
+              <div class="swap-btn-container">
+                <button type="button" class="btn-swap-stops" id="swapSearchBtn" title="Inverti Partenza e Arrivo">
+                  <i class="fa-solid fa-right-left"></i>
+                </button>
+              </div>
+
+              <!-- BLOCCO ARRIVO (DOVE VUOI ARRIVARE?) -->
+              <div class="search-location-card dest-card">
+                <div class="loc-card-header">
+                  <i class="fa-solid fa-location-dot text-danger"></i>
+                  <h4>Punto di Arrivo</h4>
+                </div>
+                <div class="loc-inputs-stack">
+                  <div class="form-group">
+                    <label for="searchDestRegion"><i class="fa-solid fa-map"></i> Regione di Arrivo:</label>
+                    <select id="searchDestRegion" class="custom-select">
+                      <!-- Popolato dinamicamente -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="searchDestCity"><i class="fa-solid fa-city"></i> Città di Arrivo:</label>
+                    <select id="searchDestCity" class="custom-select">
+                      <!-- Popolato dinamicamente -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="searchDestination"><i class="fa-solid fa-location-pin"></i> Fermata / Via di Arrivo:</label>
+                    <select id="searchDestination" class="custom-select" required>
+                      <!-- Popolato dinamicamente -->
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="search-options-row">
+              <div class="form-group">
+                <label><i class="fa-regular fa-calendar"></i> Data del Viaggio:</label>
+                <input type="date" id="searchDate" class="form-control" required>
+              </div>
+
+              <div class="form-group">
+                <label><i class="fa-regular fa-clock"></i> Orario Desiderato:</label>
+                <input type="time" id="searchTime" class="form-control" required>
+              </div>
+
+              <div class="form-group">
+                <label><i class="fa-solid fa-filter"></i> Tipologia Linea:</label>
+                <select id="searchLineType" class="custom-select">
+                  <option value="all">Tutte le Tipologie</option>
+                  <option value="urban">Linee Urbane</option>
+                  <option value="regional">Linee Regionali / Interurbane</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label><i class="fa-solid fa-user-group"></i> Passeggeri:</label>
+                <select id="searchPassengers" class="custom-select">
+                  <option value="1">1 Passeggero</option>
+                  <option value="2">2 Passeggeri</option>
+                  <option value="3">3 Passeggeri</option>
+                  <option value="4">4 Passeggeri</option>
+                </select>
+              </div>
+
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn btn-secondary" id="searchNowBtn" title="Imposta orario attuale">
+                  Parti Ora
+                </button>
+                <button type="submit" class="btn btn-primary" id="btnSubmitSearch">
+                  <i class="fa-solid fa-magnifying-glass"></i> Cerca Corse
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Risultati Ricerca -->
+        <div id="searchResultsContainer">
+          <div class="search-alert alert-info">
+            <i class="fa-solid fa-circle-info fa-2x"></i>
+            <div>
+              <strong>Pronto per il viaggio?</strong>
+              <p>Seleziona la fermata di partenza e di destinazione per visualizzare orari, prezzi e posti disponibili.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: MAPPA INTERATTIVA LIVE -->
+      <section class="app-section" id="section-map">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-map-location-dot text-primary"></i> Mappa Interattiva e Posizione Bus Live</h2>
+            <p>Tracciati delle linee, posizione satellitare in tempo reale dei pullman e fermate in tutta Italia.</p>
+          </div>
+        </div>
+
+        <div class="transit-map-wrapper">
+          <!-- Geolocalizzazione: traccia il percorso fino alla fermata più vicina -->
+          <div class="geo-locate-bar">
+            <button class="btn-geo-locate" id="btnLocateRoute">
+              <i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia il Percorso alla Fermata
+            </button>
+          </div>
+          <div class="geo-route-panel" id="geoRoutePanel"></div>
+
+          <div class="map-control-panel">
+            <div class="map-quick-buttons" id="mapQuickButtonsContainer">
+              <span class="text-muted" style="font-size: 0.8rem; font-weight: 700; align-self: center;">Zoom Rapido:</span>
+              <!-- Populated dynamically by map.js -->
+            </div>
+            <div class="map-live-status-pill">
+              <span class="live-dot pulse"></span> Posizione GPS Aggiornata
+            </div>
+          </div>
+
+          <div id="leafletTransitMap" class="leaflet-map-canvas"></div>
+        </div>
+      </section>
+
+      <!-- SECTION 4: PARCO MEZZI & FLOTTA -->
+      <section class="app-section" id="section-fleet">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-truck-front text-primary"></i> Parco Mezzi & Tipologie di Pullman</h2>
+            <p>Schede tecniche, capienza, standard ambientali e dotazioni di bordo della flotta in servizio.</p>
+          </div>
+        </div>
+
+        <div class="fleet-cards-grid" id="fleetCardsGrid">
+          <!-- Popolato dinamicamente da app.js -->
+        </div>
+      </section>
+
+      <!-- SECTION 5: TARIFFE & ABBONAMENTI -->
+      <section class="app-section" id="section-tariffs">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-tags text-primary"></i> Tariffe Ufficiali, Carnet & Abbonamenti</h2>
+            <p>Listino prezzi trasparente per corse urbane e regionali su tutto il territorio nazionale.</p>
+          </div>
+        </div>
+
+        <div class="tariffs-cards-grid" id="tariffsCardsGrid">
+          <!-- Popolato dinamicamente da app.js -->
+        </div>
+      </section>
+
+      <!-- SECTION 6: AVVISI & VIABILITÀ -->
+      <section class="app-section" id="section-alerts">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-bullhorn text-primary"></i> Centro Notifiche & Avvisi sul Servizio</h2>
+            <p>Aggiornamenti in tempo reale su modifiche ai percorsi, orari festivi e viabilità.</p>
+          </div>
+        </div>
+
+        <div class="departure-cards-grid">
+          <div class="dep-card" style="border-left-color: #0284c7;">
+            <div class="dep-card-header">
+              <div class="dep-line-tag" style="background-color: #0284c7;">
+                <i class="fa-solid fa-sun"></i> INFO ESTATE
+              </div>
+              <div class="dep-route-info">
+                <h4 class="dep-destination">Potenziamento Navetta Schiavonea Mare L-Mare</h4>
+                <p class="dep-via">Frequenza ogni 12 minuti attiva tutti i giorni dalle 07:30 alle 01:30 con fermate su tutto il lungomare e porto.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="dep-card" style="border-left-color: #8b5cf6;">
+            <div class="dep-card-header">
+              <div class="dep-line-tag" style="background-color: #8b5cf6;">
+                <i class="fa-solid fa-graduation-cap"></i> UNICAL
+              </div>
+              <div class="dep-route-info">
+                <h4 class="dep-destination">Campus Unical Express - Orario Sessioni Esami</h4>
+                <p class="dep-via">Corse bis aggiuntive alle ore 07:15 e 13:30 da Corigliano Scalo FS per il Terminal Arcavacata di Rende.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="dep-card" style="border-left-color: #f59e0b;">
+            <div class="dep-card-header">
+              <div class="dep-line-tag" style="background-color: #f59e0b;">
+                <i class="fa-solid fa-road"></i> SS106
+              </div>
+              <div class="dep-route-info">
+                <h4 class="dep-destination">Lavori di ammodernamento Statale Jonica 106</h4>
+                <p class="dep-via">Possibili rallentamenti di circa 4 minuti tra il bivio di Cantinella e la stazione di Thurio.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 7: I MIEI BIGLIETTI (WALLET) -->
+      <section class="app-section" id="section-tickets">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-wallet text-primary"></i> Il Tuo Portafoglio Biglietti Digitali</h2>
+            <p>I tuoi biglietti acquistati, pronti per essere mostrati al conducente con codice QR antifrode e convalida a bordo.</p>
+          </div>
+          <button class="btn btn-primary btn-coming-soon" disabled onclick="window.app.switchTab('search')">
+            <i class="fa-solid fa-plus"></i> Acquista Nuovo Biglietto <span class="coming-soon-badge">Coming Soon</span>
+          </button>
+        </div>
+
+        <div id="myTicketsList">
+          <!-- Popolato dinamicamente da booking.js -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ==========================================
+       BOOKING MODAL (WIZARD 4 PASSI)
+       ========================================== -->
+  <div class="app-modal" id="bookingModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-ticket-simple text-primary"></i> Prenotazione Pullman</h3>
+        <button class="modal-close-btn" onclick="window.bookingEngine.closeModals()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Wizard Steps Bar -->
+        <div class="wizard-steps-header">
+          <div class="wizard-step-indicator active" id="stepInd1">
+            <span class="step-circle">1</span>
+            <span>Tariffa & Extra</span>
+          </div>
+          <div class="wizard-step-indicator" id="stepInd2">
+            <span class="step-circle">2</span>
+            <span>Scelta Posto</span>
+          </div>
+          <div class="wizard-step-indicator" id="stepInd3">
+            <span class="step-circle">3</span>
+            <span>Passeggero</span>
+          </div>
+          <div class="wizard-step-indicator" id="stepInd4">
+            <span class="step-circle">4</span>
+            <span>Cassa & Pagamento</span>
+          </div>
+        </div>
+
+        <!-- Wizard Dynamic Content -->
+        <div id="bookingWizardBody">
+          <!-- Popolato dinamicamente da booking.js -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btnPrevStep" style="display: none;">
+          <i class="fa-solid fa-arrow-left"></i> Indietro
+        </button>
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+          <button class="btn btn-primary" id="btnNextStep">
+            Continua <i class="fa-solid fa-arrow-right"></i>
+          </button>
+          <button class="btn btn-success" id="btnConfirmPurchase" style="display: none;">
+            <i class="fa-solid fa-lock"></i> Conferma e Genera Biglietto
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       DIGITAL TICKET VIEWER MODAL (PASS QR CODE)
+       ========================================== -->
+  <div class="app-modal" id="ticketViewerModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-dialog" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-qrcode text-primary"></i> Biglietto Elettronico Digitale</h3>
+        <button class="modal-close-btn" onclick="window.bookingEngine.closeModals()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="ticketViewerBody" style="padding: 16px;">
+        <!-- Popolato dinamicamente da booking.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODALE SCELTA COLORE TRACCIATO PERCORSO SULLA MAPPA
+       ========================================== -->
+  <div class="app-modal" id="routeColorPickerModal">
+    <div class="modal-backdrop" id="routeColorPickerBackdrop"></div>
+    <div class="modal-dialog" style="max-width: 540px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="modal-icon-badge" style="background: rgba(2, 132, 199, 0.12); color: var(--brand-primary); width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+            <i class="fa-solid fa-palette"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 800;">Personalizzazione Tracciato sulla Mappa</h3>
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Configurazione avanzata di rendering cartografico</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="closeRouteColorPickerBtn" title="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      
+      <div class="modal-body" style="padding: 20px;">
+        <!-- Scheda riassuntiva corsa selezionata -->
+        <div class="route-color-info-card" id="routeColorTripInfo">
+          <!-- Popolato dinamicamente da live-board.js -->
+        </div>
+
+        <!-- Box Istruzione Chiaro & Professionale -->
+        <div class="route-color-prompt-box">
+          <div class="prompt-icon-box">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div class="prompt-text">
+            <strong>Evidenzia questo percorso con il colore che preferisci:</strong>
+            <p>Seleziona una delle tonalità ad alta visibilità o scegli un colore personalizzato per tracciare la linea e le fermate sulla mappa interattiva.</p>
+          </div>
+        </div>
+
+        <!-- Palette di Colori Predefiniti -->
+        <div class="swatches-section-label">
+          <span>Palette Tonalità Alta Visibilità:</span>
+        </div>
+        <div class="route-color-swatches-grid" id="routeColorSwatchesGrid">
+          <!-- Popolato dinamicamente -->
+        </div>
+
+        <!-- Selettore Colore Libero (Spettro) -->
+        <div class="route-custom-color-container">
+          <label for="routeCustomColorInput"><i class="fa-solid fa-eye-dropper"></i> Scegli colore libero dallo spettro:</label>
+          <div class="custom-color-control-wrapper">
+            <input type="color" id="routeCustomColorInput" value="#0284c7">
+            <span class="custom-color-hex-code" id="routeCustomColorHex">#0284C7</span>
+          </div>
+        </div>
+
+        <!-- Anteprima Grafica Live del Tracciato -->
+        <div class="route-color-preview-box">
+          <div class="preview-head">
+            <span class="preview-label"><i class="fa-solid fa-route"></i> Anteprima tracciato e fermate:</span>
+            <span class="preview-badge" id="previewColorName">Blu Cobalto</span>
+          </div>
+          <div class="route-line-preview" id="routeLinePreview">
+            <div class="preview-pin preview-start" id="previewPinStart">1</div>
+            <div class="preview-line-bar" id="previewLineBar"></div>
+            <div class="preview-pin preview-mid" id="previewPinMid">2</div>
+            <div class="preview-line-bar" id="previewLineBar2"></div>
+            <div class="preview-pin preview-end" id="previewPinEnd">3</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+        <button class="btn btn-outline" id="btnCancelRouteColor">
+          <i class="fa-solid fa-xmark"></i> Annulla
+        </button>
+        <button class="btn btn-primary" id="btnConfirmRouteColor" style="font-weight: 800;">
+          <i class="fa-solid fa-map-location-dot"></i> Evidenzia & Visualizza su Mappa
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       FOOTER
+       ========================================== -->
+  <footer class="app-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <h3>ItaliaBus & Mobilità</h3>
+          <p>
+            Piattaforma integrata di trasporto su gomma per tutte le regioni d'Italia. Orari in tempo reale, localizzazione satellitare e bigliettazione elettronica nazionale.
+          </p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Linee Principali</h4>
+          <ul>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Navette Aeroportuali</a></li>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Collegamenti Interurbani</a></li>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Rete Urbana</a></li>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Autolinee Nazionali</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Direttrici Regionali</h4>
+          <ul>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Nord Italia</a></li>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Centro Italia</a></li>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Sud Italia</a></li>
+            <li><a href="#" onclick="window.app.switchTab('live-board')">Isole</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h4>Assistenza & Info</h4>
+          <ul>
+            <li><i class="fa-solid fa-phone"></i> Numero Verde: <strong>800 123 456</strong></li>
+            <li><i class="fa-solid fa-envelope"></i> info@italiabus.it</li>
+            <li><i class="fa-solid fa-building"></i> Terminal Bus: Rete Nazionale Autostazioni</li>
+            <li><a href="#" onclick="alert('Ufficio Oggetti Smarriti attivo presso la Biglietteria Centrale di zona.')">Oggetti Smarriti</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>&copy; 2026 ItaliaBus & Mobilità Italia &bull; Tutti i diritti riservati.</span>
+        <span>Piattaforma Certificata GTFS-RT &bull; Powered by Not Exist Web Services</span>
+      </div>
+
+      <!-- Firma 0Not_Exist0 / Not Exist Web Services -->
+      <div class="footer-signature">
+        <span class="sig-brand">&lt;/&gt; 0Not_Exist0</span>
+        <span class="sig-company">Progettato e sviluppato da <strong>Not Exist Web Services</strong></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==========================================
+       SCRIPTS (LEAFLET & APPLICATION MODULES)
+       ========================================== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/data.js?v=3.0"></script>
+  <script src="js/live-board.js?v=3.0"></script>
+  <script src="js/search.js?v=3.0"></script>
+  <script src="js/booking.js?v=3.0"></script>
+  <script src="js/map.js?v=3.0"></script>
+  <script src="js/app.js?v=3.0"></script>
+  <script src="js/customizer.js?v=3.0"></script>
+  <script src="js/geo-locator.js?v=3.0"></script>
+
+</body>
+</html>
