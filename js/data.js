@@ -78,9 +78,208 @@
     });
   } catch (e) {
     window.TRANSIT_DATA.stops = pullmanStops;
-    window.TRANSIT_DATA.lines = headerData.modes.pullman.lines;
+    window.TRANSIT_DATA.lines = _RAW_METADATA.modes.pullman.lines;
   }
 
+  // ==========================================
+  // GLOBAL HELPERS & RE-ROUTING ENGINE
+  // ==========================================
+
+  window.getActiveMode = function() {
+    return (window.TRANSIT_DATA && window.TRANSIT_DATA.activeMode) || 'pullman';
+  };
+
+  window.switchTransportMode = function(modeId) {
+    if (window.TRANSIT_DATA && window.TRANSIT_DATA.modes && window.TRANSIT_DATA.modes[modeId]) {
+      window.TRANSIT_DATA.activeMode = modeId;
+      const evt = new CustomEvent('transportModeChanged', { detail: { mode: modeId } });
+      if (typeof document !== 'undefined' && typeof document.dispatchEvent === 'function') {
+        document.dispatchEvent(evt);
+      }
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(evt);
+      }
+    }
+  };
+
+  window.calculateDistanceMeters = function(lat1, lon1, lat2, lon2) {
+    if (typeof lat1 !== 'number' || typeof lon1 !== 'number' || typeof lat2 !== 'number' || typeof lon2 !== 'number') {
+      return 999999;
+    }
+    const R = 6371000;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c);
+  };
+
+  window.getAlternativeActiveStop = function(stopId) {
+    const stop = window.getStopById(stopId);
+    if (!stop) return null;
+
+    if (!stop.isTemporary || stop.temporaryStatus === 'active') {
+      return { stop: stop, alternativeStop: null, distanceMeters: 0, walkTimeMin: 0 };
+    }
+
+    if (stop.alternativeStopId) {
+      const explicitAlt = window.getStopById(stop.alternativeStopId);
+      if (explicitAlt && (!explicitAlt.isTemporary || explicitAlt.temporaryStatus === 'active')) {
+        const dist = window.calculateDistanceMeters(stop.lat, stop.lng, explicitAlt.lat, explicitAlt.lng);
+        const walkMin = Math.max(1, Math.round(dist / 80));
+        return {
+          stop: stop,
+          alternativeStop: explicitAlt,
+          distanceMeters: dist,
+          walkTimeMin: walkMin,
+          reason: stop.temporaryReason || "Chiusura temporanea fermata per cantiere / lavori"
+        };
+      }
+    }
+
+    const regionStops = window.getStopsByRegion(stop.region);
+    let bestStop = null;
+    let minDistance = Infinity;
+
+    for (let i = 0; i < regionStops.length; i++) {
+      const s = regionStops[i];
+      if (s.id === stop.id) continue;
+      if (s.isTemporary && s.temporaryStatus !== 'active') continue;
+
+      const dist = window.calculateDistanceMeters(stop.lat, stop.lng, s.lat, s.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestStop = s;
+      }
+    }
+
+    if (bestStop) {
+      const walkMin = Math.max(1, Math.round(minDistance / 80));
+      return {
+        stop: stop,
+        alternativeStop: bestStop,
+        distanceMeters: minDistance,
+        walkTimeMin: walkMin,
+        reason: stop.temporaryReason || "Chiusura temporanea fermata per cantiere / lavori"
+      };
+    }
+
+    return null;
+  };
+
+  window.getStopById = function(id) {
+    if (!id || !window.TRANSIT_DATA) return null;
+    const mode = window.TRANSIT_DATA.modes[window.TRANSIT_DATA.activeMode] || window.TRANSIT_DATA.modes.pullman;
+    if (mode && mode.stops) {
+      const s = mode.stops.find(function(x) { return x.id === id; });
+      if (s) return s;
+    }
+    for (let k in window.TRANSIT_DATA.modes) {
+      const m = window.TRANSIT_DATA.modes[k];
+      if (m && m.stops) {
+        const s = m.stops.find(function(x) { return x.id === id; });
+        if (s) return s;
+      }
+    }
+    return null;
+  };
+
+  window.getStopsByRegion = function(regionId) {
+    if (!window.TRANSIT_DATA) return [];
+    const mode = window.TRANSIT_DATA.modes[window.TRANSIT_DATA.activeMode] || window.TRANSIT_DATA.modes.pullman;
+    if (!mode || !mode.stops) return [];
+    if (!regionId || regionId === 'all') return mode.stops;
+    return mode.stops.filter(function(s) { return s.region === regionId; });
+  };
+
+  window.getMainHubForRegion = function(regionId) {
+    const stops = window.getStopsByRegion(regionId);
+    if (!stops || stops.length === 0) return null;
+    const hub = stops.find(function(s) { return s.isMainHub; });
+    return hub || stops[0];
+  };
+
+  window.getCitiesByRegion = function(regionId) {
+    const stops = window.getStopsByRegion(regionId);
+    const set = new Set();
+    stops.forEach(function(s) {
+      if (s.area) set.add(s.area);
+    });
+    return Array.from(set).sort();
+  };
+
+  window.getCategorizedLocalities = function(regionId) {
+    const stops = window.getStopsByRegion(regionId);
+    const citiesSet = new Set();
+    const frazioniSet = new Set();
+    const borghiSet = new Set();
+
+    stops.forEach(function(s) {
+      const a = s.area || s.name;
+      if (s.localityType === 'city') citiesSet.add(a);
+      else if (s.localityType === 'frazione') frazioniSet.add(a);
+      else borghiSet.add(a);
+    });
+
+    if (citiesSet.size === 0 && (frazioniSet.size > 0 || borghiSet.size > 0)) {
+      borghiSet.forEach(function(b) { citiesSet.add(b); });
+    }
+
+    return {
+      cities: Array.from(citiesSet).sort(),
+      frazioni: Array.from(frazioniSet).sort(),
+      borghi: Array.from(borghiSet).sort()
+    };
+  };
+
+  window.getStopsByCity = function(regionId, city) {
+    const stops = window.getStopsByRegion(regionId);
+    if (!city || city === 'all') return stops;
+    const match = stops.filter(function(s) { return s.area === city; });
+    return match.length > 0 ? match : stops.filter(function(s) { return s.name.toLowerCase().includes(city.toLowerCase()); });
+  };
+
+  window.getLinesByRegion = function(regionId) {
+    if (!window.TRANSIT_DATA) return [];
+    const mode = window.TRANSIT_DATA.modes[window.TRANSIT_DATA.activeMode] || window.TRANSIT_DATA.modes.pullman;
+    if (!mode || !mode.lines) return [];
+    if (!regionId || regionId === 'all') return mode.lines;
+    return mode.lines.filter(function(l) { return l.region === regionId; });
+  };
+
+  window.getLineById = function(id) {
+    if (!id || !window.TRANSIT_DATA) return null;
+    const mode = window.TRANSIT_DATA.modes[window.TRANSIT_DATA.activeMode] || window.TRANSIT_DATA.modes.pullman;
+    if (mode && mode.lines) {
+      const l = mode.lines.find(function(x) { return x.id === id; });
+      if (l) return l;
+    }
+    for (let k in window.TRANSIT_DATA.modes) {
+      const m = window.TRANSIT_DATA.modes[k];
+      if (m && m.lines) {
+        const l = m.lines.find(function(x) { return x.id === id; });
+        if (l) return l;
+      }
+    }
+    return null;
+  };
+
+  window.getLinesByStop = function(stopId) {
+    if (!window.TRANSIT_DATA) return [];
+    const mode = window.TRANSIT_DATA.modes[window.TRANSIT_DATA.activeMode] || window.TRANSIT_DATA.modes.pullman;
+    if (!mode || !mode.lines) return [];
+    return mode.lines.filter(function(l) {
+      const arr = l.stopsIds || l.stops || [];
+      return arr.includes(stopId);
+    });
+  };
+
+  window.getRegionById = function(regionId) {
+    if (!window.TRANSIT_DATA || !window.TRANSIT_DATA.regions) return null;
+    return window.TRANSIT_DATA.regions.find(function(r) { return r.id === regionId; }) || null;
+  };
 
   // ========================================================
   // LOCAL TAXI & NCC REAL BUSINESSES DIRECTORY (GOOGLE PACK)
@@ -519,4 +718,3 @@
   window.transitData = window.TRANSIT_DATA;
 
 })();
-

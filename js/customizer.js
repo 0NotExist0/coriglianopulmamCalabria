@@ -79,10 +79,12 @@ class CustomizerEngine {
 
   /* ---------- Stile bordi ---------- */
   applyStyle(style) {
-    if (style === "default") {
-      this.root.removeAttribute("data-style");
-    } else {
-      this.root.setAttribute("data-style", style);
+    if (this.root) {
+      if (style === "default") {
+        if (typeof this.root.removeAttribute === "function") this.root.removeAttribute("data-style");
+      } else {
+        if (typeof this.root.setAttribute === "function") this.root.setAttribute("data-style", style);
+      }
     }
     this.set("style", style);
     this.syncActiveStates();

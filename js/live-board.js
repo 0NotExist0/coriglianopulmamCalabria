@@ -550,6 +550,7 @@ class LiveBoardEngine {
     const isTempInactive = isTemp && currentStop.temporaryStatus !== 'active';
     const altData = isTemp ? (typeof window.getAlternativeActiveStop === 'function' ? window.getAlternativeActiveStop(currentStop.id) : null) : null;
 
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const activeRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
     const activeCity = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_city", "all") : "all");
     const userCity = (this.searchedTaxiCity) || ((activeCity && activeCity !== 'all') ? activeCity : (currentStop.area || "Tua Città"));
