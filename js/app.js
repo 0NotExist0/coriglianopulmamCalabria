@@ -111,11 +111,14 @@ class AppController {
     if (!mode || !window.TRANSIT_DATA || !window.TRANSIT_DATA.modes[mode]) return;
     this.currentMode = mode;
     safeStorageSet("italiabus_transport_mode", mode);
+    window.TRANSIT_DATA.activeMode = mode;
     this.applyTransportMode(mode);
 
     // Reimposta stop di riferimento per la modalità
     const modeData = window.TRANSIT_DATA.modes[mode];
-    const hub = (modeData.stops && modeData.stops.find(s => s.region === this.currentRegion)) || modeData.stops[0];
+    const modeStops = (modeData.stops && modeData.stops.length > 0) ? modeData.stops : [];
+    const regionalStop = modeStops.find(s => s.region === this.currentRegion);
+    const hub = regionalStop || modeStops[0];
     if (hub) {
       this.currentStopId = hub.id;
       safeStorageSet("italiabus_stop", this.currentStopId);

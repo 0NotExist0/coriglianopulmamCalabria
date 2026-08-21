@@ -93,12 +93,27 @@
   background: #0f172a;
 }
 
+.marker-train {
+  background: #dc2626 !important;
+  border-color: #fca5a5 !important;
+}
+
+.marker-tram {
+  background: #059669 !important;
+  border-color: #6ee7b7 !important;
+}
+
+.marker-taxi {
+  background: #d97706 !important;
+  border-color: #fde047 !important;
+}
+
 .custom-stop-marker:hover {
   transform: scale(1.25);
   z-index: 1000;
 }
 
-/* Custom Bus Moving Markers */
+/* Custom Bus / Train / Tram / Taxi Moving Markers */
 .custom-bus-marker {
   width: 36px;
   height: 36px;
@@ -113,6 +128,24 @@
   position: relative;
   cursor: pointer;
   transition: all 0.3s ease;
+}
+
+.custom-train-marker {
+  border-radius: 10px !important;
+  background: #dc2626 !important;
+  border-color: #ffffff !important;
+}
+
+.custom-tram-marker {
+  border-radius: 10px !important;
+  background: #059669 !important;
+  border-color: #ffffff !important;
+}
+
+.custom-taxi-marker {
+  border-radius: 50% !important;
+  background: #d97706 !important;
+  border-color: #ffffff !important;
 }
 
 .bus-badge-num {

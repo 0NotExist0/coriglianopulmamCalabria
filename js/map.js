@@ -146,8 +146,14 @@ class TransitMapEngine {
   drawRoutePolylines() {
     this.routeLinesLayer.clearLayers();
 
+    const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-    getLinesByRegion(currentRegion).forEach(line => {
+    let lines = getLinesByRegion(currentRegion);
+    if ((!lines || lines.length === 0) && currentMode !== 'pullman') {
+      lines = getLinesByRegion('all');
+    }
+
+    lines.forEach(line => {
       // Ottieni le coordinate delle fermate della linea in ordine
       const latlngs = [];
       line.stopsIds.forEach(stopId => {
@@ -160,13 +166,13 @@ class TransitMapEngine {
       });
 
       if (latlngs.length >= 2) {
-        // Disegna la linea del percorso
+        const isTrain = currentMode === 'train' || line.type === 'av';
         const polyline = L.polyline(latlngs, {
-          color: line.color,
-          weight: 5,
+          color: line.color || (isTrain ? '#dc2626' : '#0284c7'),
+          weight: isTrain ? 6 : 5,
           opacity: 0.85,
           lineJoin: 'round',
-          dashArray: line.type === 'suburban' ? '6, 8' : null
+          dashArray: line.type === 'suburban' ? '6, 8' : (isTrain ? '8, 4' : null)
         });
 
         polyline.bindTooltip(`<strong>${line.code}</strong> - ${line.name}`, {
@@ -182,10 +188,15 @@ class TransitMapEngine {
   placeStopMarkers() {
     this.stopMarkersLayer.clearLayers();
 
-    const modeData = typeof getActiveMode === "function" ? getActiveMode() : { id: "pullman", icon: "fa-bus" };
+    const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
 
-    getStopsByRegion(currentRegion).forEach(stop => {
+    let stops = getStopsByRegion(currentRegion);
+    if ((!stops || stops.length === 0) && currentMode !== 'pullman') {
+      stops = getStopsByRegion('all');
+    }
+
+    stops.forEach(stop => {
       const isUrban = stop.category === "urban";
       const isTemp = !!stop.isTemporary;
       const isTempActive = isTemp && stop.temporaryStatus === 'active';
@@ -193,9 +204,23 @@ class TransitMapEngine {
       const lat = stop.lat_actual || stop.lat;
       const lng = stop.lng_actual || stop.lng;
 
-      // Icona e colore personalizzati per fermate normali o provvisorie arancioni
-      let iconClass = modeData.id === 'train' ? 'fa-train' : (modeData.id === 'tram' ? 'fa-train-tram' : (modeData.id === 'taxi' ? 'fa-taxi' : (stop.isMainHub ? 'fa-building-columns' : 'fa-location-dot')));
-      let markerClass = `custom-stop-marker ${isUrban ? 'marker-urban' : 'marker-regional'}`;
+      // Icona e stile personalizzati per il mezzo selezionato
+      let iconClass = 'fa-location-dot';
+      let markerClass = 'custom-stop-marker';
+
+      if (currentMode === 'train') {
+        markerClass += ' marker-train';
+        iconClass = stop.isMainHub ? 'fa-train-subway' : 'fa-train';
+      } else if (currentMode === 'tram') {
+        markerClass += ' marker-tram';
+        iconClass = 'fa-train-tram';
+      } else if (currentMode === 'taxi') {
+        markerClass += ' marker-taxi';
+        iconClass = 'fa-taxi';
+      } else {
+        markerClass += isUrban ? ' marker-urban' : ' marker-regional';
+        iconClass = stop.isMainHub ? 'fa-building-columns' : 'fa-location-dot';
+      }
 
       if (isTemp) {
         if (isTempActive) {
@@ -238,7 +263,7 @@ class TransitMapEngine {
                 '<span class="popup-badge-temp-active"><i class="fa-solid fa-triangle-exclamation"></i> Provvisoria ATTIVA</span>' : 
                 '<span class="popup-badge-temp-inactive"><i class="fa-solid fa-ban"></i> Chiusa per Lavori</span>'
               ) : ''}
-              <span class="popup-code-badge" title="Codice Palina Google Transit"><i class="fa-solid fa-barcode"></i> ${stop.stopCode || 'Palina Transit'}</span>
+              <span class="popup-code-badge" title="Codice Palina / Stazione"><i class="fa-solid fa-barcode"></i> ${stop.stopCode || 'Transit Code'}</span>
             </div>
             <h4 style="${isTempInactive ? 'text-decoration: line-through; opacity: 0.85;' : ''}">${stop.name}</h4>
             <p class="popup-addr"><i class="fa-solid fa-map-pin"></i> ${stop.address}</p>
@@ -288,7 +313,7 @@ class TransitMapEngine {
                 <span class="popup-line-pill" style="background:${l.color}20; color:${l.color}; border:1px solid ${l.color}">
                   ${l.code}
                 </span>
-              `).join('') : '<small style="color:var(--text-muted);">Servizio su gomma integrato</small>'}
+              `).join('') : `<small style="color:var(--text-muted);">${currentMode === 'taxi' ? 'Servizio RadioTaxi H24' : (currentMode === 'train' ? 'Rete Ferroviaria Regionale / AV' : 'Servizio su gomma integrato')}</small>`}
             </div>
           </div>
 
@@ -299,7 +324,7 @@ class TransitMapEngine {
             <a href="${stop.streetViewUrl}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Visualizza Street View a 360°">
               <i class="fa-solid fa-street-view"></i> Street View
             </a>
-            <a href="${stop.gmapsDirUrl}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Calcola percorso con i mezzi">
+            <a href="${stop.gmapsDirUrl}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Calcola percorso">
               <i class="fa-solid fa-diamond-turn-right"></i> Indicazioni
             </a>
           </div>
@@ -309,7 +334,7 @@ class TransitMapEngine {
           </div>
 
           <div class="map-popup-actions">
-            <button class="btn btn-xs btn-primary w-100" onclick="window.liveBoard.filterHubSelect.value='${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'; window.liveBoard.filterHubSelect.dispatchEvent(new Event('change')); window.app.switchTab('live-board');">
+            <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'); } window.app.switchTab('live-board');">
               <i class="fa-solid fa-clock"></i> Visualizza Partenze Live ${isTempInactive ? '(Fermata Ufficiale)' : ''}
             </button>
           </div>
@@ -325,39 +350,61 @@ class TransitMapEngine {
     this.activeBuses = [];
     this.liveBusesLayer.clearLayers();
 
+    const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-    const lines = getLinesByRegion(currentRegion);
+    let lines = getLinesByRegion(currentRegion);
+    if ((!lines || lines.length === 0) && currentMode !== 'pullman') {
+      lines = getLinesByRegion('all');
+    }
 
     lines.forEach((line, idx) => {
       const stops = line.stopsIds.map(sId => getStopById(sId)).filter(Boolean);
       if (stops.length < 2) return;
 
-      const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
       const isTrain = currentMode === "train" || line.type === "av";
+      const isTram = currentMode === "tram" || line.type === "tram";
+      const isTaxi = currentMode === "taxi" || line.type === "taxi";
       
       let baseSpeed = Math.floor(Math.random() * 25) + 30;
       if (isTrain) {
         baseSpeed = line.type === "av" ? (Math.floor(Math.random() * 35) + 265) : (Math.floor(Math.random() * 30) + 120);
+      } else if (isTram) {
+        baseSpeed = Math.floor(Math.random() * 15) + 20;
+      } else if (isTaxi) {
+        baseSpeed = Math.floor(Math.random() * 20) + 35;
       }
 
       const busState = {
-        id: `${isTrain ? 'TRAIN' : 'BUS'}_${line.id}_${idx}`,
+        id: `${isTrain ? 'TRAIN' : (isTram ? 'TRAM' : (isTaxi ? 'TAXI' : 'BUS'))}_${line.id}_${idx}`,
         line: line,
         stops: stops,
         currentSegmentIdx: 0,
         progress: Math.random(), 
         speedKmh: baseSpeed, 
         isTrain: isTrain,
+        isTram: isTram,
+        isTaxi: isTaxi,
         marker: null
       };
 
       const startLat = stops[0].lat_actual || stops[0].lat;
       const startLng = stops[0].lng_actual || stops[0].lng;
 
-      const vehicleIconClass = isTrain ? (line.type === 'av' ? 'fa-train-subway' : 'fa-train') : 'fa-bus';
+      let vehicleIconClass = 'fa-bus';
+      let vehicleMarkerClass = 'custom-bus-marker';
+      if (isTrain) {
+        vehicleIconClass = line.type === 'av' ? 'fa-train-subway' : 'fa-train';
+        vehicleMarkerClass += ' custom-train-marker';
+      } else if (isTram) {
+        vehicleIconClass = 'fa-train-tram';
+        vehicleMarkerClass += ' custom-tram-marker';
+      } else if (isTaxi) {
+        vehicleIconClass = 'fa-taxi';
+        vehicleMarkerClass += ' custom-taxi-marker';
+      }
 
       const busIconHtml = `
-        <div class="custom-bus-marker ${isTrain ? 'custom-train-marker' : ''}" style="background-color: ${line.color}; box-shadow: 0 0 14px ${line.color}90;">
+        <div class="${vehicleMarkerClass}" style="background-color: ${line.color}; box-shadow: 0 0 14px ${line.color}90;">
           <i class="fa-solid ${vehicleIconClass}"></i>
           <span class="bus-badge-num">${line.code}</span>
         </div>
@@ -434,7 +481,14 @@ class TransitMapEngine {
     const container = document.getElementById("mapQuickButtonsContainer");
     if (!container) return;
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-    const hubStops = getStopsByRegion(currentRegion).filter(s => s.isMainHub);
+    const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
+    
+    let allStops = getStopsByRegion(currentRegion);
+    if ((!allStops || allStops.length === 0) && currentMode !== 'pullman') {
+      allStops = getStopsByRegion('all');
+    }
+    const hubStops = allStops.filter(s => s.isMainHub);
+    const displayStops = hubStops.length > 0 ? hubStops : allStops;
     
     // Clear existing buttons (keep the label span)
     const label = container.querySelector('span');
@@ -453,11 +507,13 @@ class TransitMapEngine {
       }
     });
     container.appendChild(gpsBtn);
+
+    const modeIcon = currentMode === 'train' ? '🚆' : (currentMode === 'tram' ? '🚋' : (currentMode === 'taxi' ? '🚕' : '🚏'));
     
-    hubStops.slice(0, 4).forEach(stop => {
+    displayStops.slice(0, 4).forEach(stop => {
       const btn = document.createElement('button');
       btn.className = 'map-btn-pill';
-      btn.textContent = `📍 ${stop.name.split(' - ')[0]}`;
+      btn.textContent = `${modeIcon} ${stop.name.split(' (')[0].split(' - ')[0]}`;
       btn.addEventListener('click', () => {
         this.map.flyTo([stop.lat, stop.lng], 14, { duration: 1.5 });
       });
@@ -467,7 +523,7 @@ class TransitMapEngine {
     // Add region overview button
     const regionBtn = document.createElement('button');
     regionBtn.className = 'map-btn-pill';
-    regionBtn.textContent = `🌍 Vista ${getRegionById(currentRegion)?.name || 'Regione'}`;
+    regionBtn.textContent = `🌍 Panoramica ${getRegionById(currentRegion)?.name || 'Regione'}`;
     regionBtn.addEventListener('click', () => {
       const r = getRegionById(currentRegion);
       if (r) this.map.flyTo(r.mapCenter, r.mapZoom, { duration: 1.8 });
