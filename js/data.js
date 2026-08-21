@@ -85,6 +85,29 @@
   // GLOBAL HELPERS & RE-ROUTING ENGINE
   // ==========================================
 
+  const REGION_CAPOLUOGHI = {
+    calabria: ["Corigliano-Rossano", "Catanzaro", "Cosenza", "Reggio Calabria", "Crotone", "Vibo Valentia", "Lamezia Terme", "Rende", "Castrovillari", "Gioia Tauro", "Paola", "Scalea", "Amantea", "Tropea", "Soverato", "Schiavonea", "Rossano", "Corigliano"],
+    piemonte: ["Torino", "Cuorgnè", "Ivrea", "Rivarolo Canavese", "Novara", "Alessandria", "Asti", "Cuneo", "Vercelli", "Biella", "Verbania", "Moncalieri", "Collegno", "Rivoli", "Settimo Torinese", "Chieri", "Pinerolo", "Chivasso", "Casale Monferrato", "Alba"],
+    lombardia: ["Milano", "Bergamo", "Brescia", "Como", "Cremona", "Lecco", "Lodi", "Mantova", "Monza", "Pavia", "Sondrio", "Varese", "Sesto San Giovanni", "Cinisello Balsamo", "Busto Arsizio", "Legnano", "Rho"],
+    lazio: ["Roma", "Frosinone", "Latina", "Rieti", "Viterbo", "Civitavecchia", "Fiumicino", "Tivoli", "Guidonia Montecelio", "Anzio", "Nettuno", "Aprilia", "Pomezia", "Castelli Romani"],
+    campania: ["Napoli", "Salerno", "Caserta", "Avellino", "Benevento", "Giugliano in Campania", "Torre del Greco", "Pozzuoli", "Casoria", "Castellammare di Stabia", "Afragola", "Sorrento", "Pompei", "Amalfi"],
+    veneto: ["Venezia", "Mestre", "Verona", "Padova", "Vicenza", "Treviso", "Rovigo", "Belluno", "Chioggia", "Bassano del Grappa", "San Donà di Piave", "Schio", "Mira", "Conegliano", "Castelfranco Veneto", "Jesolo"],
+    sicilia: ["Palermo", "Catania", "Messina", "Siracusa", "Ragusa", "Trapani", "Agrigento", "Caltanissetta", "Enna", "Marsala", "Gela", "Vittoria", "Modica", "Bagheria", "Acireale", "Mazara del Vallo", "Taormina", "Cefalù"],
+    emilia_romagna: ["Bologna", "Modena", "Parma", "Reggio Emilia", "Ravenna", "Rimini", "Ferrara", "Forlì", "Cesena", "Piacenza", "Carpi", "Imola", "Faenza", "Sassuolo", "Casalecchio di Reno", "Cento", "Riccione", "Cesenatico"],
+    toscana: ["Firenze", "Pisa", "Siena", "Lucca", "Arezzo", "Livorno", "Pistoia", "Grosseto", "Prato", "Massa", "Carrara", "Viareggio", "Empoli", "Scandicci", "Sesto Fiorentino", "Capannori", "Cascina", "San Miniato", "Forte dei Marmi", "Cortona"],
+    puglia: ["Bari", "Taranto", "Foggia", "Lecce", "Brindisi", "Barletta", "Andria", "Trani", "Altamura", "Molfetta", "Cerignola", "Manfredonia", "Bitonto", "San Severo", "Bisceglie", "Monopoli", "Gallipoli", "Alberobello"],
+    liguria: ["Genova", "La Spezia", "Savona", "Imperia", "Sanremo", "Rapallo", "Chiavari", "Ventimiglia", "Albenga", "Sarzana", "Sestri Levante", "Varazze", "Lavagna", "Arenzano", "Portofino", "Cinque Terre"],
+    friuli_venezia_giulia: ["Trieste", "Udine", "Pordenone", "Gorizia", "Monfalcone", "Sacile", "Cordenons", "Codroipo", "San Vito al Tagliamento", "Latisana", "Lignano Sabbiadoro", "Grado"],
+    trentino_alto_adige: ["Trento", "Bolzano", "Rovereto", "Merano", "Bressanone", "Pergine Valsugana", "Laives", "Arco", "Riva del Garda", "Brunico", "Appiano", "Caldaro"],
+    marche: ["Ancona", "Pesaro", "Urbino", "Macerata", "Ascoli Piceno", "Fermo", "San Benedetto del Tronto", "Fano", "Senigallia", "Civitanova Marche", "Jesi", "Osimo", "Fabriano", "Recanati"],
+    abruzzo: ["L'Aquila", "Pescara", "Chieti", "Teramo", "Montesilvano", "Avezzano", "Vasto", "Lanciano", "Sulmona", "Roseto degli Abruzzi", "Ortona", "Francavilla al Mare", "Giulianova", "Roccaraso"],
+    umbria: ["Perugia", "Terni", "Foligno", "Città di Castello", "Spoleto", "Gubbio", "Assisi", "Bastia Umbra", "Orvieto", "Corciano", "Narni", "Marsciano", "Todi", "Castiglione del Lago"],
+    basilicata: ["Potenza", "Matera", "Melfi", "Policoro", "Pisticci", "Lavello", "Rionero in Vulture", "Lauria", "Venosa", "Avigliano", "Bernalda", "Maratea", "Montescaglioso"],
+    molise: ["Campobasso", "Isernia", "Termoli", "Venafro", "Bojano", "Campomarino", "Larino", "Montenero di Bisaccia", "Agnone", "Riccia"],
+    valle_daosta: ["Aosta", "Sarre", "Châtillon", "Saint-Vincent", "Pont-Saint-Martin", "Quart", "Saint-Christophe", "Gressan", "Courmayeur", "Cervinia", "Cogne", "Valtournenche"],
+    sardegna: ["Cagliari", "Sassari", "Quartu Sant'Elena", "Olbia", "Nuoro", "Oristano", "Alghero", "Carbonia", "Iglesias", "Selargius", "Assemini", "Capoterra", "Porto Torres", "Sestu", "Monserrato", "Tortolì", "Bosa", "Arzachena"]
+  };
+
   window.getActiveMode = function() {
     return (window.TRANSIT_DATA && window.TRANSIT_DATA.activeMode) || 'pullman';
   };
@@ -201,44 +224,84 @@
     return hub || stops[0];
   };
 
-  window.getCitiesByRegion = function(regionId) {
-    const stops = window.getStopsByRegion(regionId);
-    const set = new Set();
-    stops.forEach(function(s) {
-      if (s.area) set.add(s.area);
-    });
-    return Array.from(set).sort();
-  };
-
   window.getCategorizedLocalities = function(regionId) {
-    const stops = window.getStopsByRegion(regionId);
-    const citiesSet = new Set();
+    const caps = REGION_CAPOLUOGHI[regionId] || [];
+    const capSet = new Set();
+    const townsSet = new Set();
     const frazioniSet = new Set();
-    const borghiSet = new Set();
 
+    const stops = window.getStopsByRegion(regionId);
+    const rawAreas = new Set();
     stops.forEach(function(s) {
-      const a = s.area || s.name;
-      if (s.localityType === 'city') citiesSet.add(a);
-      else if (s.localityType === 'frazione') frazioniSet.add(a);
-      else borghiSet.add(a);
+      if (s.area) rawAreas.add(s.area);
+      if (s.name) rawAreas.add(s.name.split(' - ')[0]);
     });
 
-    if (citiesSet.size === 0 && (frazioniSet.size > 0 || borghiSet.size > 0)) {
-      borghiSet.forEach(function(b) { citiesSet.add(b); });
-    }
+    // Inserisci sempre tutti i capoluoghi e grandi città della regione
+    caps.forEach(function(c) {
+      capSet.add(c);
+    });
+
+    // Classifica tutte le altre aree registrate nelle fermate
+    stops.forEach(function(s) {
+      const a = s.area;
+      if (!a) return;
+
+      let isCap = false;
+      for (let c of capSet) {
+        if (a.toLowerCase() === c.toLowerCase() || a.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(a.toLowerCase())) {
+          isCap = true;
+          break;
+        }
+      }
+
+      if (!isCap) {
+        if (s.localityType === 'frazione' || a.toLowerCase().startsWith('fraz.') || a.toLowerCase().startsWith('loc.')) {
+          frazioniSet.add(a);
+        } else {
+          townsSet.add(a);
+        }
+      }
+    });
+
+    const capArr = Array.from(capSet).sort();
+    const townArr = Array.from(townsSet).sort();
+    const frazArr = Array.from(frazioniSet).sort();
 
     return {
-      cities: Array.from(citiesSet).sort(),
-      frazioni: Array.from(frazioniSet).sort(),
-      borghi: Array.from(borghiSet).sort()
+      capoluoghi: capArr,
+      cities: capArr, // retrocompatibilità
+      towns: townArr,
+      borghi: townArr, // retrocompatibilità
+      frazioni: frazArr
     };
+  };
+
+  window.getCitiesByRegion = function(regionId) {
+    const cat = window.getCategorizedLocalities(regionId);
+    const set = new Set([...cat.capoluoghi, ...cat.towns, ...cat.frazioni]);
+    return Array.from(set).sort();
   };
 
   window.getStopsByCity = function(regionId, city) {
     const stops = window.getStopsByRegion(regionId);
     if (!city || city === 'all') return stops;
-    const match = stops.filter(function(s) { return s.area === city; });
-    return match.length > 0 ? match : stops.filter(function(s) { return s.name.toLowerCase().includes(city.toLowerCase()); });
+    const lowerCity = city.toLowerCase();
+
+    // 1. Ricerca esatta sull'area
+    const exactMatch = stops.filter(function(s) { 
+      return s.area && s.area.toLowerCase() === lowerCity; 
+    });
+    if (exactMatch.length > 0) return exactMatch;
+
+    // 2. Ricerca parziale su area o nome fermata
+    const partialMatch = stops.filter(function(s) { 
+      return (s.area && (s.area.toLowerCase().includes(lowerCity) || lowerCity.includes(s.area.toLowerCase()))) ||
+             (s.name && s.name.toLowerCase().includes(lowerCity)); 
+    });
+    if (partialMatch.length > 0) return partialMatch;
+
+    return stops;
   };
 
   window.getLinesByRegion = function(regionId) {

@@ -323,25 +323,29 @@ class AppController {
     defaultOpt.textContent = `📍 Tutte le Località (${totalCities.length})`;
     select.appendChild(defaultOpt);
 
-    const cat = typeof getCategorizedLocalities === "function" ? getCategorizedLocalities(this.currentRegion) : { cities: totalCities, towns: [], frazioni: [] };
+    const cat = typeof getCategorizedLocalities === "function" ? getCategorizedLocalities(this.currentRegion) : { capoluoghi: totalCities, towns: [], frazioni: [] };
 
-    if (cat.cities && cat.cities.length > 0) {
+    // 1. Capoluoghi di Provincia & Grandi Città
+    const caps = cat.capoluoghi || cat.cities || [];
+    if (caps && caps.length > 0) {
       const gCity = document.createElement("optgroup");
-      gCity.label = "🏙️ Grandi Città & Capoluoghi";
-      cat.cities.forEach(city => {
+      gCity.label = "🏛️ Capoluoghi di Provincia & Grandi Città";
+      caps.forEach(city => {
         const opt = document.createElement("option");
         opt.value = city;
-        opt.textContent = `🏙️ ${city}`;
+        opt.textContent = `🏛️ ${city}`;
         if (city === this.currentCity) opt.selected = true;
         gCity.appendChild(opt);
       });
       select.appendChild(gCity);
     }
 
-    if (cat.towns && cat.towns.length > 0) {
+    // 2. Paesi & Comuni
+    const towns = cat.towns || cat.borghi || [];
+    if (towns && towns.length > 0) {
       const gTown = document.createElement("optgroup");
       gTown.label = "🏘️ Paesi & Comuni";
-      cat.towns.forEach(town => {
+      towns.forEach(town => {
         const opt = document.createElement("option");
         opt.value = town;
         opt.textContent = `🏡 ${town}`;
@@ -351,6 +355,7 @@ class AppController {
       select.appendChild(gTown);
     }
 
+    // 3. Frazioni & Borgate
     if (cat.frazioni && cat.frazioni.length > 0) {
       const gFraz = document.createElement("optgroup");
       gFraz.label = "🌿 Frazioni & Borgate";
