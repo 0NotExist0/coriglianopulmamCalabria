@@ -537,7 +537,10 @@ class LiveBoardEngine {
               <span class="price-label">Tariffa da</span>
               <span class="price-val">€${dep.priceBase.toFixed(2)}</span>
             </div>
-            <div class="dep-actions" style="display: flex; gap: 8px;" onclick="event.stopPropagation();">
+            <div class="dep-actions" style="display: flex; gap: 6px; flex-wrap: wrap;" onclick="event.stopPropagation();">
+              <button class="btn btn-sm btn-outline btn-telemetry-inspect" onclick="event.stopPropagation(); if (window.realtimeTransit) window.realtimeTransit.openTelemetryInspector(window.liveBoard.departures.find(d => d.id === '${dep.id}'))" title="Ispeziona telemetria satellitare GPS e confronta con orario GTFS">
+                <i class="fa-solid fa-satellite text-primary"></i> Telemetria Live
+              </button>
               <button class="btn btn-sm btn-outline btn-view-route" onclick="window.liveBoard.showRouteOnMap('${dep.lineId}', '${dep.id}')" title="Visualizza percorso su mappa">
                 <i class="fa-solid fa-map-location-dot"></i> Vedi Mappa
               </button>
@@ -549,7 +552,7 @@ class LiveBoardEngine {
           </div>
           
           <div class="dep-card-hint">
-            <i class="fa-solid fa-route text-primary"></i> <span>Clicca la scheda per aprire il tracciato e le fermate sulla mappa</span>
+            <i class="fa-solid fa-route text-primary"></i> <span>Clicca per visualizzare il tracciato &bull; Premi "Telemetria Live" per confrontare con il GPS</span>
           </div>
         </div>
       `;

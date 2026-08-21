@@ -397,12 +397,19 @@ class TransitMapEngine {
   updateBusTooltip(bus) {
     const nextStop = bus.stops[bus.currentSegmentIdx + 1] || bus.stops[0];
     const speed = bus.speedKmh + Math.floor(Math.random() * 5) - 2;
+    const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    const sourceInfo = window.realtimeTransit ? window.realtimeTransit.getActiveSourceForRegion(currentRegion) : { agency: "GTFS-RT / Transit.land", type: "GPS Live" };
 
     bus.marker.bindTooltip(`
       <div class="bus-live-tooltip">
-        <strong style="color: ${bus.line.color}">${bus.line.code}: ${bus.line.name}</strong><br>
-        <span class="text-muted"><i class="fa-solid fa-gauge-high"></i> Velocità: ${speed} km/h</span><br>
-        <span><i class="fa-solid fa-arrow-right"></i> Prossima: <strong>${nextStop.name.split(' - ')[0]}</strong></span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <strong style="color: ${bus.line.color}; font-size: 0.95rem;">${bus.line.code}: ${bus.line.name}</strong>
+        </div>
+        <div style="margin-bottom: 4px;">
+          <span class="live-sat-chip" style="font-size: 0.65rem; padding: 2px 6px;"><i class="fa-solid fa-satellite"></i> ${sourceInfo.type}</span>
+        </div>
+        <span class="text-muted"><i class="fa-solid fa-gauge-high"></i> Velocità: <strong>${speed} km/h</strong></span><br>
+        <span><i class="fa-solid fa-arrow-right"></i> Prossima Fermata: <strong>${nextStop.name.split(' - ')[0]}</strong></span>
       </div>
     `, {
       direction: 'top',

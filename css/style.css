@@ -2382,3 +2382,283 @@ body.mode-taxi {
   line-height: 1.45;
 }
 
+/* ==========================================================================
+   REAL-TIME TELEMETRY & DATA INSPECTOR MODAL
+   ========================================================================== */
+
+.telemetry-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.telemetry-modal-overlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+.telemetry-inspector-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: var(--radius-lg, 16px);
+  width: 100%;
+  max-width: 820px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-color, #e2e8f0);
+  animation: zoomInModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes zoomInModal {
+  from { opacity: 0; transform: scale(0.96) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.telemetry-inspector-header {
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(56, 189, 248, 0.04));
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.telemetry-title-group h3 {
+  margin: 6px 0 2px 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+}
+
+.live-sat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.12);
+  padding: 3px 10px;
+  border-radius: 9999px;
+  border: 1px solid rgba(2, 132, 199, 0.25);
+}
+
+.telemetry-inspector-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Compare Banner */
+.telemetry-compare-banner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+  background: var(--bg-subtle, #f8fafc);
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+@media (max-width: 768px) {
+  .telemetry-compare-banner {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    text-align: center;
+  }
+}
+
+.compare-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compare-lbl {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-time {
+  font-size: 1.75rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary, #0f172a);
+}
+
+.compare-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+}
+
+.compare-divider-icon {
+  font-size: 1.3rem;
+  color: var(--text-muted, #94a3b8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compare-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.compare-status-badge.status-ontime {
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.compare-status-badge.status-delayed {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.compare-status-badge.status-early {
+  background: rgba(2, 132, 199, 0.15);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.3);
+}
+
+/* Diagnostics Grid */
+.telemetry-section-subtitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.telemetry-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.diag-item {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diag-label {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.diag-val {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+}
+
+/* Feed Sources Card */
+.telemetry-feed-card {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.feed-card-header {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feed-sources-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #334155);
+}
+
+.feed-sources-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.feed-sources-list code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--brand-primary, #0284c7);
+}
+
+.telemetry-inspector-footer {
+  padding: 16px 24px;
+  background: var(--bg-subtle, #f8fafc);
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-bottom-left-radius: var(--radius-lg, 16px);
+  border-bottom-right-radius: var(--radius-lg, 16px);
+}
+
+.btn-telemetry-inspect {
+  color: #0284c7 !important;
+  border-color: rgba(2, 132, 199, 0.35) !important;
+  background: rgba(2, 132, 199, 0.06) !important;
+  font-weight: 800 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-telemetry-inspect:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+
