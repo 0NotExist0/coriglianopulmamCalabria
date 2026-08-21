@@ -46,6 +46,7 @@ class LiveBoardEngine {
   }
 
   init() {
+    this.updateControlsForMode();
     this.populateStopSelect();
     this.generateInitialDepartures();
     this.bindEvents();
@@ -73,12 +74,78 @@ class LiveBoardEngine {
     document.addEventListener('transportModeChanged', (e) => {
       const currentRegion = typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria";
       this.activeStopId = typeof getMainHubForRegion === 'function' ? (getMainHubForRegion(currentRegion)?.id || '') : '';
+      this.updateControlsForMode();
       this.populateStopSelect();
       this.generateInitialDepartures();
       this.render();
     });
 
     this.render();
+  }
+
+  updateControlsForMode() {
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const tabsBar = document.querySelector(".board-tabs-bar");
+    const stopLabel = document.querySelector('label[for="boardStopFilter"]');
+    const searchInput = document.getElementById("boardSearchInput");
+
+    if (currentMode === 'taxi') {
+      if (tabsBar) tabsBar.style.display = "none";
+      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-taxi text-warning"></i> Seleziona Posteggio Taxi:';
+      if (searchInput) searchInput.placeholder = "Cerca posteggio o comune taxi...";
+    } else if (currentMode === 'train') {
+      if (tabsBar) {
+        tabsBar.style.display = "flex";
+        tabsBar.innerHTML = `
+          <button class="board-tab-btn active" data-category="all">Tutti i Treni</button>
+          <button class="board-tab-btn" data-category="regional">🚄 Alta Velocità (AV)</button>
+          <button class="board-tab-btn" data-category="urban">🚆 Regionali & Rock</button>
+          <button class="board-tab-btn" data-category="mare">✈️ Aeroportuali</button>
+          <button class="board-tab-btn" data-category="unical">🏔️ Intercity</button>
+        `;
+        this.rebindCategoryTabs();
+      }
+      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-train text-danger"></i> Seleziona Stazione FS:';
+      if (searchInput) searchInput.placeholder = "Cerca treno, numero convoglio o destinazione...";
+    } else if (currentMode === 'tram') {
+      if (tabsBar) {
+        tabsBar.style.display = "flex";
+        tabsBar.innerHTML = `
+          <button class="board-tab-btn active" data-category="all">Tutte le Linee Tram</button>
+          <button class="board-tab-btn" data-category="urban">🚋 Urbano Centro</button>
+          <button class="board-tab-btn" data-category="regional">🌿 Linee Periferia</button>
+        `;
+        this.rebindCategoryTabs();
+      }
+      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-train-tram text-success"></i> Seleziona Fermata Tram:';
+      if (searchInput) searchInput.placeholder = "Cerca linea tram o banchina...";
+    } else {
+      if (tabsBar) {
+        tabsBar.style.display = "flex";
+        tabsBar.innerHTML = `
+          <button class="board-tab-btn active" data-category="all">Tutte le Corse</button>
+          <button class="board-tab-btn" data-category="urban">Urbano</button>
+          <button class="board-tab-btn" data-category="mare">🏖️ Navette Mare</button>
+          <button class="board-tab-btn" data-category="unical">🎓 Universitarie</button>
+          <button class="board-tab-btn" data-category="regional">🌍 Regionali</button>
+        `;
+        this.rebindCategoryTabs();
+      }
+      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-map-pin"></i> Seleziona Fermata / Hub:';
+      if (searchInput) searchInput.placeholder = "Cerca linea o destinazione...";
+    }
+  }
+
+  rebindCategoryTabs() {
+    this.filterCategoryTabs = document.querySelectorAll(".board-tab-btn");
+    this.filterCategoryTabs.forEach(btn => {
+      btn.addEventListener("click", () => {
+        this.filterCategoryTabs.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        this.activeCategory = btn.dataset.category || "all";
+        this.render();
+      });
+    });
   }
 
   populateStopSelect() {
