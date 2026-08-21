@@ -247,8 +247,10 @@ class CustomizerEngine {
 
   // Mantiene sincronizzato il pannello quando il tema cambia dal pulsante header
   observeThemeChanges() {
-    const obs = new MutationObserver(() => this.syncActiveStates());
-    obs.observe(this.root, { attributes: true, attributeFilter: ["data-theme"] });
+    if (typeof MutationObserver !== 'undefined' && this.root) {
+      const obs = new MutationObserver(() => this.syncActiveStates());
+      obs.observe(this.root, { attributes: true, attributeFilter: ["data-theme"] });
+    }
   }
 }
 

@@ -83,6 +83,64 @@ class TransitMapEngine {
     this.liveBusesLayer = L.featureGroup().addTo(this.map);
     this.highlightedRouteLayer = L.featureGroup().addTo(this.map);
     this.walkingRouteLayer = L.featureGroup().addTo(this.map);
+    this.userLocationLayer = L.featureGroup().addTo(this.map);
+
+    // Controllo GPS nativo sulla mappa
+    const LocateControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: () => {
+        const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control-gps-btn');
+        btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i>';
+        btn.title = 'Trova la mia posizione GPS e zumma';
+        btn.setAttribute('aria-label', 'Trova la mia posizione GPS');
+        L.DomEvent.disableClickPropagation(btn);
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.stop(e);
+          if (window.geoLocator) {
+            window.geoLocator.locateAndRoute();
+          } else {
+            this.locateUser();
+          }
+        });
+        return btn;
+      }
+    });
+    this.map.addControl(new LocateControl());
+  }
+
+  locateUser() {
+    if (!navigator.geolocation) {
+      alert("Geolocalizzazione non supportata dal tuo dispositivo/browser.");
+      return;
+    }
+    if (!this.map) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const accuracy = pos.coords.accuracy || 30;
+        this.map.invalidateSize();
+        this.map.flyTo([lat, lng], 16, { animate: true, duration: 1.5 });
+        if (this.userLocationLayer) {
+          this.userLocationLayer.clearLayers();
+          L.circle([lat, lng], { radius: Math.max(accuracy, 20), color: '#0284c7', fillColor: '#38bdf8', fillOpacity: 0.2 }).addTo(this.userLocationLayer);
+          const icon = L.divIcon({
+            html: '<div class="user-gps-pulse-pin"><span class="gps-core-dot"></span></div>',
+            className: 'user-gps-pin-wrapper',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          });
+          L.marker([lat, lng], { icon: icon, zIndexOffset: 2000 })
+            .bindPopup('<strong>📍 La tua Posizione Attuale</strong><br><small>GPS: ' + lat.toFixed(5) + ', ' + lng.toFixed(5) + '</small>')
+            .addTo(this.userLocationLayer)
+            .openPopup();
+        }
+      },
+      (err) => {
+        alert("Impossibile ottenere la posizione: " + (err.message || "Permesso negato o GPS non disponibile."));
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 }
+    );
   }
 
   drawRoutePolylines() {
@@ -363,6 +421,19 @@ class TransitMapEngine {
     const label = container.querySelector('span');
     container.innerHTML = '';
     if (label) container.appendChild(label);
+
+    // Add GPS My Location Button first
+    const gpsBtn = document.createElement('button');
+    gpsBtn.className = 'map-btn-pill btn-pill-gps-active';
+    gpsBtn.innerHTML = `<i class="fa-solid fa-location-crosshairs text-primary"></i> La Mia Posizione GPS`;
+    gpsBtn.addEventListener('click', () => {
+      if (window.geoLocator) {
+        window.geoLocator.locateAndRoute();
+      } else {
+        this.locateUser();
+      }
+    });
+    container.appendChild(gpsBtn);
     
     hubStops.slice(0, 4).forEach(stop => {
       const btn = document.createElement('button');

@@ -61,6 +61,26 @@
   _RAW_METADATA.modes.pullman.stops = pullmanStops;
   window.TRANSIT_DATA = _RAW_METADATA;
 
+  try {
+    Object.defineProperty(window.TRANSIT_DATA, 'stops', {
+      get: function() {
+        const mode = window.TRANSIT_DATA.modes[window.TRANSIT_DATA.activeMode] || window.TRANSIT_DATA.modes.pullman;
+        return mode ? (mode.stops || []) : [];
+      },
+      configurable: true
+    });
+    Object.defineProperty(window.TRANSIT_DATA, 'lines', {
+      get: function() {
+        const mode = window.TRANSIT_DATA.modes[window.TRANSIT_DATA.activeMode] || window.TRANSIT_DATA.modes.pullman;
+        return mode ? (mode.lines || []) : [];
+      },
+      configurable: true
+    });
+  } catch (e) {
+    window.TRANSIT_DATA.stops = pullmanStops;
+    window.TRANSIT_DATA.lines = headerData.modes.pullman.lines;
+  }
+
   // ==========================================
   // GLOBAL HELPERS & RE-ROUTING ENGINE
   // ==========================================
