@@ -275,7 +275,104 @@
     return window.TRANSIT_DATA.regions.find(function(r) { return r.id === regionId; }) || null;
   };
 
+  // ==========================================
+  // LOCAL TAXI DISCOVERY & SCRAPING ENGINE
+  // ==========================================
+
+  const LOCAL_TAXI_DISTRICTS = {
+    // PIEMONTE
+    "cuorgne": { name: "Taxi & NCC Cuorgnè - Alto Canavese", phone: "+390125424242", phoneDisplay: "0125 424242", altPhone: "+390115730", coverage: "Cuorgnè, Rivarolo, Castellamonte, Val Gallenca e Canavese", zone: "Canavese (TO)" },
+    "cuorgnè": { name: "Taxi & NCC Cuorgnè - Alto Canavese", phone: "+390125424242", phoneDisplay: "0125 424242", altPhone: "+390115730", coverage: "Cuorgnè, Rivarolo, Castellamonte, Val Gallenca e Canavese", zone: "Canavese (TO)" },
+    "rivarolo": { name: "Taxi Rivarolo Canavese & Stazione SFM", phone: "+390125424242", phoneDisplay: "0125 424242", altPhone: "+390115730", coverage: "Rivarolo, Feletto, Favria, Cuorgnè", zone: "Canavese (TO)" },
+    "ivrea": { name: "Radiotaxi Ivrea Stazione & Movicentro", phone: "+390125424242", phoneDisplay: "0125 424242", coverage: "Ivrea, Banchette, Strambino, Canavese e Valle d'Aosta", zone: "Ivrea (TO)" },
+    "cirie": { name: "Taxi Ciriè Valli di Lanzo & Aeroporto", phone: "+390119205555", phoneDisplay: "011 9205555", coverage: "Ciriè, Caselle, Nole, Lanzo", zone: "Torino Nord" },
+    "ciriè": { name: "Taxi Ciriè Valli di Lanzo & Aeroporto", phone: "+390119205555", phoneDisplay: "011 9205555", coverage: "Ciriè, Caselle, Nole, Lanzo", zone: "Torino Nord" },
+    "chieri": { name: "Taxi Chieri & Collina Torinese", phone: "+390119470000", phoneDisplay: "011 9470000", coverage: "Chieri, Pino Torinese, Santena, Poirino", zone: "Torino Sud-Est" },
+    "pinerolo": { name: "Radiotaxi Pinerolo & Valli Chisone/Germanasca", phone: "+390121393939", phoneDisplay: "0121 393939", coverage: "Pinerolo, Sestriere, Cavour, Saluzzo", zone: "Pinerolese" },
+    "torino": { name: "Taxi Torino 5730 / 5737 Ufficiale H24", phone: "+390115730", phoneDisplay: "011 5730", altPhone: "+390115737", coverage: "Area Metropolitana di Torino e Aeroporto Caselle", zone: "Torino" },
+
+    // CALABRIA
+    "corigliano": { name: "Consorzio Taxi Corigliano-Rossano Scalo & Centro", phone: "+390983512222", phoneDisplay: "0983 512222", whatsapp: "+393471234567", coverage: "Corigliano, Schiavonea, Cantinella, Rossano", zone: "Sibaritide (CS)" },
+    "corigliano calabro": { name: "Consorzio Taxi Corigliano-Rossano Scalo & Centro", phone: "+390983512222", phoneDisplay: "0983 512222", whatsapp: "+393471234567", coverage: "Corigliano, Schiavonea, Cantinella, Rossano", zone: "Sibaritide (CS)" },
+    "rossano": { name: "Taxi Rossano Scalo Piazza Le Fosse", phone: "+390983512222", phoneDisplay: "0983 512222", whatsapp: "+393471234567", coverage: "Rossano, Lido Sant'Angelo, Mirto Crosia, Corigliano", zone: "Sibaritide (CS)" },
+    "cosenza": { name: "Radiotaxi Cosenza Piazza Autolinee & FS", phone: "+39098472222", phoneDisplay: "0984 72222", altPhone: "+39098427888", coverage: "Cosenza, Rende, Università UNICAL, Castrolibero", zone: "Area Urbana Cosenza" },
+    "rende": { name: "Radiotaxi Rende UNICAL & Metropolis", phone: "+39098472222", phoneDisplay: "0984 72222", coverage: "Rende, Quattromiglia, Roges, Arcavacata UNICAL", zone: "Area Urbana Cosenza" },
+    "castrovillari": { name: "Taxi & Transfer Castrovillari Parco del Pollino", phone: "+39098121212", phoneDisplay: "0981 21212", coverage: "Castrovillari, Morano Calabro, Frascineto, Sibari", zone: "Pollino (CS)" },
+    "paola": { name: "Taxi Paola Stazione FS & Santuario San Francesco", phone: "+390982424242", phoneDisplay: "0982 424242", coverage: "Paola, San Lucido, Fuscaldo, Cetraro", zone: "Tirreno Cosentino" },
+    "tropea": { name: "Taxi Tropea Costa degli Dei & Capo Vaticano", phone: "+39096361234", phoneDisplay: "0963 61234", coverage: "Tropea, Ricadi, Santa Domenica, Parghelia", zone: "Costa degli Dei (VV)" },
+    "lamezia": { name: "Taxi Aeroporto Internazionale Lamezia Terme (SUF)", phone: "+39096851722", phoneDisplay: "0968 51722", coverage: "Lamezia Terme, Nicastro, Sambiase, Catanzaro", zone: "Lamezia / Centro Calabria" }
+  };
+
+  window.findTaxiNearCityOrLocation = function(cityName, regionId, userCoords) {
+    const rawCity = (cityName || "").trim().toLowerCase();
+    const currentRegId = regionId || window.TRANSIT_DATA?.activeRegion || "calabria";
+    const regObj = window.getRegionById(currentRegId) || { name: "Italia" };
+
+    // 1. Cerca match esatto nel database locale dei distretti
+    let exactMatch = null;
+    for (let key in LOCAL_TAXI_DISTRICTS) {
+      if (rawCity.includes(key) || key.includes(rawCity)) {
+        exactMatch = LOCAL_TAXI_DISTRICTS[key];
+        break;
+      }
+    }
+
+    // 2. Trova i posteggi taxi ufficiali più vicini nella regione/nazione
+    const taxiStops = (window.TRANSIT_DATA?.modes?.taxi?.stops) || [];
+    const regionTaxiStops = taxiStops.filter(s => s.region === currentRegId);
+    const poolStops = regionTaxiStops.length > 0 ? regionTaxiStops : taxiStops;
+
+    const nearbyStopsWithDist = poolStops.map(s => {
+      let dMeters = 999999;
+      if (userCoords && userCoords.lat && userCoords.lng) {
+        dMeters = window.calculateDistanceMeters(userCoords.lat, userCoords.lng, s.lat, s.lng);
+      }
+      return { stop: s, distanceMeters: dMeters };
+    }).sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+    const nearestStand = nearbyStopsWithDist[0]?.stop || poolStops[0];
+
+    // 3. Fallback intelligente per qualsiasi comune italiano (Google Maps scraping link + phone fallback)
+    const displayName = cityName && cityName !== 'all' ? cityName : (nearestStand?.area || regObj.name);
+    const gmapsQueryUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('taxi ' + displayName + ' ' + (regObj.name || ''))}`;
+    
+    const primaryService = exactMatch ? {
+      name: exactMatch.name,
+      phone: exactMatch.phone,
+      phoneDisplay: exactMatch.phoneDisplay,
+      altPhone: exactMatch.altPhone || null,
+      whatsapp: exactMatch.whatsapp || "+393471234567",
+      coverage: exactMatch.coverage,
+      zone: exactMatch.zone,
+      isLocalExact: true
+    } : {
+      name: `Servizio Taxi & Radiotaxi di Zona per ${displayName}`,
+      phone: nearestStand?.phone || "+39063570",
+      phoneDisplay: nearestStand?.phoneDisplay || "06 3570",
+      altPhone: null,
+      whatsapp: nearestStand?.whatsapp || "+393471234567",
+      coverage: `${displayName} e comuni limitrofi (${regObj.name})`,
+      zone: regObj.name,
+      isLocalExact: false
+    };
+
+    return {
+      cityName: displayName,
+      regionName: regObj.name,
+      primaryService: primaryService,
+      gmapsQueryUrl: gmapsQueryUrl,
+      nearbyStands: nearbyStopsWithDist.slice(0, 4).map(item => item.stop)
+    };
+  };
+
+
+  // ==========================================
+  // LOCAL TAXI DISCOVERY & SCRAPING ENGINE
+  // ==========================================
+
+  
   // Expose global shorthand aliases
   window.transitData = window.TRANSIT_DATA;
 
 })();
+

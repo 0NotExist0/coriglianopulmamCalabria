@@ -3056,6 +3056,185 @@ body.mode-taxi {
   color: #ffffff;
 }
 
+/* ==========================================================================
+   TAXI NEAR YOU (INTELLIGENT LOCAL DISCOVERY) STYLES
+   ========================================================================== */
+.taxi-near-you-container {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 2px solid #f59e0b;
+  border-radius: var(--radius-lg, 16px);
+  padding: 22px 24px;
+  margin-bottom: 24px;
+  color: #ffffff;
+  box-shadow: 0 12px 30px -8px rgba(245, 158, 11, 0.3);
+}
+
+.taxi-near-you-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 14px;
+}
+
+.near-head-left {
+  flex: 1;
+  min-width: 250px;
+}
+
+.near-badge-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.near-title {
+  margin: 0 0 4px 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.near-title strong {
+  color: #f59e0b;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.near-subtitle {
+  margin: 0;
+  font-size: 0.825rem;
+  color: #94a3b8;
+}
+
+.near-search-input-box {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 12px;
+  padding: 4px 6px 4px 12px;
+  gap: 8px;
+  flex: 1;
+  max-width: 420px;
+  min-width: 260px;
+}
+
+.near-search-input-box i {
+  color: #f59e0b;
+  font-size: 0.95rem;
+}
+
+.near-search-input-box input {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 0.9rem;
+  width: 100%;
+  outline: none;
+}
+
+.near-search-input-box input::placeholder {
+  color: #64748b;
+}
+
+.btn-search-taxi-city {
+  background: #f59e0b;
+  color: #0f172a;
+  border: none;
+  font-weight: 800;
+  font-size: 0.825rem;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-search-taxi-city:hover {
+  background: #fbbf24;
+}
+
+.taxi-near-main-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+
+.main-card-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.taxi-icon-circle-lg {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: #f59e0b;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.45rem;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+}
+
+.main-card-top h4 {
+  margin: 0 0 4px 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.coverage-badge {
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.main-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-gmaps-taxi-search {
+  background: rgba(66, 133, 244, 0.15);
+  border: 1px solid rgba(66, 133, 244, 0.4);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 11px 18px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-gmaps-taxi-search:hover {
+  background: #4285f4;
+  border-color: #4285f4;
+  color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(66, 133, 244, 0.35);
+}
+
 
 
 

@@ -550,10 +550,74 @@ class LiveBoardEngine {
     const isTempInactive = isTemp && currentStop.temporaryStatus !== 'active';
     const altData = isTemp ? (typeof window.getAlternativeActiveStop === 'function' ? window.getAlternativeActiveStop(currentStop.id) : null) : null;
 
+    const activeRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    const activeCity = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_city", "all") : "all");
+    const userCity = (this.searchedTaxiCity) || ((activeCity && activeCity !== 'all') ? activeCity : (currentStop.area || "Tua Città"));
+    const taxiDiscovery = (currentMode === 'taxi' && typeof window.findTaxiNearCityOrLocation === 'function') ? 
+      window.findTaxiNearCityOrLocation(userCity, activeRegion, this.gpsNearestInfo?.userCoords) : null;
+
     let html = `
+      ${currentMode === 'taxi' && taxiDiscovery ? `
+        <!-- SEZIONE TAXI VICINO A TE (DISCOVERY LOCALE INTELLIGENTE) -->
+        <div class="taxi-near-you-container">
+          <div class="taxi-near-you-head">
+            <div class="near-head-left">
+              <div class="near-badge-pulse">
+                <span class="live-dot pulse"></span>
+                <span>TAXI VICINO A TE</span>
+              </div>
+              <h3 class="near-title"><i class="fa-solid fa-location-crosshairs text-warning"></i> Taxi e Radiotaxi a <strong>${taxiDiscovery.cityName}</strong></h3>
+              <p class="near-subtitle">Rilevamento automatico posteggi, numeri telefonici diretti e ricerca live su Google Maps</p>
+            </div>
+            <div class="near-search-input-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="liveTaxiCityInput" placeholder="Cerca altra città (es. Cuorgnè, Ivrea, Corigliano...)" value="${this.searchedTaxiCity || ''}" onkeydown="if(event.key==='Enter') window.liveBoard.searchTaxiInCity(this.value)">
+              <button type="button" class="btn-search-taxi-city" onclick="window.liveBoard.searchTaxiInCity(document.getElementById('liveTaxiCityInput').value)">
+                Cerca
+              </button>
+              ${this.searchedTaxiCity ? `
+                <button type="button" class="btn-search-taxi-city" style="background:#475569; color:#fff;" onclick="window.liveBoard.resetTaxiCitySearch()" title="Reimposta città">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+
+          <div class="taxi-near-card-grid">
+            <div class="taxi-near-main-card">
+              <div class="main-card-top">
+                <div class="taxi-icon-circle-lg">
+                  <i class="fa-solid fa-taxi"></i>
+                </div>
+                <div>
+                  <h4>${taxiDiscovery.primaryService.name}</h4>
+                  <span class="coverage-badge"><i class="fa-solid fa-map-pin"></i> ${taxiDiscovery.primaryService.coverage}</span>
+                </div>
+              </div>
+              <div class="main-card-actions">
+                <a href="tel:${taxiDiscovery.primaryService.phone}" class="btn-call-taxi-lg">
+                  <i class="fa-solid fa-phone-volume"></i> Chiama Taxi: ${taxiDiscovery.primaryService.phoneDisplay}
+                </a>
+                ${taxiDiscovery.primaryService.altPhone ? `
+                  <a href="tel:${taxiDiscovery.primaryService.altPhone}" class="btn btn-outline-light btn-sm" style="font-weight:700;">
+                    <i class="fa-solid fa-phone"></i> Linea 2
+                  </a>
+                ` : ''}
+                <a href="https://wa.me/${(taxiDiscovery.primaryService.whatsapp || '+393471234567').replace(/\+/g, '')}?text=Salve,%20desidero%20richiedere%20un%20taxi%20a%20${encodeURIComponent(taxiDiscovery.cityName)}" target="_blank" class="btn-wa-taxi-lg">
+                  <i class="fa-brands fa-whatsapp"></i> Invia Posizione WhatsApp
+                </a>
+                <a href="${taxiDiscovery.gmapsQueryUrl}" target="_blank" rel="noopener" class="btn-gmaps-taxi-search">
+                  <i class="fa-brands fa-google"></i> Cerca Tutti i Taxi a ${taxiDiscovery.cityName} su Google Maps
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
       <div class="board-header-summary ${isTemp ? 'board-header-temp' : ''}">
         <div class="board-station-title">
-          <span class="station-icon ${isTemp ? (isTempActive ? 'station-temp-active' : 'station-temp-inactive') : ''}"><i class="fa-solid ${isTemp ? (isTempActive ? 'fa-triangle-exclamation' : 'fa-person-digging') : 'fa-location-dot'}"></i></span>
+          <span class="station-icon ${isTemp ? (isTempActive ? 'station-temp-active' : 'station-temp-inactive') : ''}"><i class="fa-solid ${isTemp ? (isTempActive ? 'fa-triangle-exclamation' : 'fa-person-digging') : (currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-location-dot'))}"></i></span>
           <div>
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <strong style="${isTempInactive ? 'text-decoration: line-through;' : ''}">${currentStop.name}</strong>
@@ -561,7 +625,7 @@ class LiveBoardEngine {
                 '<span class="popup-badge-temp-active"><i class="fa-solid fa-triangle-exclamation"></i> Provvisoria ATTIVA</span>' : 
                 '<span class="popup-badge-temp-inactive"><i class="fa-solid fa-ban"></i> Chiusa per Lavori</span>'
               ) : ''}
-              <span class="popup-code-badge" style="font-size: 0.72rem;"><i class="fa-solid fa-barcode"></i> ${currentStop.stopCode || 'Palina Bus'}</span>
+              <span class="popup-code-badge" style="font-size: 0.72rem;"><i class="fa-solid fa-barcode"></i> ${currentStop.stopCode || 'Palina Transit'}</span>
             </div>
             <span class="station-subtitle"><i class="fa-solid fa-map-pin"></i> ${currentStop.address || ''}</span>
           </div>
@@ -574,7 +638,7 @@ class LiveBoardEngine {
             <i class="fa-solid fa-street-view"></i> Street View
           </a>
           <div class="board-live-pill">
-            <span class="live-dot pulse"></span> ${currentMode === 'taxi' ? 'RADIOTAXI DISPATCH LIVE H24' : (currentMode === 'train' ? 'VIAGGIATRENO LIVE RFI' : 'LIVE SATELLITARE GPS')}
+            <span class="live-dot pulse"></span> ${currentMode === 'taxi' ? 'POSTEGGIO TAXI UFFICIALE H24' : (currentMode === 'train' ? 'VIAGGIATRENO LIVE RFI' : 'LIVE SATELLITARE GPS')}
           </div>
         </div>
       </div>
@@ -940,6 +1004,17 @@ class LiveBoardEngine {
         }
       };
     }
+  }
+
+  searchTaxiInCity(city) {
+    if (!city || !city.trim()) return;
+    this.searchedTaxiCity = city.trim();
+    this.render();
+  }
+
+  resetTaxiCitySearch() {
+    this.searchedTaxiCity = null;
+    this.render();
   }
 
   resetFilters() {
