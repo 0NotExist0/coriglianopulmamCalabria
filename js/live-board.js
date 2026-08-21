@@ -194,6 +194,32 @@ class LiveBoardEngine {
     const currentRegion = typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria";
     const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const isTrain = currentMode === 'train';
+    const isTaxi = currentMode === 'taxi';
+
+    if (isTaxi) {
+      const taxiStops = typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion) : [];
+      taxiStops.forEach((stand, index) => {
+        const depDate = new Date(now.getTime() + (index * 4 + 2) * 60 * 1000);
+        this.departures.push({
+          id: `TAXI_${Date.now()}_${index}`,
+          lineId: stand.id,
+          lineCode: `TAXI-${index + 1}`,
+          lineName: stand.radiotaxiName || `Posteggio ${stand.name}`,
+          lineColor: "#f59e0b",
+          lineType: "urban",
+          destination: stand.area + " & Zone Limitrofe",
+          viaInfo: stand.address || "Stallo attivo H24 con tassisti in turno",
+          scheduledTime: depDate,
+          delayMinutes: 0,
+          platform: `Stallo ${index + 1}`,
+          occupancy: 35,
+          priceBase: 3.50,
+          busModel: "Vettura Taxi & NCC H24"
+        });
+      });
+      return;
+    }
+
     const lines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
     if (!lines || lines.length === 0) return;
 
@@ -595,24 +621,16 @@ class LiveBoardEngine {
 
   render() {
     if (!this.container) return;
-    const filtered = this.getFilteredDepartures();
 
-    if (filtered.length === 0) {
-      this.container.innerHTML = `
-        <div class="empty-board-state">
-          <i class="fa-solid fa-bus-simple fa-3x"></i>
-          <h3>Nessuna partenza trovata</h3>
-          <p>Nessun pullman corrisponde ai filtri selezionati per questa fermata.</p>
-          <button class="btn btn-outline" onclick="window.liveBoard.resetFilters()">Reimposta Filtri</button>
-        </div>
-      `;
-      return;
-    }
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const isTaxi = currentMode === 'taxi';
+    const isTrain = currentMode === 'train';
+    const isTram = currentMode === 'tram';
 
     const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || { 
-      name: "Hub Principale", 
+      name: isTaxi ? "Posteggio Taxi Principale" : (isTrain ? "Stazione Centrale FS" : "Hub Principale"), 
       address: "Centro Città",
-      stopCode: "BUS-IT-100",
+      stopCode: isTaxi ? "TAXI-IT-01" : "BUS-IT-100",
       gmapsUrl: "https://www.google.com/maps",
       streetViewUrl: "https://www.google.com/maps"
     };
@@ -622,12 +640,26 @@ class LiveBoardEngine {
     const isTempInactive = isTemp && currentStop.temporaryStatus !== 'active';
     const altData = isTemp ? (typeof window.getAlternativeActiveStop === 'function' ? window.getAlternativeActiveStop(currentStop.id) : null) : null;
 
-    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const activeRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
     const activeCity = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_city", "all") : "all");
-    const userCity = (this.searchedTaxiCity) || ((activeCity && activeCity !== 'all') ? activeCity : (currentStop.area || "Tua Città"));
-    const taxiDiscovery = (currentMode === 'taxi' && typeof window.findTaxiNearCityOrLocation === 'function') ? 
+    const userCity = (this.searchedTaxiCity) || ((activeCity && activeCity !== 'all') ? activeCity : (currentStop.area || ""));
+    const taxiDiscovery = (isTaxi && typeof window.findTaxiNearCityOrLocation === 'function') ? 
       window.findTaxiNearCityOrLocation(userCity, activeRegion, this.gpsNearestInfo?.userCoords) : null;
+
+    const filtered = this.getFilteredDepartures();
+
+    if (!isTaxi && filtered.length === 0) {
+      const modeLabel = isTrain ? 'treno' : (isTram ? 'tram' : 'pullman');
+      this.container.innerHTML = `
+        <div class="empty-board-state">
+          <i class="fa-solid ${isTrain ? 'fa-train' : (isTram ? 'fa-train-tram' : 'fa-bus-simple')} fa-3x"></i>
+          <h3>Nessuna partenza trovata</h3>
+          <p>Nessun ${modeLabel} corrisponde ai filtri selezionati per questa fermata/stazione.</p>
+          <button class="btn btn-outline" onclick="window.liveBoard.resetFilters()">Reimposta Filtri</button>
+        </div>
+      `;
+      return;
+    }
 
     let html = `
       ${currentMode === 'taxi' && taxiDiscovery ? `
