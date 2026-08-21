@@ -574,10 +574,52 @@ class LiveBoardEngine {
             <i class="fa-solid fa-street-view"></i> Street View
           </a>
           <div class="board-live-pill">
-            <span class="live-dot pulse"></span> LIVE SATELLITARE GPS
+            <span class="live-dot pulse"></span> ${currentMode === 'taxi' ? 'RADIOTAXI DISPATCH LIVE H24' : (currentMode === 'train' ? 'VIAGGIATRENO LIVE RFI' : 'LIVE SATELLITARE GPS')}
           </div>
         </div>
       </div>
+
+      ${currentMode === 'taxi' ? `
+        <div class="taxi-dispatch-hero">
+          <div class="taxi-hero-header">
+            <div class="taxi-company-title">
+              <div class="taxi-icon-circle">
+                <i class="fa-solid fa-taxi"></i>
+              </div>
+              <div>
+                <h3>${currentStop.radiotaxiName || 'Radiotaxi Ufficiale ' + currentStop.area}</h3>
+                <p><i class="fa-solid fa-location-dot text-warning"></i> ${currentStop.name} &bull; Stalli Attivi 24/7</p>
+              </div>
+            </div>
+            <div class="taxi-call-actions">
+              <a href="tel:${currentStop.phone || '+39063570'}" class="btn-call-taxi-lg">
+                <i class="fa-solid fa-phone-volume"></i> Chiama Taxi: ${currentStop.phoneDisplay || '06 3570'}
+              </a>
+              <a href="https://wa.me/${(currentStop.whatsapp || '+393471234567').replace(/\+/g, '')}?text=Salve,%20desidero%20richiedere%20un%20taxi%20a%20${encodeURIComponent(currentStop.name)}" target="_blank" class="btn-wa-taxi-lg">
+                <i class="fa-brands fa-whatsapp"></i> WhatsApp Dispatch
+              </a>
+            </div>
+          </div>
+          <div class="taxi-stats-grid">
+            <div class="taxi-stat-item">
+              <i class="fa-solid fa-car-side"></i>
+              <span>Vetture allo Stallo: <strong>3-5 disponibili</strong></span>
+            </div>
+            <div class="taxi-stat-item">
+              <i class="fa-solid fa-stopwatch"></i>
+              <span>Tempo di Arrivo: <strong>~3-6 min</strong></span>
+            </div>
+            <div class="taxi-stat-item">
+              <i class="fa-solid fa-credit-card"></i>
+              <span>Pagamenti a Bordo: <strong>POS / Carta / Apple Pay</strong></span>
+            </div>
+            <div class="taxi-stat-item">
+              <i class="fa-solid fa-tag"></i>
+              <span>Tariffa Tassametro: <strong>Scatto €3.50 + €1.25/km</strong></span>
+            </div>
+          </div>
+        </div>
+      ` : ''}
 
       ${this.gpsNearestInfo && this.gpsNearestInfo.stop && this.gpsNearestInfo.stop.id === currentStop.id ? `
         <div class="live-board-gps-banner">

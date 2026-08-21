@@ -365,25 +365,49 @@ class GeoLocatorEngine {
     const walkMin = Math.max(1, Math.round(seconds / 60));
     const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const isTrain = currentMode === 'train';
+    const isTaxi = currentMode === 'taxi';
+    const isTram = currentMode === 'tram';
+
+    let headerTitle = 'Percorso alla Fermata Più Vicina';
+    let headerSub = 'Tracciato pedonale con stima tempi di arrivo e countdown live';
+    let stopLabel = 'Fermata Rilevata';
+    let iconHeader = 'fa-route';
+
+    if (isTrain) {
+      headerTitle = 'Percorso alla Stazione Ferroviaria Più Vicina';
+      headerSub = 'Tracciato pedonale verso la stazione con orari ViaggiaTreno e countdown';
+      stopLabel = 'Stazione Rilevata';
+      iconHeader = 'fa-train';
+    } else if (isTaxi) {
+      headerTitle = 'Percorso al Posteggio Taxi Più Vicino';
+      headerSub = 'Raggiungi a piedi lo stallo taxi o chiama subito il Radiotaxi di zona';
+      stopLabel = 'Posteggio Taxi Rilevato';
+      iconHeader = 'fa-taxi';
+    } else if (isTram) {
+      headerTitle = 'Percorso alla Fermata Tram Più Vicina';
+      headerSub = 'Tracciato pedonale verso la banchina della rete tranviaria';
+      stopLabel = 'Fermata Tram Rilevata';
+      iconHeader = 'fa-train-tram';
+    }
 
     this.panel.innerHTML = `
       <div class="geo-route-head">
         <div>
           <h3 style="margin:0; font-size:1.15rem; color:var(--brand-primary);">
-            <i class="fa-solid ${isTrain ? 'fa-train' : 'fa-route'}"></i> ${isTrain ? 'Percorso alla Stazione Ferroviaria Più Vicina' : 'Percorso alla Fermata Più Vicina'}
+            <i class="fa-solid ${iconHeader}"></i> ${headerTitle}
           </h3>
-          <small class="text-muted">${isTrain ? 'Tracciato pedonale verso la stazione con orari ViaggiaTreno e countdown' : 'Tracciato pedonale con stima tempi di arrivo e countdown live'}</small>
+          <small class="text-muted">${headerSub}</small>
         </div>
         <div>
           <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()">
-            <i class="fa-solid fa-table-list"></i> Controlla Orari Tabellone
+            <i class="fa-solid fa-table-list"></i> ${isTaxi ? 'Dettagli Posteggio' : 'Controlla Orari Tabellone'}
           </button>
         </div>
       </div>
 
       <div class="geo-stats-grid">
         <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid ${isTrain ? 'fa-train' : 'fa-map-pin'}"></i> ${isTrain ? 'Stazione Rilevata' : 'Fermata Rilevata'}</span>
+          <span class="geo-stat-label"><i class="fa-solid ${iconHeader}"></i> ${stopLabel}</span>
           <strong class="geo-stat-val">${this.nearestStop.name}</strong>
           <small class="text-muted">${this.nearestStop.address || this.nearestStop.area}</small>
         </div>
@@ -404,15 +428,35 @@ class GeoLocatorEngine {
         </div>
       </div>
 
-      <div class="geo-departures-wrapper">
-        <div class="geo-departures-title"><i class="fa-solid ${isTrain ? 'fa-train-subway' : 'fa-bus'}"></i> ${isTrain ? 'Prossimi treni in partenza da questa stazione' : 'Prossime corse in partenza da questa fermata'}</div>
-        <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
-        <div id="geoVerdict" class="geo-verdict-box"></div>
-      </div>
+      ${isTaxi ? `
+        <div class="taxi-call-geo-box" style="background:#0f172a; border:2px solid #f59e0b; border-radius:12px; padding:16px; margin:16px 0; color:#fff;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+            <div>
+              <strong style="font-size:1.05rem; color:#f59e0b;"><i class="fa-solid fa-taxi"></i> ${this.nearestStop.radiotaxiName || 'Radiotaxi ' + this.nearestStop.area}</strong>
+              <div style="font-size:0.8rem; color:#94a3b8;"><i class="fa-solid fa-car"></i> Stalli e vetture attive h24</div>
+            </div>
+            <span class="live-sat-chip" style="background:#16a34a20; color:#4ade80; border:1px solid #16a34a;"><i class="fa-solid fa-phone"></i> Chiamata Rapida</span>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a href="tel:${this.nearestStop.phone || '+39063570'}" class="btn btn-success" style="flex:1; min-width:180px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; padding:10px 16px; border-radius:8px; text-decoration:none; color:#fff; background:#16a34a;">
+              <i class="fa-solid fa-phone-volume"></i> Chiama Taxi: ${this.nearestStop.phoneDisplay || '06 3570'}
+            </a>
+            <a href="https://wa.me/${(this.nearestStop.whatsapp || '+393471234567').replace(/\+/g, '')}?text=Salve,%20ho%20bisogno%20di%20un%20taxi%20presso%20${encodeURIComponent(this.nearestStop.name)}" target="_blank" class="btn btn-success" style="flex:1; min-width:180px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:700; padding:10px 16px; border-radius:8px; text-decoration:none; color:#fff; background:#25d366;">
+              <i class="fa-brands fa-whatsapp"></i> Invia Posizione WhatsApp
+            </a>
+          </div>
+        </div>
+      ` : `
+        <div class="geo-departures-wrapper">
+          <div class="geo-departures-title"><i class="fa-solid ${isTrain ? 'fa-train-subway' : (isTram ? 'fa-train-tram' : 'fa-bus')}"></i> ${isTrain ? 'Prossimi treni in partenza da questa stazione' : (isTram ? 'Prossimi tram alla banchina' : 'Prossime corse in partenza da questa fermata')}</div>
+          <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
+          <div id="geoVerdict" class="geo-verdict-box"></div>
+        </div>
+      `}
 
       <div class="geo-footer-actions" style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
         <button class="btn btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()" style="flex: 1;">
-          <i class="fa-solid fa-table-list"></i> Controlla Tutti gli Orari su Tabellone Live
+          <i class="fa-solid fa-table-list"></i> ${isTaxi ? 'Controlla Posteggio su Tabellone' : 'Controlla Tutti gli Orari su Tabellone Live'}
         </button>
         <button class="btn btn-outline" onclick="window.geoLocator.locateAndRoute()">
           <i class="fa-solid fa-rotate"></i> Aggiorna GPS

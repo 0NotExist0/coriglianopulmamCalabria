@@ -681,12 +681,18 @@ class RouteSearchEngine {
             <div class="trip-price-col">
               <div class="price-amount-box">
                 <span class="price-val">€${trip.totalPrice.toFixed(2)}</span>
-                <span class="price-sub">${passengers > 1 ? `€${trip.price.toFixed(2)} cad.` : 'Tariffa Totale'}</span>
+                <span class="price-sub">${typeof getActiveMode === 'function' && getActiveMode() === 'taxi' ? 'Stima a Tassametro' : (passengers > 1 ? `€${trip.price.toFixed(2)} cad.` : 'Tariffa Totale')}</span>
               </div>
-              <button class="btn btn-primary btn-book-trip btn-coming-soon" disabled>
-                <i class="fa-solid fa-check"></i> Prenota
-                <span class="coming-soon-badge">Coming Soon</span>
-              </button>
+              ${typeof getActiveMode === 'function' && getActiveMode() === 'taxi' ? `
+                <a href="tel:${origin.phone || '+39063570'}" class="btn btn-success btn-book-trip" style="background:#16a34a; text-decoration:none; color:#fff; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:800;">
+                  <i class="fa-solid fa-phone-volume"></i> Chiama Taxi
+                </a>
+              ` : `
+                <button class="btn btn-primary btn-book-trip btn-coming-soon" disabled>
+                  <i class="fa-solid fa-check"></i> Prenota
+                  <span class="coming-soon-badge">Coming Soon</span>
+                </button>
+              `}
             </div>
           </div>
 

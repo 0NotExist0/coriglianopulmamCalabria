@@ -2927,6 +2927,135 @@ body.mode-taxi {
   color: #ffffff !important;
 }
 
+/* ==========================================================================
+   TAXI DEDICATED CALL & DISPATCH BANNER STYLES
+   ========================================================================== */
+.taxi-dispatch-hero {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: var(--radius-lg, 16px);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.25);
+}
+
+.taxi-hero-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.taxi-company-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.taxi-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #f59e0b;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.taxi-company-title h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.taxi-company-title p {
+  margin: 2px 0 0 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.taxi-call-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-call-taxi-lg {
+  background: #16a34a;
+  color: #ffffff !important;
+  font-size: 1.05rem;
+  font-weight: 800;
+  padding: 12px 22px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(22, 163, 74, 0.4);
+  transition: all 0.2s ease;
+  border: 1px solid #22c55e;
+}
+
+.btn-call-taxi-lg:hover {
+  background: #15803d;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(22, 163, 74, 0.5);
+}
+
+.btn-wa-taxi-lg {
+  background: #25d366;
+  color: #ffffff !important;
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 12px 20px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+  transition: all 0.2s ease;
+  border: 1px solid #4ade80;
+}
+
+.btn-wa-taxi-lg:hover {
+  background: #1ebd5a;
+  transform: translateY(-2px);
+}
+
+.taxi-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.taxi-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+.taxi-stat-item i {
+  color: #f59e0b;
+  font-size: 1.1rem;
+}
+
+.taxi-stat-item strong {
+  color: #ffffff;
+}
+
 
 
 

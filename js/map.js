@@ -372,9 +372,17 @@ class TransitMapEngine {
             ${stop.features ? stop.features.map(f => `<span class="feat-pill"><i class="fa-solid fa-check"></i> ${f}</span>`).join('') : ''}
           </div>
 
-          <div class="map-popup-actions">
+          <div class="map-popup-actions" style="display: flex; flex-direction: column; gap: 6px;">
+            ${currentMode === 'taxi' ? `
+              <a href="tel:${stop.phone || '+39063570'}" class="btn btn-xs btn-success w-100" style="background:#16a34a; color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 10px; border-radius:6px; text-decoration:none;">
+                <i class="fa-solid fa-phone-volume"></i> Chiama Taxi: ${stop.phoneDisplay || '06 3570'}
+              </a>
+              <a href="https://wa.me/${(stop.whatsapp || '+393471234567').replace(/\+/g, '')}?text=Salve,%20desidero%20un%20taxi%20a%20${encodeURIComponent(stop.name)}" target="_blank" class="btn btn-xs btn-success w-100" style="background:#25d366; color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 10px; border-radius:6px; text-decoration:none;">
+                <i class="fa-brands fa-whatsapp"></i> Invia Posizione WhatsApp
+              </a>
+            ` : ''}
             <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'); } window.app.switchTab('live-board');">
-              <i class="fa-solid fa-clock"></i> Visualizza Partenze Live ${isTempInactive ? '(Fermata Ufficiale)' : ''}
+              <i class="fa-solid ${currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-clock')}"></i> ${currentMode === 'taxi' ? 'Dettagli Posteggio & Tariffe' : (currentMode === 'train' ? 'Tabellone Stazione FS' : 'Visualizza Partenze Live')} ${isTempInactive ? '(Fermata Ufficiale)' : ''}
             </button>
           </div>
         </div>
