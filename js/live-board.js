@@ -139,6 +139,8 @@ class LiveBoardEngine {
     this.departures = [];
 
     const currentRegion = typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria";
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const isTrain = currentMode === 'train';
     const lines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
     if (!lines || lines.length === 0) return;
 
@@ -152,12 +154,12 @@ class LiveBoardEngine {
       // Calcola ritardo simulato
       const delayMinutes = Math.random() > 0.7 ? Math.floor(Math.random() * 4) + 1 : 0;
       
-      // Banchina
+      // Banchina o Binario
       const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || 
-                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: 'Hub Principale' });
+                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isTrain ? 'Stazione Centrale' : 'Hub Principale' });
       const platform = (currentStop.platforms && currentStop.platforms.length > 0)
         ? currentStop.platforms[index % currentStop.platforms.length]
-        : "Banchina 1";
+        : (isTrain ? "Binario 1" : "Banchina 1");
 
       // Capienza simulata
       const occupancy = Math.floor(Math.random() * 45) + 30; // 30% - 75%
@@ -165,23 +167,31 @@ class LiveBoardEngine {
       // Destinazione principale della corsa
       const stopsList = line.stopsIds || line.stops || [];
       const destStopId = stopsList.length > 0 ? stopsList[stopsList.length - 1] : null;
-      const destStop = (destStopId && typeof getStopById === 'function' ? getStopById(destStopId) : null) || { name: "Capolinea" };
-      const vehicleId = "BUS-" + currentRegion.substring(0,3).toUpperCase() + "-" + (100 + index);
+      let destName = (destStopId && typeof getStopById === 'function' ? getStopById(destStopId)?.name : null);
+      if (!destName || destName === "Capolinea") {
+        if (line.name && line.name.includes(" - ")) {
+          destName = line.name.split(" - ").pop().split(" (")[0];
+        } else {
+          destName = isTrain ? "Stazione Terminus" : "Capolinea Centrale";
+        }
+      }
+      
+      const vehicleId = isTrain ? `CONVOGLIO-FS-${1000 + (index * 6)}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${100 + index}`;
 
       this.departures.push({
         id: `DEP_${Date.now()}_${index}`,
         lineId: line.id,
-        lineCode: line.code || line.shortName || `L-${index + 1}`,
+        lineCode: line.code || line.shortName || (isTrain ? `R-${index + 1}` : `L-${index + 1}`),
         lineName: line.name,
-        lineColor: line.color || "#0284c7",
-        lineType: line.type || "suburban",
-        destination: destStop.name,
+        lineColor: line.color || (isTrain ? "#dc2626" : "#0284c7"),
+        lineType: line.type || (isTrain ? "regional" : "suburban"),
+        destination: destName,
         viaInfo: line.fullName || line.name,
         scheduledTime: depDate,
         delayMinutes: delayMinutes,
         platform: platform,
-        busModel: line.busModel || "Autobus Climatizzato Euro 6",
-        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : 2.50,
+        busModel: line.busModel || (isTrain ? "Treno Elettrico Pop ETR 104" : "Autobus Climatizzato Euro 6"),
+        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isTrain ? 4.50 : 2.50),
         occupancy: occupancy,
         vehicleId: vehicleId,
         isAcquiring: false
@@ -201,6 +211,8 @@ class LiveBoardEngine {
     });
 
     const currentRegion = typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria";
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const isTrain = currentMode === 'train';
     const lines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
     if (!lines || lines.length === 0) return;
 
@@ -214,26 +226,36 @@ class LiveBoardEngine {
       const line = lines[Math.floor(Math.random() * lines.length)];
       const stopsArr = line.stopsIds || line.stops || [];
       const destStopId = stopsArr.length > 0 ? stopsArr[stopsArr.length - 1] : null;
-      const destStop = (destStopId && typeof getStopById === 'function' ? getStopById(destStopId) : null) || { name: "Capolinea" };
+      let destName = (destStopId && typeof getStopById === 'function' ? getStopById(destStopId)?.name : null);
+      if (!destName || destName === "Capolinea") {
+        if (line.name && line.name.includes(" - ")) {
+          destName = line.name.split(" - ").pop().split(" (")[0];
+        } else {
+          destName = isTrain ? "Stazione Terminus" : "Capolinea Centrale";
+        }
+      }
+
       const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || 
-                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: 'Hub Principale' });
-      const platform = (currentStop && currentStop.platforms) ? currentStop.platforms[0] : "Banchina 1";
-      const vehicleId = "BUS-" + currentRegion.substring(0,3).toUpperCase() + "-" + (Math.floor(Math.random() * 80) + 100);
+                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isTrain ? 'Stazione Centrale' : 'Hub Principale' });
+      const platform = (currentStop && currentStop.platforms && currentStop.platforms.length > 0)
+        ? currentStop.platforms[Math.floor(Math.random() * currentStop.platforms.length)]
+        : (isTrain ? "Binario 1" : "Banchina 1");
+      const vehicleId = isTrain ? `CONVOGLIO-FS-${Math.floor(Math.random() * 800) + 1000}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${Math.floor(Math.random() * 80) + 100}`;
 
       this.departures.push({
         id: `DEP_${Date.now()}_${Math.floor(Math.random()*1000)}`,
         lineId: line.id,
-        lineCode: line.code || line.shortName || "L-BUS",
+        lineCode: line.code || line.shortName || (isTrain ? "R-FS" : "L-BUS"),
         lineName: line.name,
-        lineColor: line.color || "#0284c7",
-        lineType: line.type || "suburban",
-        destination: destStop.name,
+        lineColor: line.color || (isTrain ? "#dc2626" : "#0284c7"),
+        lineType: line.type || (isTrain ? "regional" : "suburban"),
+        destination: destName,
         viaInfo: line.fullName || line.name,
         scheduledTime: nextTime,
         delayMinutes: 0,
         platform: platform,
-        busModel: line.busModel || "Autobus Climatizzato Euro 6",
-        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : 2.50,
+        busModel: line.busModel || (isTrain ? "Treno Elettrico Pop ETR 104" : "Autobus Climatizzato Euro 6"),
+        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isTrain ? 4.50 : 2.50),
         occupancy: Math.floor(Math.random() * 50) + 20,
         vehicleId: vehicleId,
         isAcquiring: false

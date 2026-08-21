@@ -332,22 +332,33 @@ class TransitMapEngine {
       const stops = line.stopsIds.map(sId => getStopById(sId)).filter(Boolean);
       if (stops.length < 2) return;
 
+      const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
+      const isTrain = currentMode === "train" || line.type === "av";
+      
+      let baseSpeed = Math.floor(Math.random() * 25) + 30;
+      if (isTrain) {
+        baseSpeed = line.type === "av" ? (Math.floor(Math.random() * 35) + 265) : (Math.floor(Math.random() * 30) + 120);
+      }
+
       const busState = {
-        id: `BUS_${line.id}_${idx}`,
+        id: `${isTrain ? 'TRAIN' : 'BUS'}_${line.id}_${idx}`,
         line: line,
         stops: stops,
         currentSegmentIdx: 0,
         progress: Math.random(), 
-        speedKmh: Math.floor(Math.random() * 25) + 30, 
+        speedKmh: baseSpeed, 
+        isTrain: isTrain,
         marker: null
       };
 
       const startLat = stops[0].lat_actual || stops[0].lat;
       const startLng = stops[0].lng_actual || stops[0].lng;
 
+      const vehicleIconClass = isTrain ? (line.type === 'av' ? 'fa-train-subway' : 'fa-train') : 'fa-bus';
+
       const busIconHtml = `
-        <div class="custom-bus-marker" style="background-color: ${line.color}; box-shadow: 0 0 12px ${line.color}80;">
-          <i class="fa-solid fa-bus"></i>
+        <div class="custom-bus-marker ${isTrain ? 'custom-train-marker' : ''}" style="background-color: ${line.color}; box-shadow: 0 0 14px ${line.color}90;">
+          <i class="fa-solid ${vehicleIconClass}"></i>
           <span class="bus-badge-num">${line.code}</span>
         </div>
       `;
@@ -398,7 +409,8 @@ class TransitMapEngine {
     const nextStop = bus.stops[bus.currentSegmentIdx + 1] || bus.stops[0];
     const speed = bus.speedKmh + Math.floor(Math.random() * 5) - 2;
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-    const sourceInfo = window.realtimeTransit ? window.realtimeTransit.getActiveSourceForRegion(currentRegion) : { agency: "GTFS-RT / Transit.land", type: "GPS Live" };
+    const isTrain = bus.isTrain;
+    const sourceInfo = isTrain ? { agency: "ViaggiaTreno / RFI", type: "ViaggiaTreno Live" } : (window.realtimeTransit ? window.realtimeTransit.getActiveSourceForRegion(currentRegion) : { agency: "GTFS-RT / Transit.land", type: "GPS Live" });
 
     bus.marker.bindTooltip(`
       <div class="bus-live-tooltip">
@@ -409,7 +421,7 @@ class TransitMapEngine {
           <span class="live-sat-chip" style="font-size: 0.65rem; padding: 2px 6px;"><i class="fa-solid fa-satellite"></i> ${sourceInfo.type}</span>
         </div>
         <span class="text-muted"><i class="fa-solid fa-gauge-high"></i> Velocità: <strong>${speed} km/h</strong></span><br>
-        <span><i class="fa-solid fa-arrow-right"></i> Prossima Fermata: <strong>${nextStop.name.split(' - ')[0]}</strong></span>
+        <span><i class="fa-solid fa-arrow-right"></i> Prossima Stazione: <strong>${nextStop.name.split(' (')[0]}</strong></span>
       </div>
     `, {
       direction: 'top',

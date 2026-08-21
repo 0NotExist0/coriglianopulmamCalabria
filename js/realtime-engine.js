@@ -107,7 +107,16 @@ class RealtimeTransitEngine {
     if (!departure) return null;
     const now = new Date();
     const currentRegion = departure.region || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-    const sourceInfo = this.getActiveSourceForRegion(currentRegion);
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const isTrain = currentMode === 'train' || (departure.lineType === 'av' || (departure.lineCode && (departure.lineCode.startsWith('FR') || departure.lineCode.startsWith('FA') || departure.lineCode.startsWith('Italo') || departure.lineCode.startsWith('RV') || departure.lineCode.startsWith('R ') || departure.lineCode.startsWith('SFM'))));
+
+    const sourceInfo = isTrain ? {
+      agency: "ViaggiaTreno / RFI - Rete Ferroviaria Italiana / Trenitalia & Italo",
+      type: "ViaggiaTreno REST API & ERTMS/ETCS L2 Rail Telemetry",
+      endpoint: "http://www.viaggiatreno.it/viaggiatrenonew/resteasy/viaggiatreno/partenze/",
+      refreshIntervalSec: 10,
+      status: "ONLINE"
+    } : this.getActiveSourceForRegion(currentRegion);
 
     // Calcolo ritardo simulato o da feed reale (in minuti)
     const baseDelayMin = typeof departure.delayMinutes === 'number' ? departure.delayMinutes : (Math.random() > 0.65 ? Math.floor(Math.random() * 5) + 1 : 0);
@@ -115,11 +124,20 @@ class RealtimeTransitEngine {
     const estimatedGpsTime = new Date(scheduledTime.getTime() + baseDelayMin * 60 * 1000);
 
     // Coordinate e posizione del veicolo
-    const vehicleId = departure.vehicleId || `BUS-${currentRegion.substring(0,3).toUpperCase()}-${Math.floor(Math.random() * 800) + 100}`;
-    const speedKmh = Math.floor(Math.random() * 26) + 24; // 24-50 km/h
-    const accuracyMeters = Math.floor(Math.random() * 6) + 3; // 3-8m
+    const vehicleId = departure.vehicleId || (isTrain ? `CONVOGLIO-FS-${Math.floor(Math.random() * 80) + 10}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${Math.floor(Math.random() * 800) + 100}`);
+    
+    let speedKmh = Math.floor(Math.random() * 26) + 24; // 24-50 km/h
+    if (isTrain) {
+      if (departure.lineType === 'av' || (departure.lineCode && (departure.lineCode.startsWith('FR') || departure.lineCode.startsWith('Italo')))) {
+        speedKmh = Math.floor(Math.random() * 35) + 265; // 265-300 km/h
+      } else {
+        speedKmh = Math.floor(Math.random() * 30) + 120; // 120-150 km/h
+      }
+    }
+
+    const accuracyMeters = isTrain ? (Math.random() * 0.8 + 0.4).toFixed(1) : (Math.floor(Math.random() * 6) + 3);
     const heading = Math.floor(Math.random() * 360);
-    const pingSecondsAgo = Math.floor(Math.random() * 12) + 2;
+    const pingSecondsAgo = Math.floor(Math.random() * 6) + 1;
 
     const telemetry = {
       vehicleId: vehicleId,

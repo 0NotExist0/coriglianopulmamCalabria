@@ -363,12 +363,16 @@ class GeoLocatorEngine {
       ? (meters / 1000).toFixed(2) + " km"
       : Math.round(meters) + " m";
     const walkMin = Math.max(1, Math.round(seconds / 60));
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const isTrain = currentMode === 'train';
 
     this.panel.innerHTML = `
       <div class="geo-route-head">
         <div>
-          <h3 style="margin:0; font-size:1.15rem; color:var(--brand-primary);"><i class="fa-solid fa-route"></i> Percorso alla Fermata Più Vicina</h3>
-          <small class="text-muted">Tracciato pedonale con stima tempi di arrivo e countdown live</small>
+          <h3 style="margin:0; font-size:1.15rem; color:var(--brand-primary);">
+            <i class="fa-solid ${isTrain ? 'fa-train' : 'fa-route'}"></i> ${isTrain ? 'Percorso alla Stazione Ferroviaria Più Vicina' : 'Percorso alla Fermata Più Vicina'}
+          </h3>
+          <small class="text-muted">${isTrain ? 'Tracciato pedonale verso la stazione con orari ViaggiaTreno e countdown' : 'Tracciato pedonale con stima tempi di arrivo e countdown live'}</small>
         </div>
         <div>
           <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()">
@@ -379,7 +383,7 @@ class GeoLocatorEngine {
 
       <div class="geo-stats-grid">
         <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-map-pin"></i> Fermata Rilevata</span>
+          <span class="geo-stat-label"><i class="fa-solid ${isTrain ? 'fa-train' : 'fa-map-pin'}"></i> ${isTrain ? 'Stazione Rilevata' : 'Fermata Rilevata'}</span>
           <strong class="geo-stat-val">${this.nearestStop.name}</strong>
           <small class="text-muted">${this.nearestStop.address || this.nearestStop.area}</small>
         </div>
@@ -401,7 +405,7 @@ class GeoLocatorEngine {
       </div>
 
       <div class="geo-departures-wrapper">
-        <div class="geo-departures-title"><i class="fa-solid fa-bus"></i> Prossime corse in partenza da questa fermata</div>
+        <div class="geo-departures-title"><i class="fa-solid ${isTrain ? 'fa-train-subway' : 'fa-bus'}"></i> ${isTrain ? 'Prossimi treni in partenza da questa stazione' : 'Prossime corse in partenza da questa fermata'}</div>
         <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
         <div id="geoVerdict" class="geo-verdict-box"></div>
       </div>
