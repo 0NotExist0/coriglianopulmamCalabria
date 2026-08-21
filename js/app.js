@@ -164,6 +164,115 @@ class AppController {
     if (brandIcon) {
       brandIcon.innerHTML = `<i class="fa-solid ${modeData.icon}"></i>`;
     }
+
+    // Adatta testi di tutte le schede (Live Board, Cerca, Mappa, Flotta, Tariffe)
+    const MODE_TEXTS = {
+      pullman: {
+        navLive: '<i class="fa-solid fa-clock"></i> Tabellone Live',
+        navSearch: '<i class="fa-solid fa-magnifying-glass-location"></i> Cerca & Prenota',
+        navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS',
+        navFleet: '<i class="fa-solid fa-truck-front"></i> Flotta Mezzi',
+        navTariffs: '<i class="fa-solid fa-tags"></i> Tariffe & Abbonamenti',
+        stopLabel: '<i class="fa-solid fa-bus"></i> Fermata:',
+        liveBoardHeading: 'Tabellone Partenze Pullman Live',
+        liveBoardSub: 'Orari in tempo reale, banchine, ritardi e telemetria satellitare GPS',
+        searchHeading: 'Cerca Tratte & Biglietteria Pullman',
+        searchSub: 'Pianifica il tuo viaggio in autobus tra oltre 48.000 fermate in tutta Italia',
+        searchBtn: '<i class="fa-solid fa-magnifying-glass"></i> Cerca Corse Pullman',
+        gpsBtn: '<i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia il Percorso alla Fermata',
+        checkDeparturesBtn: '<i class="fa-solid fa-location-crosshairs"></i> Controlla Partenze dalla Mia Posizione'
+      },
+      train: {
+        navLive: '<i class="fa-solid fa-clock"></i> Tabellone Stazione FS',
+        navSearch: '<i class="fa-solid fa-ticket"></i> Biglietteria Treni FS',
+        navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Ferroviaria GPS',
+        navFleet: '<i class="fa-solid fa-train-subway"></i> Materiale Rotabile FS',
+        navTariffs: '<i class="fa-solid fa-tags"></i> Tariffe FS & Frecce',
+        stopLabel: '<i class="fa-solid fa-train"></i> Stazione FS:',
+        liveBoardHeading: 'Tabellone Stazione Ferroviaria Live (RFI / ViaggiaTreno)',
+        liveBoardSub: 'Partenze in tempo reale, binari effettivi, ritardi satellitari e composizione treni',
+        searchHeading: 'Cerca Treni, Orari & Biglietteria Nazionale FS',
+        searchSub: 'Pianifica collegamenti Alta Velocità, Intercity e Regionali in tutta Italia',
+        searchBtn: '<i class="fa-solid fa-ticket"></i> Cerca Treni & Orari FS',
+        gpsBtn: '<i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia Percorso alla Stazione',
+        checkDeparturesBtn: '<i class="fa-solid fa-location-crosshairs"></i> Controlla Treni dalla Mia Posizione'
+      },
+      tram: {
+        navLive: '<i class="fa-solid fa-clock"></i> Tabellone Rete Tram',
+        navSearch: '<i class="fa-solid fa-route"></i> Linee Tram Urbane',
+        navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Rete Tram',
+        navFleet: '<i class="fa-solid fa-train-tram"></i> Parco Vetture Tram',
+        navTariffs: '<i class="fa-solid fa-tags"></i> Tariffe Rete Tram',
+        stopLabel: '<i class="fa-solid fa-train-tram"></i> Fermata Tram:',
+        liveBoardHeading: 'Tabellone Live Fermate Rete Tram',
+        liveBoardSub: 'Passaggi in tempo reale alle banchine e frequenze tranviarie',
+        searchHeading: 'Pianifica Spostamenti su Rete Tramviaria',
+        searchSub: 'Trova le linee tram urbane, coincidenze e passaggi in tempo reale',
+        searchBtn: '<i class="fa-solid fa-route"></i> Trova Linee Tram',
+        gpsBtn: '<i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia Fermata Tram',
+        checkDeparturesBtn: '<i class="fa-solid fa-location-crosshairs"></i> Controlla Tram dalla Mia Posizione'
+      },
+      taxi: {
+        navLive: '<i class="fa-solid fa-clock"></i> Posteggi Taxi Live',
+        navSearch: '<i class="fa-solid fa-phone"></i> Chiama / Prenota Taxi',
+        navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Posteggi Taxi',
+        navFleet: '<i class="fa-solid fa-car"></i> Parco Auto Taxi',
+        navTariffs: '<i class="fa-solid fa-calculator"></i> Tariffe Tassametro Taxi',
+        stopLabel: '<i class="fa-solid fa-taxi"></i> Posteggio Taxi:',
+        liveBoardHeading: 'Posteggi Taxi Live & Vetture in Attesa H24',
+        liveBoardSub: 'Stalli taxi con colonnina di chiamata, vetture disponibili e tariffe precalcolate',
+        searchHeading: 'Calcola Preventivo Corsa & Prenota Taxi',
+        searchSub: 'Stima del costo a tassametro, tariffe fisse aeroportuali e chiamata radiotaxi immediata',
+        searchBtn: '<i class="fa-solid fa-calculator"></i> Calcola Tariffa Taxi & Chiama',
+        gpsBtn: '<i class="fa-solid fa-location-crosshairs"></i> Localizzami & Trova Posteggio Taxi Più Vicino',
+        checkDeparturesBtn: '<i class="fa-solid fa-location-crosshairs"></i> Trova Taxi Più Vicino a Me'
+      }
+    };
+
+    const t = MODE_TEXTS[mode] || MODE_TEXTS.pullman;
+
+    // Aggiorna Desktop Nav Links
+    const linkLive = document.querySelector('.desktop-nav [data-tab="live-board"]');
+    if (linkLive) linkLive.innerHTML = t.navLive;
+
+    const linkSearch = document.querySelector('.desktop-nav [data-tab="search"]');
+    if (linkSearch) linkSearch.innerHTML = t.navSearch;
+
+    const linkMap = document.querySelector('.desktop-nav [data-tab="map"]');
+    if (linkMap) linkMap.innerHTML = t.navMap;
+
+    const linkFleet = document.querySelector('.desktop-nav [data-tab="fleet"]');
+    if (linkFleet) linkFleet.innerHTML = t.navFleet;
+
+    const linkTariffs = document.querySelector('.desktop-nav [data-tab="tariffs"]');
+    if (linkTariffs) linkTariffs.innerHTML = t.navTariffs;
+
+    // Aggiorna Mobile Drawer Links
+    const mLive = document.querySelector('.drawer-nav [data-tab="live-board"]');
+    if (mLive) mLive.innerHTML = t.navLive;
+
+    const mSearch = document.querySelector('.drawer-nav [data-tab="search"]');
+    if (mSearch) mSearch.innerHTML = t.navSearch;
+
+    const mMap = document.querySelector('.drawer-nav [data-tab="map"]');
+    if (mMap) mMap.innerHTML = t.navMap;
+
+    const mFleet = document.querySelector('.drawer-nav [data-tab="fleet"]');
+    if (mFleet) mFleet.innerHTML = t.navFleet;
+
+    const mTariffs = document.querySelector('.drawer-nav [data-tab="tariffs"]');
+    if (mTariffs) mTariffs.innerHTML = t.navTariffs;
+
+    // Aggiorna label selettore header
+    const stopLabelEl = document.querySelector('label[for="hubStopSelect"]');
+    if (stopLabelEl) stopLabelEl.innerHTML = t.stopLabel;
+
+    // Aggiorna bottoni GPS
+    const btnLocateRoute = document.getElementById("btnLocateRoute");
+    if (btnLocateRoute) btnLocateRoute.innerHTML = t.gpsBtn;
+
+    const btnCheckNearest = document.getElementById("btnCheckNearestDepartures");
+    if (btnCheckNearest) btnCheckNearest.innerHTML = t.checkDeparturesBtn;
   }
 
   populateLocationSelectors() {

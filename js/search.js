@@ -515,20 +515,33 @@ class RouteSearchEngine {
       const origRegion = getRegionById(originStop.region);
       const destRegion = getRegionById(destStop.region);
       const origHub = getMainHubForRegion(originStop.region) || originStop;
-      const destHub = getMainHubForRegion(destStop.region) || destStop;
+      const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
+      const isTrain = currentMode === "train";
 
       for (let i = 0; i < 3; i++) {
         const depMinutes = reqBaseMinutes + i * 90;
-        const totalDuration = 180 + (Math.abs(originStop.lat - destStop.lat) * 25);
+        let totalDuration = 180 + (Math.abs(originStop.lat - destStop.lat) * 25);
+        if (isTrain) {
+          totalDuration = Math.round(totalDuration * 0.45); // AV è molto più veloce
+        }
+
         const depH = Math.floor(depMinutes / 60) % 24;
         const depM = depMinutes % 60;
         const arrMinutes = depMinutes + totalDuration;
         const arrH = Math.floor(arrMinutes / 60) % 24;
         const arrM = Math.floor(arrMinutes % 60);
 
-        const price = Math.round(18.00 + (Math.abs(originStop.lat - destStop.lat) * 4.50));
+        const price = isTrain 
+          ? Math.round(29.00 + (Math.abs(originStop.lat - destStop.lat) * 6.50))
+          : Math.round(18.00 + (Math.abs(originStop.lat - destStop.lat) * 4.50));
 
-        const interLine = {
+        const interLine = isTrain ? {
+          code: `FR-${9000 + i * 15}`,
+          name: `Frecciarossa AV Nazionale ${origRegion?.name || ''} ⇄ ${destRegion?.name || ''}`,
+          color: "#dc2626",
+          operator: "Trenitalia Frecciarossa AV & Italo NTV",
+          busModel: "Frecciarossa 1000 (ETR 1000 - 300 km/h)"
+        } : {
           code: `NAT-${origRegion?.name.substring(0,2).toUpperCase() || 'IT'}${destRegion?.name.substring(0,2).toUpperCase() || 'IT'}`,
           name: `Autolinea Nazionale ${origRegion?.name || ''} ⇄ ${destRegion?.name || ''}`,
           color: "#0284c7",
@@ -555,7 +568,7 @@ class RouteSearchEngine {
           durationMinutes: Math.round(totalDuration),
           price: price,
           totalPrice: price * passengers,
-          freeSeats: 18,
+          freeSeats: isTrain ? 42 : 18,
           passengers: passengers,
           dateStr: dateStr,
           intermediateStops: intermediateStops,
