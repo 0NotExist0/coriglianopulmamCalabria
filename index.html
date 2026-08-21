@@ -460,9 +460,14 @@
             <h2><i class="fa-solid fa-satellite-dish text-primary"></i> Tabellone Partenze & Arrivi in Tempo Reale</h2>
             <p>Conto alla rovescia al secondo, stato del servizio, banchina e modello veicolo per ciascuna linea.</p>
           </div>
-          <button class="btn btn-sm btn-outline" id="toggleSoundBtn">
-            <i class="fa-solid fa-volume-xmark"></i> Attiva Annunci Audio
-          </button>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-primary btn-gps-check-departures" id="btnCheckNearestDepartures" onclick="if (window.liveBoard) window.liveBoard.checkNearestDepartures()">
+              <i class="fa-solid fa-location-crosshairs"></i> Controlla Partenze dalla Mia Posizione
+            </button>
+            <button class="btn btn-sm btn-outline" id="toggleSoundBtn">
+              <i class="fa-solid fa-volume-xmark"></i> Attiva Annunci Audio
+            </button>
+          </div>
         </div>
 
         <!-- Barra di Controllo Tabellone -->

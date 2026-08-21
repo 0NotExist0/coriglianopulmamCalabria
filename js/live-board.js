@@ -344,6 +344,108 @@ class LiveBoardEngine {
         if (this.audioEnabled) this.playChime();
       });
     }
+
+    // Bottone Controlla Partenze dalla Mia Posizione GPS
+    const gpsCheckBtn = document.getElementById("btnCheckNearestDepartures");
+    if (gpsCheckBtn) {
+      gpsCheckBtn.addEventListener("click", () => this.checkNearestDepartures());
+    }
+  }
+
+  checkNearestDepartures() {
+    if (!navigator.geolocation) {
+      alert("Geolocalizzazione non supportata dal tuo dispositivo o browser.");
+      return;
+    }
+
+    const btn = document.getElementById("btnCheckNearestDepartures");
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Individuo la fermata più vicina...`;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-location-crosshairs"></i> Controlla Partenze dalla Mia Posizione`;
+        }
+
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const allStops = typeof getStopsByRegion === 'function' ? getStopsByRegion('all') : [];
+        if (!allStops || allStops.length === 0) {
+          alert("Nessuna fermata trovata nel database.");
+          return;
+        }
+
+        let bestStop = null;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < allStops.length; i++) {
+          const s = allStops[i];
+          const dist = typeof calculateDistanceMeters === 'function' 
+            ? calculateDistanceMeters(lat, lng, s.lat, s.lng) 
+            : 999999;
+          if (dist < minDistance) {
+            minDistance = dist;
+            bestStop = s;
+          }
+        }
+
+        if (!bestStop) {
+          alert("Impossibile individuare la fermata più vicina.");
+          return;
+        }
+
+        // Se la fermata è in un'altra regione, sincronizza la regione
+        const currentRegion = typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria";
+        if (bestStop.region && bestStop.region !== currentRegion) {
+          if (typeof safeStorageSet === 'function') safeStorageSet("italiabus_region", bestStop.region);
+          const regSelect = document.getElementById("globalRegionSelect");
+          if (regSelect) {
+            regSelect.value = bestStop.region;
+            regSelect.dispatchEvent(new Event("change"));
+          }
+        }
+
+        this.activeStopId = bestStop.id;
+        if (typeof safeStorageSet === 'function') safeStorageSet("italiabus_stop", bestStop.id);
+        
+        // Salva i dati GPS per il banner
+        this.gpsNearestInfo = {
+          stop: bestStop,
+          distanceMeters: minDistance,
+          walkTimeMin: Math.max(1, Math.round(minDistance / 80)),
+          timestamp: new Date()
+        };
+
+        this.populateStopSelect();
+        if (this.filterHubSelect) this.filterHubSelect.value = bestStop.id;
+        
+        const stopHeaderSelect = document.getElementById("hubStopSelect");
+        if (stopHeaderSelect) stopHeaderSelect.value = bestStop.id;
+
+        this.generateInitialDepartures();
+        this.render();
+
+        // Scroll liscio verso la lista partenze
+        const targetEl = document.getElementById("liveBoardList");
+        if (targetEl) targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+      (err) => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<i class="fa-solid fa-location-crosshairs"></i> Controlla Partenze dalla Mia Posizione`;
+        }
+        let msg = "Impossibile ottenere la posizione GPS.";
+        if (err.code === 1) msg = "Permesso di geolocalizzazione negato. Abilita il GPS nelle impostazioni del browser.";
+        else if (err.code === 2) msg = "Posizione GPS non disponibile al momento.";
+        else if (err.code === 3) msg = "Timeout nella ricezione del segnale GPS. Riprova all'aperto.";
+        alert(msg);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 }
+    );
   }
 
   playChime() {
@@ -454,6 +556,28 @@ class LiveBoardEngine {
           </div>
         </div>
       </div>
+
+      ${this.gpsNearestInfo && this.gpsNearestInfo.stop && this.gpsNearestInfo.stop.id === currentStop.id ? `
+        <div class="live-board-gps-banner">
+          <div class="gps-banner-content">
+            <div class="gps-icon-circle pulse">
+              <i class="fa-solid fa-location-crosshairs"></i>
+            </div>
+            <div>
+              <h4>📍 Partenze Live dalla Fermata Più Vicina al Tuo GPS</h4>
+              <p>Fermata rilevata: <strong>${this.gpsNearestInfo.stop.name}</strong> &bull; Distanza: <strong>${this.gpsNearestInfo.distanceMeters >= 1000 ? (this.gpsNearestInfo.distanceMeters / 1000).toFixed(2) + ' km' : this.gpsNearestInfo.distanceMeters + ' m'}</strong> &bull; Tempo a piedi: <strong>~${this.gpsNearestInfo.walkTimeMin} min</strong></p>
+            </div>
+          </div>
+          <div class="gps-banner-actions">
+            <button type="button" class="btn btn-sm btn-outline-light" onclick="if(window.transitMap){window.transitMap.locateUser();if(window.app)window.app.switchTab('map');}">
+              <i class="fa-solid fa-map-location-dot"></i> Vedi Percorso su Mappa
+            </button>
+            <button type="button" class="btn btn-sm btn-light" onclick="window.liveBoard.checkNearestDepartures()">
+              <i class="fa-solid fa-rotate"></i> Aggiorna GPS
+            </button>
+          </div>
+        </div>
+      ` : ''}
 
       ${isTemp && isTempInactive ? `
         <div class="board-temporary-notice-banner">
