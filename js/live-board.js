@@ -487,9 +487,24 @@ class LiveBoardEngine {
         this.activeStopId = bestStop.id;
         if (typeof safeStorageSet === 'function') safeStorageSet("italiabus_stop", bestStop.id);
         
+        const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+        let nearestTaxiDriver = null;
+
+        if (currentMode === 'taxi') {
+          const activeReg = bestStop.region || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+          const discovery = (typeof window.findTaxiNearCityOrLocation === 'function')
+            ? window.findTaxiNearCityOrLocation('', activeReg, { lat, lng })
+            : null;
+          if (discovery && discovery.businesses && discovery.businesses.length > 0) {
+            nearestTaxiDriver = discovery.businesses[0];
+          }
+        }
+
         // Salva i dati GPS per il banner
         this.gpsNearestInfo = {
           stop: bestStop,
+          driver: nearestTaxiDriver,
+          userCoords: { lat, lng },
           distanceMeters: minDistance,
           walkTimeMin: Math.max(1, Math.round(minDistance / 80)),
           timestamp: new Date()
@@ -651,6 +666,30 @@ class LiveBoardEngine {
               <i class="fa-solid fa-arrow-up-right-from-square"></i> Apri su Google Search
             </a>
           </div>
+
+          ${this.gpsNearestInfo && this.gpsNearestInfo.driver ? `
+            <!-- BANNER TASSISTA PIÙ VICINO RILEVATO DA GPS -->
+            <div class="taxi-gps-detected-banner" style="background: linear-gradient(135deg, rgba(245,158,11,0.18), rgba(22,163,74,0.18)); border: 2px solid #f59e0b; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: #f59e0b; color: #0f172a; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 800; flex-shrink: 0; box-shadow: 0 4px 12px rgba(245,158,11,0.5);">
+                  <i class="fa-solid fa-taxi"></i>
+                </div>
+                <div>
+                  <div style="font-size: 0.75rem; font-weight: 800; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.05em;"><i class="fa-solid fa-location-crosshairs"></i> Tassista Più Vicino Rilevato dal Tuo GPS</div>
+                  <strong style="font-size: 1.15rem; color: #ffffff;">${this.gpsNearestInfo.driver.name}</strong>
+                  <div style="font-size: 0.825rem; color: #cbd5e1;">Distanza: <strong style="color: #4ade80;">${this.gpsNearestInfo.distanceMeters >= 1000 ? (this.gpsNearestInfo.distanceMeters/1000).toFixed(1) + ' km' : Math.round(this.gpsNearestInfo.distanceMeters) + ' m'}</strong> &bull; Arrivo stimato: <strong style="color: #4ade80;">~${this.gpsNearestInfo.walkTimeMin} min</strong></div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <a href="tel:${this.gpsNearestInfo.driver.phone}" class="btn btn-sm btn-success" style="background:#16a34a; color:#fff; font-weight:800; padding:10px 16px; border-radius:8px; display:flex; align-items:center; gap:6px; text-decoration:none; box-shadow:0 4px 10px rgba(22,163,74,0.4);">
+                  <i class="fa-solid fa-phone-volume"></i> Chiama Subito: ${this.gpsNearestInfo.driver.phoneDisplay}
+                </a>
+                <a href="https://wa.me/${(this.gpsNearestInfo.driver.whatsapp || this.gpsNearestInfo.driver.phone).replace(/[^0-9]/g, '')}?text=Salve,%20ho%20bisogno%20di%20un%20taxi%20subito%20alla%20mia%20posizione%20GPS" target="_blank" class="btn btn-sm btn-success" style="background:#25d366; color:#fff; font-weight:700; padding:10px 14px; border-radius:8px; display:flex; align-items:center; gap:6px; text-decoration:none;">
+                  <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                </a>
+              </div>
+            </div>
+          ` : ''}
 
           <!-- LISTA ATTIVITÀ LOCALI TROVATE (NCC & TAXI) -->
           <div class="google-businesses-list">
