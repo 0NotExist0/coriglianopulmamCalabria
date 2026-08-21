@@ -89,37 +89,8 @@ class LiveBoardEngine {
     const stopLabel = document.querySelector('label[for="boardStopFilter"]');
     const searchInput = document.getElementById("boardSearchInput");
 
-    if (currentMode === 'taxi') {
-      if (tabsBar) tabsBar.style.display = "none";
-      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-taxi text-warning"></i> Seleziona Posteggio Taxi:';
-      if (searchInput) searchInput.placeholder = "Cerca posteggio o comune taxi...";
-    } else if (currentMode === 'train') {
-      if (tabsBar) {
-        tabsBar.style.display = "flex";
-        tabsBar.innerHTML = `
-          <button class="board-tab-btn active" data-category="all">Tutti i Treni</button>
-          <button class="board-tab-btn" data-category="regional">🚄 Alta Velocità (AV)</button>
-          <button class="board-tab-btn" data-category="urban">🚆 Regionali & Rock</button>
-          <button class="board-tab-btn" data-category="mare">✈️ Aeroportuali</button>
-          <button class="board-tab-btn" data-category="unical">🏔️ Intercity</button>
-        `;
-        this.rebindCategoryTabs();
-      }
-      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-train text-danger"></i> Seleziona Stazione FS:';
-      if (searchInput) searchInput.placeholder = "Cerca treno, numero convoglio o destinazione...";
-    } else if (currentMode === 'tram') {
-      if (tabsBar) {
-        tabsBar.style.display = "flex";
-        tabsBar.innerHTML = `
-          <button class="board-tab-btn active" data-category="all">Tutte le Linee Tram</button>
-          <button class="board-tab-btn" data-category="urban">🚋 Urbano Centro</button>
-          <button class="board-tab-btn" data-category="regional">🌿 Linee Periferia</button>
-        `;
-        this.rebindCategoryTabs();
-      }
-      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-train-tram text-success"></i> Seleziona Fermata Tram:';
-      if (searchInput) searchInput.placeholder = "Cerca linea tram o banchina...";
-    } else {
+    // I filtri categoria (.board-tabs-bar) DEVONO RIMANERE ESCLUSIVAMENTE PER I PULLMAN
+    if (currentMode === 'pullman') {
       if (tabsBar) {
         tabsBar.style.display = "flex";
         tabsBar.innerHTML = `
@@ -131,8 +102,23 @@ class LiveBoardEngine {
         `;
         this.rebindCategoryTabs();
       }
-      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-map-pin"></i> Seleziona Fermata / Hub:';
-      if (searchInput) searchInput.placeholder = "Cerca linea o destinazione...";
+      if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-bus"></i> Seleziona Fermata / Autostazione:';
+      if (searchInput) searchInput.placeholder = "Cerca linea o destinazione pullman...";
+    } else {
+      // Per Taxi, Treni e Tram: NASCONDI COMPLETAMENTE la barra dei filtri pullman!
+      if (tabsBar) tabsBar.style.display = "none";
+      this.activeCategory = "all";
+
+      if (currentMode === 'taxi') {
+        if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-taxi text-warning"></i> Seleziona Posteggio Taxi:';
+        if (searchInput) searchInput.placeholder = "Cerca posteggio o ditta taxi...";
+      } else if (currentMode === 'train') {
+        if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-train text-danger"></i> Seleziona Stazione FS:';
+        if (searchInput) searchInput.placeholder = "Cerca treno, convoglio o destinazione...";
+      } else if (currentMode === 'tram') {
+        if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-train-tram text-success"></i> Seleziona Fermata Tram:';
+        if (searchInput) searchInput.placeholder = "Cerca linea tram o fermata...";
+      }
     }
   }
 
@@ -567,20 +553,24 @@ class LiveBoardEngine {
   }
 
   getFilteredDepartures() {
-    return this.departures.filter(dep => {
-      // Filtro categoria
-      if (this.activeCategory === "urban" && dep.lineType !== "urban") return false;
-      if (this.activeCategory === "suburban" && dep.lineType !== "suburban") return false;
-      if (this.activeCategory === "regional" && dep.lineType !== "regional") return false;
-      if (this.activeCategory === "unical" && !dep.lineId.includes("UNI")) return false;
-      if (this.activeCategory === "mare" && !dep.lineId.includes("MARE")) return false;
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
 
-      // Filtro query
+    return this.departures.filter(dep => {
+      // I filtri di categoria sono ESCLUSIVAMENTE per i pullman
+      if (currentMode === 'pullman') {
+        if (this.activeCategory === "urban" && dep.lineType !== "urban") return false;
+        if (this.activeCategory === "suburban" && dep.lineType !== "suburban") return false;
+        if (this.activeCategory === "regional" && dep.lineType !== "regional") return false;
+        if (this.activeCategory === "unical" && !dep.lineId.includes("UNI")) return false;
+        if (this.activeCategory === "mare" && !dep.lineId.includes("MARE")) return false;
+      }
+
+      // Filtro query testuale
       if (this.searchQuery) {
-        const matchName = dep.lineName.toLowerCase().includes(this.searchQuery);
-        const matchDest = dep.destination.toLowerCase().includes(this.searchQuery);
-        const matchCode = dep.lineCode.toLowerCase().includes(this.searchQuery);
-        const matchVia = dep.viaInfo.toLowerCase().includes(this.searchQuery);
+        const matchName = dep.lineName && dep.lineName.toLowerCase().includes(this.searchQuery);
+        const matchDest = dep.destination && dep.destination.toLowerCase().includes(this.searchQuery);
+        const matchCode = dep.lineCode && dep.lineCode.toLowerCase().includes(this.searchQuery);
+        const matchVia = dep.viaInfo && dep.viaInfo.toLowerCase().includes(this.searchQuery);
         if (!matchName && !matchDest && !matchCode && !matchVia) return false;
       }
 
