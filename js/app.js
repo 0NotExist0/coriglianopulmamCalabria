@@ -174,7 +174,7 @@ class AppController {
       brandIcon.innerHTML = `<i class="fa-solid ${modeData.icon}"></i>`;
     }
 
-    // Adatta testi di tutte le schede (Live Board, Cerca, Mappa, Flotta, Tariffe)
+    // Adatta testi di tutte le schede (Live Board, Cerca, Mappa, Flotta, Tariffe, Scioperi)
     const MODE_TEXTS = {
       pullman: {
         navLive: '<i class="fa-solid fa-clock"></i> Tabellone Live',
@@ -182,6 +182,7 @@ class AppController {
         navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS',
         navFleet: '<i class="fa-solid fa-truck-front"></i> Flotta Mezzi',
         navTariffs: '<i class="fa-solid fa-tags"></i> Tariffe & Abbonamenti',
+        navStrikes: '<i class="fa-solid fa-triangle-exclamation"></i> Scioperi <span class="nav-badge-pill nav-badge-strike">LIVE</span>',
         stopLabel: '<i class="fa-solid fa-bus"></i> Fermata:',
         liveBoardHeading: 'Tabellone Partenze Pullman Live',
         liveBoardSub: 'Orari in tempo reale, banchine, ritardi e telemetria satellitare GPS',
@@ -197,6 +198,7 @@ class AppController {
         navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Ferroviaria GPS',
         navFleet: '<i class="fa-solid fa-train-subway"></i> Materiale Rotabile FS',
         navTariffs: '<i class="fa-solid fa-tags"></i> Tariffe FS & Frecce',
+        navStrikes: '<i class="fa-solid fa-triangle-exclamation"></i> Scioperi FS <span class="nav-badge-pill nav-badge-strike">LIVE</span>',
         stopLabel: '<i class="fa-solid fa-train"></i> Stazione FS:',
         liveBoardHeading: 'Tabellone Stazione Ferroviaria Live (RFI / ViaggiaTreno)',
         liveBoardSub: 'Partenze in tempo reale, binari effettivi, ritardi satellitari e composizione treni',
@@ -212,6 +214,7 @@ class AppController {
         navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Rete Tram',
         navFleet: '<i class="fa-solid fa-train-tram"></i> Parco Vetture Tram',
         navTariffs: '<i class="fa-solid fa-tags"></i> Tariffe Rete Tram',
+        navStrikes: '<i class="fa-solid fa-triangle-exclamation"></i> Scioperi Metro/Tram <span class="nav-badge-pill nav-badge-strike">LIVE</span>',
         stopLabel: '<i class="fa-solid fa-train-tram"></i> Fermata Tram:',
         liveBoardHeading: 'Tabellone Live Fermate Rete Tram',
         liveBoardSub: 'Passaggi in tempo reale alle banchine e frequenze tranviarie',
@@ -227,6 +230,7 @@ class AppController {
         navMap: '<i class="fa-solid fa-map-location-dot"></i> Mappa Posteggi Taxi',
         navFleet: '<i class="fa-solid fa-car"></i> Parco Auto Taxi',
         navTariffs: '<i class="fa-solid fa-calculator"></i> Tariffe Tassametro Taxi',
+        navStrikes: '<i class="fa-solid fa-triangle-exclamation"></i> Fermo Taxi <span class="nav-badge-pill nav-badge-strike">LIVE</span>',
         stopLabel: '<i class="fa-solid fa-taxi"></i> Posteggio Taxi:',
         liveBoardHeading: 'Posteggi Taxi Live & Vetture in Attesa H24',
         liveBoardSub: 'Stalli taxi con colonnina di chiamata, vetture disponibili e tariffe precalcolate',
@@ -256,6 +260,9 @@ class AppController {
     const linkTariffs = document.querySelector('.desktop-nav [data-tab="tariffs"]');
     if (linkTariffs) linkTariffs.innerHTML = t.navTariffs;
 
+    const linkStrikes = document.querySelector('.desktop-nav [data-tab="strikes"]');
+    if (linkStrikes && t.navStrikes) linkStrikes.innerHTML = t.navStrikes;
+
     // Aggiorna Mobile Drawer Links
     const mLive = document.querySelector('.drawer-nav [data-tab="live-board"]');
     if (mLive) mLive.innerHTML = t.navLive;
@@ -271,6 +278,9 @@ class AppController {
 
     const mTariffs = document.querySelector('.drawer-nav [data-tab="tariffs"]');
     if (mTariffs) mTariffs.innerHTML = t.navTariffs;
+
+    const mStrikes = document.querySelector('.drawer-nav [data-tab="strikes"]');
+    if (mStrikes && t.navStrikes) mStrikes.innerHTML = t.navStrikes;
 
     // Aggiorna label selettore header
     const stopLabelEl = document.querySelector('label[for="hubStopSelect"]');
@@ -507,6 +517,11 @@ class AppController {
       }, 200);
     }
 
+    if (tabId === "strikes" && window.strikesEngine) {
+      window.strikesEngine.renderStrikesList();
+      window.strikesEngine.updateStatsBar();
+    }
+
     const mobileDrawer = document.getElementById("mobileDrawer");
     if (mobileDrawer) mobileDrawer.classList.remove("open");
   }
@@ -615,13 +630,29 @@ class AppController {
     container.innerHTML = html;
   }
 
-  // Banner Avvisi Notifiche
+  // Banner Avvisi Notifiche & Scioperi
   renderAlertsBanner() {
     const banner = document.getElementById("serviceAlertsTicker");
     if (!banner || !window.TRANSIT_DATA) return;
 
+    const strikes = window.TRANSIT_DATA.strikes || [];
     const allAlerts = window.TRANSIT_DATA.alerts || window.TRANSIT_DATA.serviceAlerts || [];
     const activeAlerts = allAlerts.filter(a => a.active !== false);
+
+    if (strikes.length > 0) {
+      const nextStrike = strikes[0];
+      banner.innerHTML = `
+        <div class="ticker-content">
+          <span class="ticker-tag" style="background:#dc2626; color:#fff;"><i class="fa-solid fa-triangle-exclamation"></i> AVVISO SCIOPERI:</span>
+          <span class="ticker-text"><strong>${nextStrike.categoryLabel}</strong> &mdash; ${nextStrike.title} (${nextStrike.durationHours}h, Fasce Protette Garantite L. 146/90)</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn-ticker-details" onclick="window.app.switchTab('strikes')"><i class="fa-solid fa-calendar-xmark"></i> Calendario Scioperi</button>
+        </div>
+      `;
+      banner.style.display = "block";
+      return;
+    }
 
     if (activeAlerts.length === 0) {
       banner.style.display = "none";

@@ -642,7 +642,102 @@ img, svg, video, .leaflet-map-canvas {
 }
 
 /* ==========================================================================
-   8. ACCESSIBILITÀ TOUCH & PREFERENZE UTENTE
+   8. ADATTAMENTI MOBILE SEZIONE SCIOPERI & SWITCH AUTOMATICO
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .strikes-stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .strike-stat-card {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .s-stat-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1.05rem;
+  }
+
+  .s-stat-val {
+    font-size: 0.92rem;
+  }
+
+  .strikes-auto-switch-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auto-switch-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .strikes-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .strikes-filter-bar .filter-field,
+  .strikes-filter-bar .filter-field.search-field {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .strikes-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .strike-card-main {
+    padding: 14px;
+  }
+
+  .strike-card-title {
+    font-size: 1.05rem;
+  }
+
+  .strike-actions-row {
+    justify-content: stretch;
+  }
+
+  .strike-actions-row .btn {
+    flex: 1 1 calc(50% - 6px);
+    text-align: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .strikes-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strike-card-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .detail-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .d-label {
+    min-width: 0;
+  }
+
+  .strike-actions-row .btn {
+    flex: 1 1 100%;
+  }
+}
+
+/* ==========================================================================
+   9. ACCESSIBILITÀ TOUCH & PREFERENZE UTENTE
    ========================================================================== */
 
 /* Aree di tocco minime consigliate (44px) sui controlli principali mobile */
@@ -650,7 +745,9 @@ img, svg, video, .leaflet-map-canvas {
   .nav-link,
   .map-btn-pill,
   .btn-toggle-stops,
-  .btn-ticker-details {
+  .btn-ticker-details,
+  .strike-cat-tab,
+  #btnToggleAutoSwitch {
     min-height: 44px;
   }
 

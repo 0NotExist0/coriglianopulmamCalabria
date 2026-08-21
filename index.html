@@ -106,11 +106,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=4.0">
-  <link rel="stylesheet" href="css/tickets.css?v=4.0">
-  <link rel="stylesheet" href="css/map.css?v=4.0">
-  <link rel="stylesheet" href="css/themes.css?v=4.0">
-  <link rel="stylesheet" href="css/responsive.css?v=4.0">
+  <link rel="stylesheet" href="css/style.css?v=4.1">
+  <link rel="stylesheet" href="css/tickets.css?v=4.1">
+  <link rel="stylesheet" href="css/map.css?v=4.1">
+  <link rel="stylesheet" href="css/themes.css?v=4.1">
+  <link rel="stylesheet" href="css/responsive.css?v=4.1">
 </head>
 <body>
 
@@ -212,6 +212,10 @@
         <a href="#" class="nav-link" data-tab="tariffs">
           <i class="fa-solid fa-tags"></i> Tariffe & Abbonamenti
         </a>
+        <a href="#" class="nav-link" data-tab="strikes">
+          <i class="fa-solid fa-triangle-exclamation"></i> Scioperi
+          <span class="nav-badge-pill nav-badge-strike">LIVE</span>
+        </a>
         <a href="#" class="nav-link" data-tab="tickets">
           <i class="fa-solid fa-wallet"></i> I Miei Biglietti
           <span class="nav-badge-pill" id="walletBadgeCount" style="display: none;">0</span>
@@ -259,6 +263,7 @@
       <a href="#" class="nav-link" data-tab="map"><i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS</a>
       <a href="#" class="nav-link" data-tab="fleet"><i class="fa-solid fa-truck-front"></i> Parco Mezzi & Flotta</a>
       <a href="#" class="nav-link" data-tab="tariffs"><i class="fa-solid fa-tags"></i> Tariffe Ufficiali</a>
+      <a href="#" class="nav-link" data-tab="strikes"><i class="fa-solid fa-triangle-exclamation"></i> Scioperi & Fasce Orarie <span class="nav-badge-pill nav-badge-strike">LIVE</span></a>
       <a href="#" class="nav-link" data-tab="alerts"><i class="fa-solid fa-bullhorn"></i> Avvisi Viabilità</a>
       <a href="#" class="nav-link" data-tab="tickets"><i class="fa-solid fa-wallet"></i> Portafoglio Biglietti</a>
     </div>
@@ -744,7 +749,128 @@
         </div>
       </section>
 
-      <!-- SECTION 7: I MIEI BIGLIETTI (WALLET) -->
+      <!-- SECTION 7: SCIOPERI & DISAGI TRASPORTI (TUTTE LE CATEGORIE CON AUTO-SWITCH) -->
+      <section class="app-section" id="section-strikes">
+        <div class="section-header">
+          <div>
+            <h2><i class="fa-solid fa-triangle-exclamation text-danger"></i> Calendario Ufficiale Scioperi & Agitazioni Nazionali</h2>
+            <p>Monitoraggio in tempo reale conforme a Legge 146/90 (MIT & Commissione di Garanzia). Fasce orarie protette, corse garantite e stato per tutte le 8 categorie di trasporto.</p>
+          </div>
+          <div class="strikes-header-badges">
+            <span class="strike-status-pill"><span class="live-dot pulse" style="background:#ef4444;"></span> Monitoraggio Live MIT</span>
+            <span class="strike-status-pill" id="autoSwitchStatusPill"><span class="live-dot pulse" style="background:#10b981;"></span> Auto-Switch Attivo</span>
+          </div>
+        </div>
+
+        <!-- Barra Statistiche Rapide -->
+        <div class="strikes-stats-grid">
+          <div class="strike-stat-card">
+            <span class="s-stat-icon"><i class="fa-solid fa-calendar-xmark text-danger"></i></span>
+            <div>
+              <span class="s-stat-label">Scioperi Registrati</span>
+              <strong class="s-stat-val" id="statTotalStrikes">8 Programmati</strong>
+            </div>
+          </div>
+          <div class="strike-stat-card">
+            <span class="s-stat-icon"><i class="fa-solid fa-earth-europe text-primary"></i></span>
+            <div>
+              <span class="s-stat-label">Rilevanza Nazionale</span>
+              <strong class="s-stat-val" id="statNationalStrikes">7 Nazionali</strong>
+            </div>
+          </div>
+          <div class="strike-stat-card">
+            <span class="s-stat-icon"><i class="fa-solid fa-shield-halved text-success"></i></span>
+            <div>
+              <span class="s-stat-label">Fasce di Garanzia</span>
+              <strong class="s-stat-val" id="statGuaranteedSlots">100% Tutelate L. 146/90</strong>
+            </div>
+          </div>
+          <div class="strike-stat-card">
+            <span class="s-stat-icon"><i class="fa-solid fa-clock-rotate-left text-warning"></i></span>
+            <div>
+              <span class="s-stat-label">Prossima Agitazione</span>
+              <strong class="s-stat-val" id="statNextStrikeDate">28/08</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra Controllo Switch Automatico & Categorie -->
+        <div class="strikes-control-panel">
+          <div class="strikes-auto-switch-header">
+            <div class="auto-switch-title-wrap">
+              <span class="auto-switch-title"><i class="fa-solid fa-arrows-rotate fa-spin-pulse text-primary"></i> Switch Automatico Categorie</span>
+              <span class="auto-switch-sub">Rotazione continua tra tutti i settori di trasporto. Clicca su qualsiasi categoria o metti in pausa per bloccare.</span>
+            </div>
+            <div class="auto-switch-actions">
+              <button class="btn btn-sm btn-primary" id="btnToggleAutoSwitch">
+                <i class="fa-solid fa-pause text-warning"></i> <span>Pausa Auto-Switch</span>
+              </button>
+              <div class="auto-speed-wrapper">
+                <label for="strikeAutoSpeedSelect"><i class="fa-solid fa-gauge-high"></i> Velocità:</label>
+                <select id="strikeAutoSpeedSelect" class="custom-select form-control-sm">
+                  <option value="4">Veloce (4s)</option>
+                  <option value="6" selected>Normale (6s)</option>
+                  <option value="10">Lento (10s)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barra di Progresso Globale dello Switch -->
+          <div class="auto-switch-progress-track">
+            <div class="auto-switch-progress-fill" id="autoSwitchProgressBar" style="width: 0%;"></div>
+          </div>
+
+          <!-- Tab Categorie con Switch in Automatico -->
+          <div class="strikes-category-tabs" id="strikesCategoryTabs">
+            <!-- Popolato dinamicamente da strikes.js con progress bar su ciascuna tab -->
+          </div>
+        </div>
+
+        <!-- Barra Filtri e Ricerca -->
+        <div class="strikes-filter-bar">
+          <div class="filter-field">
+            <label for="strikeRegionFilter"><i class="fa-solid fa-map-location-dot"></i> Filtra per Regione:</label>
+            <select id="strikeRegionFilter" class="custom-select">
+              <!-- Popolato dinamicamente -->
+            </select>
+          </div>
+
+          <div class="filter-field">
+            <label for="strikeTimeframeFilter"><i class="fa-solid fa-calendar"></i> Periodo:</label>
+            <select id="strikeTimeframeFilter" class="custom-select">
+              <option value="all">Tutti i Prossimi Scioperi</option>
+              <option value="today">Oggi / In Corso</option>
+              <option value="week">Prossimi 7 Giorni</option>
+              <option value="month">Questo Mese</option>
+            </select>
+          </div>
+
+          <div class="filter-field search-field">
+            <label for="strikeSearchInput"><i class="fa-solid fa-magnifying-glass"></i> Cerca Sciopero / Sigla:</label>
+            <input type="text" id="strikeSearchInput" class="form-control" placeholder="Cerca Trenitalia, Cotral, ENAV, sigla sindacale...">
+          </div>
+        </div>
+
+        <!-- Griglia Card Scioperi -->
+        <div class="strikes-cards-grid" id="strikesCardsGrid">
+          <!-- Popolato dinamicamente da strikes.js -->
+        </div>
+
+        <!-- Box Informativo Normativo & Diritti Passeggero -->
+        <div class="strikes-info-banner">
+          <div class="info-banner-icon"><i class="fa-solid fa-scale-balanced text-primary"></i></div>
+          <div class="info-banner-content">
+            <h4>Fasce di Garanzia & Diritti del Passeggero (Legge 146/90 e s.m.i.)</h4>
+            <p>
+              In occasione di scioperi nel comparto dei trasporti pubblici essenziali, la legge italiana impone alle aziende e ai sindacati l'obbligo di garantire il servizio nelle fasce orarie di maggiore mobilità pendolare (di norma dalle <strong>05:30 alle 08:30</strong> e dalle <strong>17:00 alle 20:00</strong> per i bus/TPL, e dalle <strong>06:00 alle 09:00</strong> e <strong>18:00 alle 21:00</strong> per i treni).
+              In caso di cancellazione o ritardo superiore a 60 minuti, hai diritto al rimborso integrale del biglietto o alla riprotezione sul primo mezzo disponibile.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 8: I MIEI BIGLIETTI (WALLET) -->
       <section class="app-section" id="section-tickets">
         <div class="section-header">
           <div>
@@ -975,15 +1101,16 @@
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/data.js?v=4.0"></script>
-  <script src="js/realtime-engine.js?v=4.0"></script>
-  <script src="js/live-board.js?v=4.0"></script>
-  <script src="js/search.js?v=4.0"></script>
-  <script src="js/booking.js?v=4.0"></script>
-  <script src="js/map.js?v=4.0"></script>
-  <script src="js/app.js?v=4.0"></script>
-  <script src="js/customizer.js?v=4.0"></script>
-  <script src="js/geo-locator.js?v=4.0"></script>
+  <script src="js/data.js?v=4.1"></script>
+  <script src="js/realtime-engine.js?v=4.1"></script>
+  <script src="js/live-board.js?v=4.1"></script>
+  <script src="js/search.js?v=4.1"></script>
+  <script src="js/booking.js?v=4.1"></script>
+  <script src="js/map.js?v=4.1"></script>
+  <script src="js/strikes.js?v=4.1"></script>
+  <script src="js/app.js?v=4.1"></script>
+  <script src="js/customizer.js?v=4.1"></script>
+  <script src="js/geo-locator.js?v=4.1"></script>
 
 </body>
 </html>
