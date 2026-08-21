@@ -2780,5 +2780,153 @@ body.mode-taxi {
   transform: translateY(-1px) !important;
 }
 
+/* ==========================================================================
+   LINE SCHEDULE TIMETABLE MODAL
+   ========================================================================== */
+
+.schedule-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.schedule-modal-overlay.active {
+  display: flex;
+  opacity: 1;
+}
+
+.schedule-inspector-card {
+  background: var(--bg-card, #ffffff);
+  border-radius: var(--radius-lg, 16px);
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-color, #e2e8f0);
+  animation: zoomInModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.schedule-inspector-header {
+  padding: 20px 24px;
+  background: var(--bg-subtle, #f8fafc);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.schedule-inspector-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.schedule-day-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-times-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.schedule-time-pill {
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: var(--font-mono, monospace);
+  font-weight: 800;
+  font-size: 0.92rem;
+  transition: all 0.15s ease;
+}
+
+.schedule-time-pill:hover {
+  background: var(--brand-primary, #0284c7);
+  color: #ffffff;
+  border-color: var(--brand-primary, #0284c7);
+  transform: scale(1.05);
+}
+
+.schedule-info-box {
+  background: rgba(2, 132, 199, 0.08);
+  border: 1px solid rgba(2, 132, 199, 0.25);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.82rem;
+  color: var(--text-secondary, #334155);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.4;
+}
+
+.schedule-inspector-footer {
+  padding: 16px 24px;
+  background: var(--bg-subtle, #f8fafc);
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-bottom-left-radius: var(--radius-lg, 16px);
+  border-bottom-right-radius: var(--radius-lg, 16px);
+}
+
+.btn-check-timetable-card {
+  color: #0284c7 !important;
+  border-color: rgba(2, 132, 199, 0.4) !important;
+  background: rgba(2, 132, 199, 0.06) !important;
+  font-weight: 800 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-check-timetable-card:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+.btn-timetable-quick {
+  font-size: 0.75rem !important;
+  padding: 4px 8px !important;
+  font-weight: 700 !important;
+  color: #0284c7 !important;
+  border-color: rgba(2, 132, 199, 0.4) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.btn-timetable-quick:hover {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+
 
 

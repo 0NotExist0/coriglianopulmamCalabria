@@ -662,8 +662,11 @@ class LiveBoardEngine {
               <span class="price-val">€${dep.priceBase.toFixed(2)}</span>
             </div>
             <div class="dep-actions" style="display: flex; gap: 6px; flex-wrap: wrap;" onclick="event.stopPropagation();">
+              <button class="btn btn-sm btn-outline btn-check-timetable-card" onclick="event.stopPropagation(); window.liveBoard.openLineScheduleModal('${dep.lineId}', '${dep.lineCode}')" title="Controlla la tabella oraria completa e tutte le fermate">
+                <i class="fa-solid fa-clock text-primary"></i> Controlla Orari
+              </button>
               <button class="btn btn-sm btn-outline btn-telemetry-inspect" onclick="event.stopPropagation(); if (window.realtimeTransit) window.realtimeTransit.openTelemetryInspector(window.liveBoard.departures.find(d => d.id === '${dep.id}'))" title="Ispeziona telemetria satellitare GPS e confronta con orario GTFS">
-                <i class="fa-solid fa-satellite text-primary"></i> Telemetria Live
+                <i class="fa-solid fa-satellite"></i> Telemetria Live
               </button>
               <button class="btn btn-sm btn-outline btn-view-route" onclick="window.liveBoard.showRouteOnMap('${dep.lineId}', '${dep.id}')" title="Visualizza percorso su mappa">
                 <i class="fa-solid fa-map-location-dot"></i> Vedi Mappa

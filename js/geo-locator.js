@@ -1,7 +1,7 @@
 /**
  * ITALIABUS - GEOLOCALIZZAZIONE & PERCORSO ALLA FERMATA
  * Individua la posizione dell'utente, centra e zumma la mappa GPS ad alta precisione,
- * individua la fermata più vicina e traccia il percorso a piedi in tempo reale.
+ * individua la fermata più vicina, sincronizza il Tabellone Live e traccia il percorso a piedi in tempo reale.
  *
  * Firmato 0Not_Exist0 — Not Exist Web Services
  */
@@ -140,6 +140,25 @@ class GeoLocatorEngine {
       }
     }
 
+    // SINCRONIZZA AUTOMATICAMENTE IL TABELLONE LIVE CON QUESTA FERMATA
+    if (typeof safeStorageSet === 'function') {
+      safeStorageSet("italiabus_stop", this.nearestStop.id);
+      if (this.nearestStop.region) safeStorageSet("italiabus_region", this.nearestStop.region);
+    }
+    if (window.liveBoard) {
+      window.liveBoard.activeStopId = this.nearestStop.id;
+      window.liveBoard.gpsNearestInfo = {
+        stop: this.nearestStop,
+        distanceMeters: this.haversine(this.userLatLng, [this.nearestStop.lat, this.nearestStop.lng]),
+        walkTimeMin: Math.max(1, Math.round(this.haversine(this.userLatLng, [this.nearestStop.lat, this.nearestStop.lng]) / 80)),
+        timestamp: new Date()
+      };
+      window.liveBoard.populateStopSelect();
+      if (window.liveBoard.filterHubSelect) window.liveBoard.filterHubSelect.value = this.nearestStop.id;
+      window.liveBoard.generateInitialDepartures();
+      window.liveBoard.render();
+    }
+
     const stopLatLng = [this.nearestStop.lat, this.nearestStop.lng];
     const directDistanceMeters = this.haversine(this.userLatLng, stopLatLng);
 
@@ -192,6 +211,11 @@ class GeoLocatorEngine {
           <div class="walk-meta-badge">
             <span><i class="fa-solid fa-person-walking"></i> ${routeMeters >= 1000 ? (routeMeters / 1000).toFixed(1) + ' km' : Math.round(routeMeters) + ' m'}</span>
             <span><i class="fa-solid fa-clock"></i> ~${Math.max(1, Math.round(routeSeconds / 60))} min</span>
+          </div>
+          <div style="margin-top: 8px;">
+            <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()" style="width:100%; padding:4px 8px; font-size:0.75rem;">
+              <i class="fa-solid fa-table-list"></i> Controlla Orari Tabellone
+            </button>
           </div>
         </div>
       `)
@@ -260,41 +284,76 @@ class GeoLocatorEngine {
     }
   }
 
-  /* ============ Prossime partenze ============ */
+  /* ============ Prossime partenze con destinazioni reali ============ */
   linesServingStop(stopId) {
     if (typeof getLinesByStop === 'function') {
       const lines = getLinesByStop(stopId);
       if (lines && lines.length > 0) return lines;
     }
-    const currentRegion = this.nearestStop?.region || 'calabria';
-    return typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion).slice(0, 3) : [];
+    const currentRegion = this.nearestStop?.region || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    return typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
   }
 
-  getUpcomingDepartures(stopId, now, limit = 3) {
+  getUpcomingDepartures(stopId, now, limit = 4) {
     const lines = this.linesServingStop(stopId);
+    const currentRegion = this.nearestStop?.region || 'calabria';
+
+    // Se non ci sono linee specifiche, genera da quelle regionali
     if (!lines || lines.length === 0) {
       return [{
-        line: { code: 'BUS-DIRECT', name: 'Linea Diretta Regionale', color: '#0284c7', frequencyMinutes: 20 },
+        line: { code: 'L-DIRECT', name: 'Autolinea Diretta Regionale', color: '#0284c7', frequencyMinutes: 20 },
+        destination: this.nearestStop?.area || 'Capolinea Centrale',
         time: new Date(now.getTime() + 8 * 60 * 1000)
       }];
     }
 
-    const list = lines.map((line, idx) => {
-      const freq = line.frequencyMinutes || 15;
-      const offsetMin = (idx * 7 + 4) % 30;
+    const list = lines.slice(0, 6).map((line, idx) => {
+      const freq = line.frequencyMinutes || 20;
+      const offsetMin = (idx * 6 + 3) % 25;
+      
+      // Estrai destinazione reale
+      let destination = "Capolinea Centrale";
+      if (line.name && line.name.includes(" - ")) {
+        destination = line.name.split(" - ").pop().split(" (")[0];
+      } else if (line.stopsIds && line.stopsIds.length > 0) {
+        const lastStop = typeof getStopById === 'function' ? getStopById(line.stopsIds[line.stopsIds.length - 1]) : null;
+        if (lastStop) destination = lastStop.name.split(' - ')[0];
+      }
+
       return {
         line: {
+          id: line.id,
           code: line.code || line.shortName || `L-${idx + 1}`,
-          name: line.name || 'Linea Trasporto Regionale',
+          name: line.name || 'Autolinea Trasporto Pubblico',
           color: line.color || '#0284c7',
           frequencyMinutes: freq
         },
+        destination: destination,
         time: new Date(now.getTime() + (offsetMin + 2) * 60 * 1000)
       };
     });
 
     list.sort((a, b) => a.time - b.time);
     return list.slice(0, limit);
+  }
+
+  /* ============ Navigazione rapida al Tabellone Live ============ */
+  goToLiveBoardTimetable(lineCode = null) {
+    if (window.liveBoard && this.nearestStop) {
+      window.liveBoard.switchToStop(this.nearestStop.id);
+      if (lineCode && window.liveBoard.searchInput) {
+        window.liveBoard.searchInput.value = lineCode;
+        window.liveBoard.searchQuery = lineCode.toLowerCase();
+        window.liveBoard.render();
+      }
+    }
+    if (window.app && typeof window.app.switchTab === 'function') {
+      window.app.switchTab('live-board');
+    }
+    const target = document.getElementById("liveBoardList");
+    if (target) {
+      setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+    }
   }
 
   /* ============ Rendering pannello ============ */
@@ -308,14 +367,19 @@ class GeoLocatorEngine {
     this.panel.innerHTML = `
       <div class="geo-route-head">
         <div>
-          <h3 style="margin:0; font-size:1.1rem; color:var(--brand-primary);"><i class="fa-solid fa-route"></i> Percorso alla Fermata Più Vicina</h3>
+          <h3 style="margin:0; font-size:1.15rem; color:var(--brand-primary);"><i class="fa-solid fa-route"></i> Percorso alla Fermata Più Vicina</h3>
           <small class="text-muted">Tracciato pedonale con stima tempi di arrivo e countdown live</small>
+        </div>
+        <div>
+          <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()">
+            <i class="fa-solid fa-table-list"></i> Controlla Orari Tabellone
+          </button>
         </div>
       </div>
 
       <div class="geo-stats-grid">
         <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-map-pin"></i> Fermata</span>
+          <span class="geo-stat-label"><i class="fa-solid fa-map-pin"></i> Fermata Rilevata</span>
           <strong class="geo-stat-val">${this.nearestStop.name}</strong>
           <small class="text-muted">${this.nearestStop.address || this.nearestStop.area}</small>
         </div>
@@ -340,6 +404,15 @@ class GeoLocatorEngine {
         <div class="geo-departures-title"><i class="fa-solid fa-bus"></i> Prossime corse in partenza da questa fermata</div>
         <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
         <div id="geoVerdict" class="geo-verdict-box"></div>
+      </div>
+
+      <div class="geo-footer-actions" style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()" style="flex: 1;">
+          <i class="fa-solid fa-table-list"></i> Controlla Tutti gli Orari su Tabellone Live
+        </button>
+        <button class="btn btn-outline" onclick="window.geoLocator.locateAndRoute()">
+          <i class="fa-solid fa-rotate"></i> Aggiorna GPS
+        </button>
       </div>
     `;
 
@@ -376,7 +449,7 @@ class GeoLocatorEngine {
       etaStatusEl.textContent = "Orario calcolato al secondo";
     }
 
-    const deps = this.getUpcomingDepartures(this.nearestStop.id, now, 3);
+    const deps = this.getUpcomingDepartures(this.nearestStop.id, now, 4);
 
     listEl.innerHTML = deps.map(d => {
       const secLeft = Math.max(0, Math.round((d.time - now) / 1000));
@@ -387,12 +460,19 @@ class GeoLocatorEngine {
         <div class="geo-dep-row-card">
           <div class="geo-line-badge" style="background:${d.line.color || '#0284c7'}">${d.line.code}</div>
           <div class="geo-dep-info">
-            <strong>${d.line.name}</strong>
-            <small class="text-muted">Prevista alle <strong>${this.fmt(d.time)}</strong> &bull; Frequenza: ogni ${d.line.frequencyMinutes} min</small>
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <strong>Per ${d.destination}</strong>
+            </div>
+            <small class="text-muted">${d.line.name} &bull; Prevista alle <strong>${this.fmt(d.time)}</strong> &bull; ogni ${d.line.frequencyMinutes} min</small>
           </div>
-          <div class="geo-dep-countdown">
-            <span class="countdown-badge">${countTxt}</span>
-            <small>alla partenza</small>
+          <div class="geo-dep-actions-box" style="display: flex; align-items: center; gap: 8px;">
+            <div class="geo-dep-countdown">
+              <span class="countdown-badge">${countTxt}</span>
+              <small>alla partenza</small>
+            </div>
+            <button class="btn btn-sm btn-outline btn-timetable-quick" onclick="window.geoLocator.goToLiveBoardTimetable('${d.line.code}')" title="Controlla orari di questa linea">
+              <i class="fa-solid fa-clock"></i> Controlla Orari
+            </button>
           </div>
         </div>
       `;
@@ -404,10 +484,10 @@ class GeoLocatorEngine {
 
       if (margin >= 3) {
         verdictEl.className = "geo-verdict-box verdict-ok";
-        verdictEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Ce la fai con calma:</strong> hai ~${Math.round(margin)} minuti di margine prima che parta la linea <strong>${deps[0].line.code}</strong>.`;
+        verdictEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Ce la fai con calma:</strong> hai ~${Math.round(margin)} minuti di margine per salire sulla linea <strong>${deps[0].line.code} (Per ${deps[0].destination})</strong>.`;
       } else if (margin >= 0) {
         verdictEl.className = "geo-verdict-box verdict-warn";
-        verdictEl.innerHTML = `<i class="fa-solid fa-person-running"></i> <strong>Affrettati!</strong> Hai solo ~${Math.max(0, Math.round(margin))} minuti di margine per salire sulla linea <strong>${deps[0].line.code}</strong>.`;
+        verdictEl.innerHTML = `<i class="fa-solid fa-person-running"></i> <strong>Affrettati!</strong> Hai solo ~${Math.max(0, Math.round(margin))} minuti di margine per la linea <strong>${deps[0].line.code}</strong>.`;
       } else {
         verdictEl.className = "geo-verdict-box verdict-miss";
         verdictEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>Corsa in partenza:</strong> la prima corsa parte prima che arrivi a piedi. Ti consigliamo la corsa successiva.`;
