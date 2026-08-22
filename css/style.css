@@ -2147,30 +2147,30 @@ body.mode-pullman .mode-loader-progress-bar {
   background: linear-gradient(90deg, #0284c7, #38bdf8) !important;
 }
 
-/* 2. Modalità Treni: Viola / Indaco (#7c3aed) */
+/* 2. Modalità Treni: Rosso / Frecciarossa (#dc2626) */
 #modeSwitchLoader[data-mode="train"] .mode-loader-gif,
 #initialPreloader[data-mode="train"] .mode-loader-gif,
 body.mode-train .mode-loader-gif {
-  filter: hue-rotate(140deg) saturate(1.55) brightness(1.02) drop-shadow(0 8px 24px rgba(124, 58, 237, 0.45)) !important;
+  filter: hue-rotate(230deg) saturate(2.2) brightness(1.05) drop-shadow(0 8px 24px rgba(220, 38, 38, 0.5)) !important;
 }
 
 #modeSwitchLoader[data-mode="train"] .mode-loader-progress-bar,
 #initialPreloader[data-mode="train"] .mode-loader-progress-bar,
 body.mode-train .mode-loader-progress-bar {
-  background: linear-gradient(90deg, #7c3aed, #a855f7) !important;
+  background: linear-gradient(90deg, #dc2626, #ef4444) !important;
 }
 
-/* 3. Modalità Tram: Ambra / Arancio (#f59e0b) */
+/* 3. Modalità Tram: Verde originale sbiadito morbido (#10b981 / soft) */
 #modeSwitchLoader[data-mode="tram"] .mode-loader-gif,
 #initialPreloader[data-mode="tram"] .mode-loader-gif,
 body.mode-tram .mode-loader-gif {
-  filter: hue-rotate(-88deg) saturate(1.6) brightness(1.15) drop-shadow(0 8px 24px rgba(245, 158, 11, 0.45)) !important;
+  filter: hue-rotate(0deg) saturate(0.55) brightness(1.05) opacity(0.88) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.35)) !important;
 }
 
 #modeSwitchLoader[data-mode="tram"] .mode-loader-progress-bar,
 #initialPreloader[data-mode="tram"] .mode-loader-progress-bar,
 body.mode-tram .mode-loader-progress-bar {
-  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+  background: linear-gradient(90deg, #10b981, #6ee7b7) !important;
 }
 
 /* 4. Modalità Taxi: Verde Smeraldo Naturale (#10b981) */

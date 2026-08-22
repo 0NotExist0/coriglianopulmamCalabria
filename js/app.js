@@ -52,8 +52,8 @@ class AppController {
         const pGif = preloader.querySelector(".mode-loader-gif");
         const MODE_FILTERS = {
           pullman: "hue-rotate(75deg) saturate(1.4) brightness(1.05) drop-shadow(0 8px 24px rgba(2, 132, 199, 0.45))",
-          train: "hue-rotate(140deg) saturate(1.55) brightness(1.02) drop-shadow(0 8px 24px rgba(124, 58, 237, 0.45))",
-          tram: "hue-rotate(-88deg) saturate(1.6) brightness(1.15) drop-shadow(0 8px 24px rgba(245, 158, 11, 0.45))",
+          train: "hue-rotate(230deg) saturate(2.2) brightness(1.05) drop-shadow(0 8px 24px rgba(220, 38, 38, 0.5))",
+          tram: "hue-rotate(0deg) saturate(0.55) brightness(1.05) opacity(0.88) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.35))",
           taxi: "hue-rotate(0deg) saturate(1.2) brightness(1.0) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.45))",
           flight: "hue-rotate(60deg) saturate(1.45) brightness(1.1) drop-shadow(0 8px 24px rgba(14, 165, 233, 0.45))"
         };
@@ -144,16 +144,16 @@ class AppController {
 
     const MODE_FILTERS = {
       pullman: "hue-rotate(75deg) saturate(1.4) brightness(1.05) drop-shadow(0 8px 24px rgba(2, 132, 199, 0.45))",
-      train: "hue-rotate(140deg) saturate(1.55) brightness(1.02) drop-shadow(0 8px 24px rgba(124, 58, 237, 0.45))",
-      tram: "hue-rotate(-88deg) saturate(1.6) brightness(1.15) drop-shadow(0 8px 24px rgba(245, 158, 11, 0.45))",
+      train: "hue-rotate(230deg) saturate(2.2) brightness(1.05) drop-shadow(0 8px 24px rgba(220, 38, 38, 0.5))",
+      tram: "hue-rotate(0deg) saturate(0.55) brightness(1.05) opacity(0.88) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.35))",
       taxi: "hue-rotate(0deg) saturate(1.2) brightness(1.0) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.45))",
       flight: "hue-rotate(60deg) saturate(1.45) brightness(1.1) drop-shadow(0 8px 24px rgba(14, 165, 233, 0.45))"
     };
 
     const MODE_GRADIENTS = {
       pullman: "linear-gradient(90deg, #0284c7, #38bdf8)",
-      train: "linear-gradient(90deg, #7c3aed, #a855f7)",
-      tram: "linear-gradient(90deg, #f59e0b, #fbbf24)",
+      train: "linear-gradient(90deg, #dc2626, #ef4444)",
+      tram: "linear-gradient(90deg, #10b981, #6ee7b7)",
       taxi: "linear-gradient(90deg, #10b981, #34d399)",
       flight: "linear-gradient(90deg, #0284c7, #38bdf8)"
     };
