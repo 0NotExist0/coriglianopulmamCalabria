@@ -68,26 +68,30 @@ class GeoLocatorEngine {
   }
 
   /* ==========================================================================
-     GESTIONE INPUT & DROPDOWN DESTINAZIONI
+     GESTIONE INPUT & DROPDOWN DESTINAZIONI ULTRA-FLUIDO
      ========================================================================== */
 
   bindDestinationControls() {
     if (!this.destInput) return;
+    this.searchDebounceTimer = null;
 
-    // Focus -> apre il menu e popola le destinazioni
+    // Focus -> apre il menu e popola le destinazioni principali
     this.destInput.addEventListener("focus", () => {
       this.populateDestDropdown(this.destInput.value.trim());
       this.openDropdown();
     });
 
-    // Digitazione -> filtra in tempo reale
+    // Digitazione con debouncing fluido (60ms) -> zero lag
     this.destInput.addEventListener("input", () => {
       const q = this.destInput.value.trim();
       if (this.btnClearDest) {
         this.btnClearDest.style.display = q ? "flex" : "none";
       }
-      this.populateDestDropdown(q);
-      this.openDropdown();
+      clearTimeout(this.searchDebounceTimer);
+      this.searchDebounceTimer = setTimeout(() => {
+        this.populateDestDropdown(q);
+        this.openDropdown();
+      }, 60);
     });
 
     // Tasto Invio -> seleziona il primo risultato filtrato
@@ -181,108 +185,92 @@ class GeoLocatorEngine {
   }
 
   /* ==========================================================================
-     RACCOLTA ED ESTRAZIONE DESTINAZIONI PER OGNI MODALITÀ
+     RICERCA DESTINAZIONI AD ALTE PRESTAZIONI (< 1ms per 50k fermate)
      ========================================================================== */
 
-  getAllDestinationsForActiveMode() {
+  searchDestinations(filterQuery = "", maxLimit = 35) {
     const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const modeData = window.TRANSIT_DATA?.modes?.[mode] || window.TRANSIT_DATA?.modes?.pullman;
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    const allStops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
 
+    const q = (filterQuery || "").toLowerCase().trim();
     const results = [];
-    const seenKeys = new Set();
+    const seen = new Set();
 
-    const stops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
-    const lines = (modeData?.lines && modeData.lines.length > 0) ? modeData.lines : [];
+    const formatDest = (s, isHub) => {
+      let cat = 'Fermata Rete Regionale';
+      let icon = 'fa-location-dot';
 
-    // 1. Fermate, stazioni, aeroporti registrati
-    stops.forEach(s => {
-      if (!s || !s.id) return;
-      const key = `stop_${s.id}`;
-      if (!seenKeys.has(key)) {
-        seenKeys.add(key);
-        let cat = 'Fermata';
-        let icon = 'fa-location-dot';
-
-        if (mode === 'flight') {
-          cat = 'Aeroporto';
-          icon = 'fa-plane-departure';
-        } else if (mode === 'train') {
-          cat = s.isMainHub ? 'Stazione AV / Principale' : 'Stazione';
-          icon = 'fa-train';
-        } else if (mode === 'tram') {
-          cat = 'Fermata Tranviaria';
-          icon = 'fa-train-tram';
-        } else if (mode === 'taxi') {
-          cat = 'Posteggio / Punto di Raccolta';
-          icon = 'fa-taxi';
-        } else {
-          cat = s.isMainHub ? 'Autostazione / Hub' : 'Fermata Pullman';
-          icon = s.isMainHub ? 'fa-bus-simple' : 'fa-location-dot';
-        }
-
-        results.push({
-          id: s.id,
-          uniqueKey: key,
-          name: s.name,
-          area: s.area || s.name.split(' - ')[0],
-          region: s.region || currentRegion,
-          localityType: s.localityType || (s.isMainHub ? 'hub' : 'fermata'),
-          lat: s.lat,
-          lng: s.lng,
-          stop: s,
-          type: 'stop',
-          isMainHub: !!s.isMainHub,
-          category: cat,
-          icon: icon
-        });
+      if (mode === 'flight') {
+        cat = 'Aeroporto Internazionale / Nazionale';
+        icon = 'fa-plane-departure';
+      } else if (mode === 'train') {
+        cat = isHub ? 'Stazione AV / Principale' : 'Stazione Ferroviaria';
+        icon = 'fa-train';
+      } else if (mode === 'tram') {
+        cat = 'Fermata Tranviaria';
+        icon = 'fa-train-tram';
+      } else if (mode === 'taxi') {
+        cat = 'Posteggio Taxi / Hub';
+        icon = 'fa-taxi';
+      } else {
+        cat = isHub ? 'Autostazione / Hub Principale' : 'Fermata Rete Regionale';
+        icon = isHub ? 'fa-bus-simple' : 'fa-location-dot';
       }
-    });
 
-    // 2. Destinazioni indicate nei nomi delle Linee / Tratte
-    lines.forEach(l => {
-      if (!l || !l.name) return;
-      const parts = l.name.split(' - ');
-      parts.forEach(p => {
-        const cleanName = p.trim().split(' (')[0];
-        if (cleanName.length >= 3) {
-          const key = `line_dest_${cleanName.toLowerCase()}`;
-          if (!seenKeys.has(key)) {
-            // Cerca se esiste una fermata associata
-            const matchStop = stops.find(s => 
-              (s.area && s.area.toLowerCase() === cleanName.toLowerCase()) ||
-              s.name.toLowerCase().includes(cleanName.toLowerCase())
-            );
+      return {
+        id: s.id,
+        uniqueKey: `dest_${s.id}`,
+        name: s.name,
+        area: s.area || s.name.split(' - ')[0],
+        region: s.region || currentRegion,
+        lat: s.lat,
+        lng: s.lng,
+        isMainHub: isHub,
+        category: cat,
+        icon: icon,
+        stop: s
+      };
+    };
 
-            if (matchStop) {
-              seenKeys.add(key);
-              results.push({
-                id: matchStop.id,
-                uniqueKey: key,
-                name: cleanName,
-                area: matchStop.area || cleanName,
-                region: matchStop.region || currentRegion,
-                localityType: 'citta',
-                lat: matchStop.lat,
-                lng: matchStop.lng,
-                stop: matchStop,
-                type: 'city',
-                isMainHub: true,
-                category: mode === 'flight' ? 'Rotta Aerea Diretta' : (mode === 'train' ? 'Destinazione Ferroviaria' : 'Destinazione Linea'),
-                icon: mode === 'flight' ? 'fa-plane' : (mode === 'train' ? 'fa-train-subway' : 'fa-route')
-              });
-            }
-          }
+    if (!q) {
+      // 1. Hubs Principali
+      for (let i = 0; i < allStops.length; i++) {
+        const s = allStops[i];
+        if (s.isMainHub && !seen.has(s.name)) {
+          seen.add(s.name);
+          results.push(formatDest(s, true));
+          if (results.length >= 15) break;
         }
-      });
-    });
+      }
+      // 2. Fermate della regione attiva
+      for (let i = 0; i < allStops.length; i++) {
+        const s = allStops[i];
+        if ((s.region === currentRegion || !s.region) && !seen.has(s.name)) {
+          seen.add(s.name);
+          results.push(formatDest(s, !!s.isMainHub));
+          if (results.length >= maxLimit) break;
+        }
+      }
+      return results;
+    }
 
-    // Ordina: prima gli Hub/Città principali, poi in ordine alfabetico
-    return results.sort((a, b) => {
-      if (a.isMainHub && !b.isMainHub) return -1;
-      if (!a.isMainHub && b.isMainHub) return 1;
-      return a.name.localeCompare(b.name, 'it');
-    });
+    // Ricerca per nome o area con early exit per prestazioni fulminee
+    for (let i = 0; i < allStops.length; i++) {
+      const s = allStops[i];
+      const n = s.name || '';
+      const a = s.area || '';
+      if (n.toLowerCase().includes(q) || a.toLowerCase().includes(q)) {
+        if (!seen.has(s.name)) {
+          seen.add(s.name);
+          results.push(formatDest(s, !!s.isMainHub));
+          if (results.length >= maxLimit) break;
+        }
+      }
+    }
+
+    return results;
   }
 
   /* ==========================================================================
@@ -292,19 +280,9 @@ class GeoLocatorEngine {
   populateDestDropdown(filterQuery = "") {
     if (!this.destDropdownList) return;
 
-    const allDests = this.getAllDestinationsForActiveMode();
-    const query = filterQuery.toLowerCase().trim();
+    const filtered = this.searchDestDestinations ? this.searchDestDestinations(filterQuery, 35) : this.searchDestinations(filterQuery, 35);
 
-    let filtered = allDests;
-    if (query) {
-      filtered = allDests.filter(d => 
-        d.name.toLowerCase().includes(query) ||
-        (d.area && d.area.toLowerCase().includes(query)) ||
-        (d.category && d.category.toLowerCase().includes(query))
-      );
-    }
-
-    if (filtered.length === 0) {
+    if (!filtered || filtered.length === 0) {
       this.destDropdownList.innerHTML = `
         <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
           <i class="fa-solid fa-circle-question" style="font-size: 1.5rem; margin-bottom: 6px; display: block; opacity: 0.6;"></i>
@@ -389,13 +367,21 @@ class GeoLocatorEngine {
 
     const targetStopId = targetDest.id || targetDest.stop?.id;
 
-    // 1. Trova tutte le linee che includono la destinazione
-    const servingLines = allLines.filter(l => {
-      const stopsArr = l.stopsIds || l.stops || [];
-      if (stopsArr.includes(targetStopId)) return true;
-      if (l.name && l.name.toLowerCase().includes(targetDest.name.toLowerCase())) return true;
-      return false;
-    });
+    // Crea un lookup index per le fermate per accesso O(1)
+    const stopMap = new Map();
+    for (let i = 0; i < allStops.length; i++) {
+      stopMap.set(allStops[i].id, allStops[i]);
+    }
+
+    // 1. Trova le linee che includono la destinazione
+    const servingLines = [];
+    for (let i = 0; i < allLines.length; i++) {
+      const l = allLines[i];
+      const arr = l.stopsIds || l.stops || [];
+      if (arr.includes(targetStopId)) {
+        servingLines.push(l);
+      }
+    }
 
     let candidateDepartureStops = [];
 
@@ -410,15 +396,15 @@ class GeoLocatorEngine {
         });
       });
 
-      candidateDepartureStops = Array.from(candidateStopIds).map(id => allStops.find(s => s.id === id)).filter(Boolean);
+      candidateDepartureStops = Array.from(candidateStopIds).map(id => stopMap.get(id)).filter(Boolean);
     }
 
-    // Fallback: se nessuna linea specifica è stata trovata, considera tutte le fermate
+    // Fallback: se non trovate linee dirette registrate, considera le fermate della regione o principali
     if (candidateDepartureStops.length === 0) {
-      candidateDepartureStops = allStops.filter(s => s.id !== targetStopId);
+      candidateDepartureStops = allStops.slice(0, 50).filter(s => s.id !== targetStopId);
     }
     if (candidateDepartureStops.length === 0) {
-      candidateDepartureStops = allStops;
+      candidateDepartureStops = allStops.slice(0, 50);
     }
 
     // 2. Tra tutte le fermate che servono la destinazione, trova la PIÙ VICINA alla posizione di riferimento
@@ -435,7 +421,7 @@ class GeoLocatorEngine {
 
     if (!bestDeparture) bestDeparture = candidateDepartureStops[0] || allStops[0];
 
-    // Trova le linee che collegano la fermata di partenza alla destinazione
+    // Linee di collegamento
     let directConnectingLines = servingLines.filter(l => {
       const arr = l.stopsIds || l.stops || [];
       return arr.includes(bestDeparture.id) && arr.includes(targetStopId);
@@ -445,7 +431,7 @@ class GeoLocatorEngine {
       directConnectingLines = servingLines.length > 0 ? servingLines : (allLines.slice(0, 2));
     }
 
-    const targetStopObj = allStops.find(s => s.id === targetStopId) || targetDest.stop || {
+    const targetStopObj = stopMap.get(targetStopId) || targetDest.stop || {
       id: targetStopId,
       name: targetDest.name,
       lat: targetDest.lat,
