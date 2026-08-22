@@ -1,185 +1,319 @@
 /* ==========================================================================
-   CORIGLIANOBUS - RESPONSIVE & MOBILE ADAPTATION LAYER
+   ITALIABUS - RESPONSIVE & MOBILE ADAPTATION LAYER
    --------------------------------------------------------------------------
-   Copre TUTTI i dispositivi mobili Android e iPhone esistenti:
+   Ottimizzato per TUTTI i dispositivi mobili moderni (iPhone iOS & Android):
    - iPhone SE / mini / 6-8 (320-375px)
-   - iPhone 12/13/14/15 e Pro (390-393px)
-   - iPhone Pro Max / Plus (414-430px)
-   - Pixel, Galaxy e Android vari (360-412px)
+   - iPhone 12/13/14/15/16 e Pro / Pro Max (390-430px)
+   - Samsung Galaxy, Google Pixel, Xiaomi e Android vari (360-412px)
    - Tablet (iPad, Android) in verticale e orizzontale
-   - Notch / Dynamic Island / safe-area (iPhone X+ e Android con cutout)
-   - Barra browser dinamica (dvh) e orientamento landscape
-   Questo file va caricato PER ULTIMO per poter rifinire gli altri stili.
+   - Supporto Safe-Area, Dynamic Island e Home Indicator bar
+   - Bottom Navigation Bar nativa a 5 tab con feedback tattile
    ========================================================================== */
 
 /* ==========================================================================
-   1. FONDAMENTA MOBILE (tutti i touch device)
+   1. FONDAMENTA MOBILE (Touch Devices & Safe Area)
    ========================================================================== */
 
 html {
-  /* Evita l'ingrandimento automatico dei testi su iOS in landscape */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  /* Nessuno scroll orizzontale indesiderato su schermi stretti */
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Rimuove il flash grigio al tocco su Android/iOS per gli elementi cliccabili */
+/* Rimuove il flash grigio al tocco su Android/iOS per tutti gli elementi interattivi */
 a, button, .btn, .nav-link, .board-tab-btn, .map-btn-pill,
-.seat-btn, .modal-close-btn, .mobile-menu-toggle, .btn-theme-toggle {
+.seat-btn, .modal-close-btn, .mobile-menu-toggle, .btn-theme-toggle,
+.mobile-nav-btn, .mobile-mode-pill, .strike-cat-tab {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  user-select: none;
 }
 
-/* Immagini e mappe non sfondano mai la larghezza */
+/* Immagini e mappe non causano mai overflow */
 img, svg, video, .leaflet-map-canvas {
   max-width: 100%;
 }
 
-/* Safe-area: il contenuto non finisce mai sotto il notch laterale (landscape) */
+/* Safe-area: padding dinamico per notch e bordi arrotondati */
 @supports (padding: max(0px)) {
   .container {
-    padding-left: max(20px, env(safe-area-inset-left));
-    padding-right: max(20px, env(safe-area-inset-right));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
 }
 
 /* ==========================================================================
-   2. TABLET E SCHERMI MEDI  (<= 1024px)
+   2. TABLET E SCHERMI MEDI (<= 1024px)
    ========================================================================== */
 
 @media (max-width: 1024px) {
   .hero-title {
-    font-size: 2.15rem;
+    font-size: 2.1rem;
   }
 
   .hero-description {
-    font-size: 1.05rem;
+    font-size: 1.02rem;
   }
 
   .section-header h2 {
-    font-size: 1.55rem;
+    font-size: 1.5rem;
   }
 
-  /* Tabelloni e liste su griglie auto-fill: evita colonne troppo larghe */
-  .fleet-cards-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  .fleet-cards-grid,
+  .tariffs-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
 }
 
 /* ==========================================================================
-   3. LARGE PHONE / TABLET VERTICALE  (<= 768px)
+   3. SMARTPHONE & TABLET VERTICALE (<= 768px)
    ========================================================================== */
 
 @media (max-width: 768px) {
 
-  /* --- Header compatto --- */
+  /* --- Spaziatura Principale per Non Coprire Contenuti Sotto la Bottom Bar --- */
+  .app-main-content {
+    padding-top: 14px;
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* --- Header Mobile Compatto & Pulito --- */
+  .app-header {
+    height: 58px;
+  }
+
   .header-inner {
-    height: 62px;
+    height: 58px;
+    padding: 0 12px;
   }
 
   .brand-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    border-radius: var(--radius-sm);
   }
 
   .brand-title {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
   }
 
-  /* Il toggle tema diventa un tasto solo-icona per liberare spazio */
+  .brand-subtitle {
+    display: none; /* Nasconde sottotitolo lungo per mantenere l'header snello */
+  }
+
+  .btn-open-modes {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    border-radius: var(--radius-full);
+  }
+
+  .btn-open-modes-text {
+    display: inline;
+  }
+
   .btn-theme-toggle span {
     display: none;
   }
 
   .btn-theme-toggle {
     padding: 0;
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     justify-content: center;
+    border-radius: var(--radius-full);
   }
 
-  .header-actions {
-    gap: 8px;
+  .btn-customizer {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-full);
   }
 
   .mobile-menu-toggle {
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: var(--radius-full);
   }
 
-  /* Drawer mobile: mai più largo dello schermo, con safe-area */
+  .header-actions {
+    gap: 6px;
+  }
+
+  /* --- Drawer Mobile Laterale --- */
   .mobile-drawer {
     width: min(320px, 86vw);
     right: calc(-1 * min(320px, 86vw) - 10px);
     height: 100vh;
     height: 100dvh;
-    padding-top: max(20px, env(safe-area-inset-top));
-    padding-bottom: max(20px, env(safe-area-inset-bottom));
-    padding-right: max(24px, env(safe-area-inset-right));
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(80px, env(safe-area-inset-bottom));
+    padding-right: max(20px, env(safe-area-inset-right));
     overflow-y: auto;
   }
 
-  /* --- Hero --- */
+  /* --- Hero Banner Mobile Salva-Spazio --- */
   .hero-banner {
-    padding: 32px 0 28px;
+    padding: 18px 0 14px;
   }
 
-  .hero-title {
-    font-size: 1.95rem;
-  }
-
-  .hero-stats-card {
-    padding: 18px;
+  .hero-content {
+    grid-template-columns: 1fr;
     gap: 14px;
   }
 
-  .stat-num {
-    font-size: 1.5rem;
+  .hero-badge {
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    margin-bottom: 8px;
   }
 
-  /* --- Barra di controllo tabellone impilata --- */
+  .hero-title {
+    font-size: 1.42rem;
+    line-height: 1.28;
+    margin-bottom: 6px;
+  }
+
+  .hero-description {
+    font-size: 0.86rem;
+    line-height: 1.4;
+    margin-bottom: 12px;
+  }
+
+  .hero-quick-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .hero-quick-actions .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 0.88rem;
+  }
+
+  .hero-stats-card {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 10px 12px;
+    gap: 8px;
+    border-radius: var(--radius-md);
+  }
+
+  .stat-box {
+    padding: 4px 6px;
+  }
+
+  .stat-num {
+    font-size: 1.12rem;
+  }
+
+  .stat-label {
+    font-size: 0.68rem;
+  }
+
+  /* --- Selettori Posizione (Regione, Città, Fermata) --- */
+  .region-selector-bar {
+    padding: 8px 0;
+  }
+
+  .region-selector-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .selector-field {
+    flex: 1 1 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    width: 100%;
+  }
+
+  .selector-field label {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+  }
+
+  .selector-field select,
+  .selector-field .custom-select {
+    width: 100%;
+    min-height: 42px;
+    font-size: 0.88rem;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* --- Intestazioni Sezione --- */
+  .section-header {
+    margin-bottom: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .section-header h2 {
+    font-size: 1.25rem;
+    line-height: 1.3;
+  }
+
+  .section-header p {
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .section-header .btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  /* --- Tabellone Live: Controlli e Barra Filtri --- */
   .board-control-bar {
     flex-direction: column;
     align-items: stretch;
-    padding: 14px;
+    padding: 12px;
+    gap: 10px;
+    border-radius: var(--radius-md);
   }
 
   .board-station-selector {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
-    min-width: 0;
+    gap: 4px;
     width: 100%;
   }
 
   .board-station-selector label {
-    white-space: normal;
+    font-size: 0.78rem;
   }
 
   .board-clock-box {
-    justify-content: center;
+    justify-content: space-between;
     width: 100%;
+    padding: 6px 12px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-sm);
   }
 
-  /* Le categorie del tabellone scorrono in orizzontale invece di andare a capo */
   .board-tabs-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     padding-bottom: 4px;
-    margin-left: -4px;
-    margin-right: -4px;
-    padding-left: 4px;
-    padding-right: 4px;
+    margin-left: -2px;
+    margin-right: -2px;
+    gap: 6px;
   }
 
   .board-tabs-bar::-webkit-scrollbar {
@@ -189,497 +323,325 @@ img, svg, video, .leaflet-map-canvas {
   .board-tab-btn {
     flex: 0 0 auto;
     white-space: nowrap;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    min-height: 40px;
   }
 
-  .board-header-summary {
-    flex-direction: column;
+  /* --- Card Partenze Mobile Touch-Ergonomiche --- */
+  .dep-card {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    border-left-width: 5px;
+  }
+
+  .dep-card-header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: flex-start;
     gap: 10px;
+    margin-bottom: 8px;
   }
 
-  /* --- Griglie a card: una sola colonna, niente overflow orizzontale --- */
-  .fleet-cards-grid,
-  .tariffs-cards-grid,
-  .saved-tickets-grid {
+  .dep-line-tag {
+    font-size: 0.88rem;
+    padding: 4px 9px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+  }
+
+  .dep-route-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dep-destination {
+    font-size: 1.05rem;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.25;
+    margin-bottom: 2px;
+  }
+
+  .dep-via {
+    font-size: 0.78rem;
+    white-space: normal;
+    line-height: 1.25;
+    color: var(--text-muted);
+  }
+
+  .dep-timer-box {
+    text-align: right;
+    min-width: auto;
+    flex-shrink: 0;
+    padding-top: 0;
+    border: none;
+  }
+
+  .timer-clock {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .dep-card-meta {
+    gap: 6px 12px;
+    font-size: 0.76rem;
+    padding: 6px 0;
+  }
+
+  .dep-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  .dep-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .dep-actions .btn {
+    flex: 1 1 auto;
+    min-height: 38px;
+    text-align: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    padding: 6px 12px;
+  }
+
+  /* --- Cerca Corse & Trip Planner Mobile --- */
+  .search-form-grid-modern {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 8px;
   }
 
-  .fleet-card,
-  .tariff-card,
-  .search-planner-card {
-    padding: 20px;
+  .search-location-card {
+    padding: 12px;
+    border-radius: var(--radius-md);
   }
 
-  /* --- Mappa --- */
+  .swap-btn-container {
+    padding: 2px 0;
+    margin: -6px auto;
+    position: relative;
+    z-index: 5;
+    display: flex;
+    justify-content: center;
+  }
+
+  .btn-swap-stops {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    font-size: 0.95rem;
+    box-shadow: var(--shadow-md);
+  }
+
+  .search-options-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .btn-search-main {
+    min-height: 48px;
+    font-size: 0.95rem;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .trip-main-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .trip-price-col {
+    justify-content: space-between;
+    width: 100%;
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+  }
+
+  /* --- Mappa GPS Live su Mobile --- */
   .map-control-panel {
     flex-direction: column;
     align-items: stretch;
+    padding: 10px;
+    gap: 8px;
   }
 
   .map-quick-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+  }
+
+  .map-btn-pill {
+    flex: 1 1 auto;
+    min-height: 40px;
+    font-size: 0.78rem;
+    padding: 6px 10px;
     justify-content: center;
   }
 
   .map-live-status-pill {
     justify-content: center;
+    font-size: 0.78rem;
   }
 
-  /* --- Modali a tutto schermo per il wizard di prenotazione --- */
+  .leaflet-map-canvas {
+    height: 380px;
+    border-radius: var(--radius-md);
+  }
+
+  /* --- Griglie Card Comuni (Flotta, Tariffe, Biglietti) --- */
+  .fleet-cards-grid,
+  .tariffs-cards-grid,
+  .saved-tickets-grid,
+  .departure-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .fleet-card,
+  .tariff-card,
+  .search-planner-card {
+    padding: 16px;
+    border-radius: var(--radius-md);
+  }
+
+  /* --- Modali a Scheda dal Basso (Bottom-Sheet Style) --- */
   .app-modal {
-    align-items: stretch;
-    justify-content: stretch;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
   }
 
   .modal-dialog,
   #ticketViewerModal .modal-dialog {
     width: 100%;
     max-width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    max-height: 100dvh;
-    border-radius: 0;
-    border: none;
+    height: auto;
+    max-height: 90vh;
+    max-height: 90dvh;
+    border-radius: 20px 20px 0 0;
+    border-bottom: none;
+    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slideUpModal {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
   }
 
   .modal-header {
     padding: 14px 18px;
-    padding-top: max(14px, env(safe-area-inset-top));
   }
 
   .modal-body {
-    padding: 18px;
-  }
-
-  .modal-footer {
-    padding: 14px 18px;
-    padding-bottom: max(14px, env(safe-area-inset-bottom));
-    flex-direction: column-reverse;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .modal-footer > div {
-    margin-left: 0 !important;
-    width: 100%;
-    display: flex;
-    gap: 10px;
-  }
-
-  .modal-footer .btn {
-    flex: 1;
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* Wizard: mostra solo i pallini numerati, con l'etichetta del passo attivo */
-  .wizard-steps-header {
-    justify-content: space-around;
-    gap: 4px;
-  }
-
-  .wizard-step-indicator {
-    gap: 6px;
-  }
-
-  .wizard-step-indicator > span:not(.step-circle) {
-    display: none;
-  }
-
-  .wizard-step-indicator.active > span:not(.step-circle) {
-    display: inline;
-    font-size: 0.8rem;
-  }
-
-  /* --- Form passeggero e checkout su singola colonna --- */
-  .passenger-form-grid,
-  .checkout-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  /* --- Biglietto digitale --- */
-  .ticket-info-strip {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .ticket-actions-row {
-    padding: 14px 18px;
-  }
-
-  .ticket-actions-row .btn {
-    flex: 1 1 auto;
-  }
-}
-
-/* ==========================================================================
-   4. PHONE STANDARD  (<= 600px)
-   ========================================================================== */
-
-@media (max-width: 600px) {
-
-  .app-main-content {
-    padding: 20px 0 40px;
-  }
-
-  .section-header {
-    margin-bottom: 18px;
-  }
-
-  .section-header h2 {
-    font-size: 1.35rem;
-  }
-
-  .section-header p {
-    font-size: 0.88rem;
-  }
-
-  /* Il tasto azione nell'intestazione sezione va a capo a tutta larghezza */
-  .section-header .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* --- Hero ottimizzato per il pollice --- */
-  .hero-badge {
-    font-size: 0.75rem;
-  }
-
-  .hero-title {
-    font-size: 1.7rem;
-  }
-
-  .hero-description {
-    font-size: 0.98rem;
-    margin-bottom: 20px;
-  }
-
-  .hero-quick-actions {
-    flex-direction: column;
-  }
-
-  .hero-quick-actions .btn {
-    width: 100%;
-  }
-
-  /* --- Card partenze: layout verticale leggibile --- */
-  .dep-card {
-    padding: 14px 16px;
-  }
-
-  .dep-card-header {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .dep-destination {
-    white-space: normal;
-    font-size: 1.05rem;
-  }
-
-  .dep-via {
-    white-space: normal;
-  }
-
-  .dep-timer-box {
-    text-align: left;
-    min-width: 0;
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding-top: 8px;
-    border-top: 1px dashed var(--border-color);
-  }
-
-  .dep-card-meta {
-    gap: 10px 14px;
-  }
-
-  /* --- Risultati ricerca: prezzo e orari impilati --- */
-  .search-options-row {
-    grid-template-columns: 1fr;
-  }
-
-  .trip-main-row {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  .trip-price-col {
-    justify-content: space-between;
-    width: 100%;
-  }
-
-  /* --- Griglie card a colonna singola (evita overflow su 320-360px) --- */
-  .fleet-cards-grid,
-  .tariffs-cards-grid,
-  .saved-tickets-grid,
-  .departure-cards-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* --- Selettori Regione, Città e Fermata su Mobile --- */
-  .region-selector-inner {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .selector-field {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    width: 100%;
-  }
-
-  .selector-field select,
-  .selector-field .custom-select {
-    width: 100%;
-    min-height: 44px; /* Touch target ottimale */
-    font-size: 0.92rem;
-  }
-
-  .search-form-grid-modern {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .search-location-card {
-    padding: 14px;
-  }
-
-  .loc-inputs-stack {
-    gap: 8px;
-  }
-
-  .swap-btn-container {
-    padding: 4px 0;
-    text-align: center;
-    display: flex;
-    justify-content: center;
-  }
-
-  /* --- Biglietto digitale: QR sopra, istruzioni sotto --- */
-  .ticket-qr-section {
-    flex-direction: column;
-    text-align: center;
-    gap: 16px;
-    padding: 20px 18px;
-  }
-
-  .qr-instructions {
-    width: 100%;
-  }
-
-  .ticket-route-grid {
-    padding: 18px;
-    gap: 10px;
-  }
-
-  .route-station h4 {
-    font-size: 1rem;
-  }
-
-  /* --- Ticker avvisi: dettagli sempre raggiungibili --- */
-  .ticker-inner {
-    gap: 10px;
-  }
-
-  /* --- Footer --- */
-  .footer-bottom {
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
-  }
-
-  /* --- Seat picker più compatto ma toccabile --- */
-  .coach-visualizer-container {
-    padding: 14px;
-  }
-
-  .coach-row {
-    gap: 6px;
-  }
-
-  .seat-btn {
-    height: 44px;
-  }
-}
-
-/* ==========================================================================
-   5. PHONE PICCOLI  (<= 400px : iPhone SE, mini, Galaxy S, Pixel base)
-   ========================================================================== */
-
-@media (max-width: 400px) {
-
-  .container {
-    padding-left: max(14px, env(safe-area-inset-left));
-    padding-right: max(14px, env(safe-area-inset-right));
-  }
-
-  /* La sottodicitura del brand si nasconde per non affollare l'header */
-  .brand-subtitle {
-    display: none;
-  }
-
-  .brand-title {
-    font-size: 1.02rem;
-  }
-
-  .hero-title {
-    font-size: 1.5rem;
-  }
-
-  /* Statistiche hero su una colonna quando lo spazio è minimo */
-  .hero-stats-card {
-    grid-template-columns: 1fr 1fr;
     padding: 16px;
-    gap: 12px;
-  }
-
-  .stat-num {
-    font-size: 1.35rem;
-  }
-
-  .stat-label {
-    font-size: 0.72rem;
-  }
-
-  .section-header h2 {
-    font-size: 1.2rem;
-  }
-
-  .btn {
-    padding: 11px 16px;
-    font-size: 0.9rem;
-  }
-
-  /* Info del biglietto su 2 righe leggibili */
-  .ticket-info-strip {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    padding: 14px 16px;
-  }
-
-  .wizard-steps-header {
-    padding-bottom: 12px;
-    margin-bottom: 18px;
-  }
-
-  .step-circle {
-    width: 26px;
-    height: 26px;
-  }
-
-  /* QR leggermente più piccolo ma ancora scansionabile */
-  .qr-code-wrapper {
-    width: 150px;
-    height: 150px;
-  }
-}
-
-/* ==========================================================================
-   6. PHONE MOLTO PICCOLI  (<= 340px : iPhone SE 1ª gen, vecchi Android)
-   ========================================================================== */
-
-@media (max-width: 340px) {
-
-  .hero-title {
-    font-size: 1.35rem;
-  }
-
-  .hero-stats-card {
-    grid-template-columns: 1fr;
-  }
-
-  .board-tab-btn {
-    padding: 8px 12px;
-    font-size: 0.8rem;
-  }
-
-  .seat-btn {
-    height: 40px;
-  }
-
-  .seat-num {
-    font-size: 0.62rem;
-  }
-}
-
-/* ==========================================================================
-   7. ORIENTAMENTO ORIZZONTALE (phone in landscape, altezza ridotta)
-   ========================================================================== */
-
-@media (max-height: 500px) and (orientation: landscape) {
-
-  .app-header {
-    position: static; /* libera spazio verticale prezioso */
-  }
-
-  .hero-banner {
-    padding: 20px 0;
-  }
-
-  .hero-content {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  /* Drawer scrollabile: il menu resta usabile anche con poca altezza */
-  .mobile-drawer {
     overflow-y: auto;
   }
 
-  /* Modale non a tutto schermo: mantiene margini e scroll interno */
-  .modal-dialog {
-    height: auto;
-    max-height: 94vh;
-    max-height: 94dvh;
+  .modal-footer {
+    padding: 12px 18px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    flex-direction: column-reverse;
+    gap: 8px;
   }
 
-  .leaflet-map-canvas {
-    height: 300px;
+  .modal-footer .btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
   }
-}
 
-/* ==========================================================================
-   8. ADATTAMENTI MOBILE SEZIONE SCIOPERI & SWITCH AUTOMATICO
-   ========================================================================== */
-
-@media (max-width: 768px) {
+  /* --- Sezione Scioperi & Auto-Switch Mobile --- */
   .strikes-stats-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
   }
 
   .strike-stat-card {
-    padding: 10px 12px;
-    gap: 10px;
+    padding: 10px;
+    gap: 8px;
+    border-radius: var(--radius-md);
   }
 
   .s-stat-icon {
-    width: 36px;
-    height: 36px;
-    font-size: 1.05rem;
+    width: 34px;
+    height: 34px;
+    font-size: 0.95rem;
+    border-radius: var(--radius-sm);
   }
 
   .s-stat-val {
     font-size: 0.92rem;
   }
 
+  .strikes-control-panel {
+    padding: 12px;
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+  }
+
   .strikes-auto-switch-header {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
+  }
+
+  .auto-switch-title {
+    font-size: 0.95rem;
+  }
+
+  .auto-switch-sub {
+    font-size: 0.76rem;
   }
 
   .auto-switch-actions {
     justify-content: space-between;
     width: 100%;
+    gap: 8px;
+  }
+
+  .auto-switch-actions .btn {
+    flex: 1;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  .strikes-category-tabs {
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+
+  .strike-cat-tab {
+    padding: 8px 12px;
+    min-height: 40px;
+    border-radius: var(--radius-sm);
+  }
+
+  .strike-cat-label {
+    font-size: 0.8rem;
   }
 
   .strikes-filter-bar {
     flex-direction: column;
     align-items: stretch;
     padding: 12px;
+    gap: 8px;
+    margin-bottom: 16px;
   }
 
   .strikes-filter-bar .filter-field,
@@ -690,73 +652,184 @@ img, svg, video, .leaflet-map-canvas {
 
   .strikes-cards-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 14px;
+  }
+
+  .strike-card {
+    border-radius: var(--radius-md);
   }
 
   .strike-card-main {
-    padding: 14px;
+    padding: 12px;
   }
 
   .strike-card-title {
     font-size: 1.05rem;
   }
 
+  .strike-card-sub {
+    font-size: 0.82rem;
+    margin-bottom: 12px;
+  }
+
+  .strike-timing-box {
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .strike-guarantee-box {
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+  }
+
+  .guarantee-slots-grid {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .slot-chip {
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .strike-details-drawer {
+    font-size: 0.78rem;
+    gap: 6px;
+  }
+
   .strike-actions-row {
     justify-content: stretch;
+    gap: 6px;
   }
 
   .strike-actions-row .btn {
-    flex: 1 1 calc(50% - 6px);
+    flex: 1 1 calc(50% - 4px);
     text-align: center;
     justify-content: center;
+    min-height: 38px;
+    font-size: 0.76rem;
+    padding: 6px 8px;
+  }
+
+  .strikes-info-banner {
+    padding: 14px;
+    border-radius: var(--radius-md);
+    gap: 10px;
+  }
+
+  .info-banner-icon {
+    font-size: 1.3rem;
   }
 }
 
-@media (max-width: 480px) {
-  .strikes-stats-grid {
-    grid-template-columns: 1fr;
+/* ==========================================================================
+   4. SMARTPHONE COMPATTI (<= 400px : iPhone SE, Mini, Galaxy S)
+   ========================================================================== */
+
+@media (max-width: 400px) {
+  .hero-title {
+    font-size: 1.28rem;
   }
 
-  .strike-card-top {
-    flex-direction: column;
-    align-items: flex-start;
+  .hero-stats-card {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 8px 10px;
   }
 
-  .detail-row {
-    flex-direction: column;
-    gap: 2px;
+  .stat-num {
+    font-size: 1rem;
   }
 
-  .d-label {
-    min-width: 0;
+  .section-header h2 {
+    font-size: 1.15rem;
   }
 
   .strike-actions-row .btn {
     flex: 1 1 100%;
   }
+
+  .search-options-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-nav-label {
+    font-size: 0.62rem;
+  }
+
+  .mobile-nav-icon {
+    font-size: 1.05rem;
+  }
 }
 
 /* ==========================================================================
-   9. ACCESSIBILITÀ TOUCH & PREFERENZE UTENTE
+   5. SMARTPHONE MOLTO PICCOLI (<= 340px)
    ========================================================================== */
 
-/* Aree di tocco minime consigliate (44px) sui controlli principali mobile */
+@media (max-width: 340px) {
+  .hero-stats-card,
+  .strikes-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .board-tab-btn,
+  .mobile-mode-pill {
+    padding: 6px 10px;
+    font-size: 0.76rem;
+  }
+}
+
+/* ==========================================================================
+   6. ORIENTAMENTO LANDSCAPE MOBILE (Altezza Ridotta)
+   ========================================================================== */
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .app-header {
+    position: static;
+  }
+
+  .mobile-quick-modes-bar {
+    position: static;
+  }
+
+  .hero-banner {
+    padding: 12px 0;
+  }
+
+  .hero-content {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .leaflet-map-canvas {
+    height: 260px;
+  }
+
+  .mobile-bottom-bar {
+    height: 52px;
+  }
+}
+
+/* ==========================================================================
+   7. ACCESSIBILITÀ TOUCH & PREFERENZE RIDUZIONE MOVIMENTO
+   ========================================================================== */
+
 @media (max-width: 768px) and (pointer: coarse) {
   .nav-link,
   .map-btn-pill,
   .btn-toggle-stops,
   .btn-ticker-details,
   .strike-cat-tab,
+  .mobile-mode-pill,
+  .mobile-nav-btn,
   #btnToggleAutoSwitch {
     min-height: 44px;
   }
-
-  .drawer-nav .nav-link {
-    min-height: 48px;
-  }
 }
 
-/* Rispetta chi ha ridotto le animazioni nelle impostazioni di sistema */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

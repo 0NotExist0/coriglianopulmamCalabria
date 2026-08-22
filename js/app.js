@@ -105,6 +105,16 @@ class AppController {
         }
       });
     });
+
+    // Click sui pill nella barra mobile rapida (1-tap switch)
+    document.querySelectorAll(".mobile-mode-pill").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.mode;
+        if (mode) {
+          this.switchTransportMode(mode);
+        }
+      });
+    });
   }
 
   switchTransportMode(mode) {
@@ -153,6 +163,9 @@ class AppController {
       b.classList.toggle("active", b.dataset.mode === mode);
     });
     document.querySelectorAll(".drawer-mode-chip").forEach(b => {
+      b.classList.toggle("active", b.dataset.mode === mode);
+    });
+    document.querySelectorAll(".mobile-mode-pill").forEach(b => {
       b.classList.toggle("active", b.dataset.mode === mode);
     });
 
@@ -503,13 +516,18 @@ class AppController {
   switchTab(tabId) {
     this.currentTab = tabId;
 
-    document.querySelectorAll(".nav-link, .mobile-nav-item").forEach(link => {
+    document.querySelectorAll(".nav-link, .mobile-nav-item, .mobile-nav-btn").forEach(link => {
       link.classList.toggle("active", link.dataset.tab === tabId);
     });
 
     document.querySelectorAll(".app-section").forEach(sec => {
       sec.classList.toggle("active", sec.id === `section-${tabId}`);
     });
+
+    // Scroll fluido in alto al cambio scheda su mobile
+    if (window.innerWidth <= 768) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
 
     if (tabId === "map" && window.transitMap && window.transitMap.map) {
       setTimeout(() => {

@@ -4090,3 +4090,189 @@ body.mode-taxi {
 [data-theme="dark"] .slot-time {
   color: #34d399;
 }
+
+/* ==========================================================================
+   MOBILE BOTTOM NAVIGATION DOCK & QUICK MODE BAR
+   ========================================================================== */
+
+.mobile-bottom-bar {
+  display: none;
+}
+
+.mobile-quick-modes-bar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Mobile Quick Modes Bar (1-tap Mezzi) */
+  .mobile-quick-modes-bar {
+    display: block;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 0;
+    position: sticky;
+    top: 62px;
+    z-index: 990;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .mobile-modes-inner {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 14px;
+  }
+
+  .mobile-modes-inner::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mobile-mode-pill {
+    flex: 1 1 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 8px 14px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    cursor: pointer;
+    min-height: 40px;
+    transition: all var(--transition-fast);
+    touch-action: manipulation;
+  }
+
+  .mobile-mode-pill:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-mode-pill.active {
+    background: var(--brand-primary);
+    color: #ffffff;
+    border-color: var(--brand-primary);
+    box-shadow: 0 2px 10px var(--brand-glow);
+  }
+
+  .mobile-mode-pill i {
+    font-size: 0.9rem;
+  }
+
+  /* Fixed Mobile Bottom Navigation Bar */
+  .mobile-bottom-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1200;
+    background: rgba(255, 255, 255, 0.92);
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .mobile-nav-btn {
+    flex: 1;
+    height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--text-muted);
+    padding: 6px 2px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    position: relative;
+  }
+
+  .mobile-nav-btn:active {
+    transform: scale(0.92);
+  }
+
+  .mobile-nav-icon {
+    width: 38px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    font-size: 1.15rem;
+    position: relative;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .mobile-nav-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    line-height: 1;
+    transition: color 0.2s ease;
+  }
+
+  .mobile-nav-btn.active {
+    color: var(--brand-primary);
+  }
+
+  .mobile-nav-btn.active .mobile-nav-icon {
+    background: var(--brand-primary-soft);
+    color: var(--brand-primary);
+    transform: translateY(-2px);
+  }
+
+  .mobile-nav-btn.active .mobile-nav-label {
+    color: var(--brand-primary);
+    font-weight: 800;
+  }
+
+  .mobile-nav-badge {
+    position: absolute;
+    top: -2px;
+    right: -6px;
+    background: #dc2626;
+    color: #ffffff;
+    font-size: 0.55rem;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 4px;
+    line-height: 1.1;
+    letter-spacing: 0.4px;
+    animation: pulse-badge 1.8s ease-in-out infinite;
+  }
+
+  /* Padding in basso per non coprire il contenuto */
+  .app-main-content {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Spazio aggiuntivo per toast sciopero sopra la bottom bar */
+  .strike-toast {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 14px !important;
+    left: 14px !important;
+  }
+}
+
+[data-theme="dark"] .mobile-bottom-bar {
+  background: rgba(15, 23, 42, 0.94);
+  border-top-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.4);
+}

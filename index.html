@@ -106,11 +106,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=4.1">
-  <link rel="stylesheet" href="css/tickets.css?v=4.1">
-  <link rel="stylesheet" href="css/map.css?v=4.1">
-  <link rel="stylesheet" href="css/themes.css?v=4.1">
-  <link rel="stylesheet" href="css/responsive.css?v=4.1">
+  <link rel="stylesheet" href="css/style.css?v=4.2">
+  <link rel="stylesheet" href="css/tickets.css?v=4.2">
+  <link rel="stylesheet" href="css/map.css?v=4.2">
+  <link rel="stylesheet" href="css/themes.css?v=4.2">
+  <link rel="stylesheet" href="css/responsive.css?v=4.2">
 </head>
 <body>
 
@@ -371,6 +371,26 @@
       </div>
     </div>
   </aside>
+
+  <!-- ==========================================
+       MOBILE QUICK MODE BAR (1-TAP TRANSPORT SWITCH)
+       ========================================== -->
+  <div class="mobile-quick-modes-bar" aria-label="Selettore Rapido Mezzo">
+    <div class="container mobile-modes-inner">
+      <button class="mobile-mode-pill active" data-mode="pullman" title="Pullman & Bus">
+        <i class="fa-solid fa-bus"></i> <span>Pullman</span>
+      </button>
+      <button class="mobile-mode-pill" data-mode="train" title="Treni FS">
+        <i class="fa-solid fa-train"></i> <span>Treni</span>
+      </button>
+      <button class="mobile-mode-pill" data-mode="tram" title="Tram & Metro">
+        <i class="fa-solid fa-train-tram"></i> <span>Tram</span>
+      </button>
+      <button class="mobile-mode-pill" data-mode="taxi" title="Taxi & NCC">
+        <i class="fa-solid fa-taxi"></i> <span>Taxi</span>
+      </button>
+    </div>
+  </div>
 
   <!-- Service Alerts Ticker -->
   <div class="service-alerts-ticker">
@@ -1098,19 +1118,48 @@
   </footer>
 
   <!-- ==========================================
+       MOBILE BOTTOM NAVIGATION BAR (FIXED DOCK)
+       ========================================== -->
+  <nav class="mobile-bottom-bar" id="mobileBottomBar" aria-label="Navigazione Rapida Mobile">
+    <button class="mobile-nav-btn active" data-tab="live-board" aria-label="Tabellone Partenze Live">
+      <div class="mobile-nav-icon"><i class="fa-solid fa-clock"></i></div>
+      <span class="mobile-nav-label">Partenze</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="search" aria-label="Cerca e Prenota Corsa">
+      <div class="mobile-nav-icon"><i class="fa-solid fa-magnifying-glass-location"></i></div>
+      <span class="mobile-nav-label">Cerca</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="map" aria-label="Mappa Satellitare GPS">
+      <div class="mobile-nav-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+      <span class="mobile-nav-label">Mappa GPS</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="strikes" aria-label="Scioperi e Disagi">
+      <div class="mobile-nav-icon">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span class="mobile-nav-badge">LIVE</span>
+      </div>
+      <span class="mobile-nav-label">Scioperi</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="tickets" aria-label="Portafoglio Biglietti">
+      <div class="mobile-nav-icon"><i class="fa-solid fa-wallet"></i></div>
+      <span class="mobile-nav-label">Biglietti</span>
+    </button>
+  </nav>
+
+  <!-- ==========================================
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/data.js?v=4.1"></script>
-  <script src="js/realtime-engine.js?v=4.1"></script>
-  <script src="js/live-board.js?v=4.1"></script>
-  <script src="js/search.js?v=4.1"></script>
-  <script src="js/booking.js?v=4.1"></script>
-  <script src="js/map.js?v=4.1"></script>
-  <script src="js/strikes.js?v=4.1"></script>
-  <script src="js/app.js?v=4.1"></script>
-  <script src="js/customizer.js?v=4.1"></script>
-  <script src="js/geo-locator.js?v=4.1"></script>
+  <script src="js/data.js?v=4.2"></script>
+  <script src="js/realtime-engine.js?v=4.2"></script>
+  <script src="js/live-board.js?v=4.2"></script>
+  <script src="js/search.js?v=4.2"></script>
+  <script src="js/booking.js?v=4.2"></script>
+  <script src="js/map.js?v=4.2"></script>
+  <script src="js/strikes.js?v=4.2"></script>
+  <script src="js/app.js?v=4.2"></script>
+  <script src="js/customizer.js?v=4.2"></script>
+  <script src="js/geo-locator.js?v=4.2"></script>
 
 </body>
 </html>
