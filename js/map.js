@@ -166,6 +166,13 @@ class TransitMapEngine {
       }
     });
     this.map.addControl(new LocateControl());
+
+    // Aggiorna dinamicamente le fermate visibili quando l'utente si sposta o zumma sulla mappa
+    this.map.on('moveend', () => {
+      if (this.map) {
+        this.placeStopMarkers();
+      }
+    });
   }
 
   locateUser() {
@@ -224,8 +231,8 @@ class TransitMapEngine {
       stopCoordMap.set(s.id, [s.lat_actual || s.lat, s.lng_actual || s.lng]);
     }
 
-    // Renderizza al massimo le prime 30 linee principali per garantire 60fps
-    const linesToDraw = lines.slice(0, 30);
+    // Renderizza le linee principali per garantire 60fps
+    const linesToDraw = lines.slice(0, 35);
 
     linesToDraw.forEach(line => {
       const sIds = line.stopsIds || line.stops || [];
@@ -257,35 +264,45 @@ class TransitMapEngine {
   }
 
   placeStopMarkers() {
-    if (!this.stopMarkersLayer) return;
+    if (!this.stopMarkersLayer || !this.map) return;
     this.stopMarkersLayer.clearLayers();
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    const modeData = window.TRANSIT_DATA?.modes?.[currentMode] || window.TRANSIT_DATA?.modes?.pullman;
+    const allStops = modeData?.stops || [];
+    if (!allStops || allStops.length === 0) return;
 
-    let stops = getStopsByRegion(currentRegion);
-    if ((!stops || stops.length === 0) && currentMode !== 'pullman') {
-      stops = getStopsByRegion('all');
-    }
-    if (!stops || stops.length === 0) return;
+    let displayStops = [];
 
-    // Seleziona gli Hub principali, le fermate con cantieri/variazioni e un campione bilanciato (max 65) per fluidità totale
-    const hubsAndSpecial = [];
-    const regularStops = [];
-    for (let i = 0; i < stops.length; i++) {
-      const s = stops[i];
-      if (s.isMainHub || s.isTemporary) {
-        hubsAndSpecial.push(s);
+    if (currentMode !== 'pullman') {
+      // Per treni, aerei, tram, taxi: visualizza tutte le stazioni/aeroporti/posteggi registrati
+      displayStops = allStops;
+    } else {
+      const zoom = this.map.getZoom();
+      const bounds = this.map.getBounds();
+
+      if (zoom >= 12 && bounds) {
+        // Quando zoomato su una città/comune: mostra tutte le fermate visibili nell'area inquadrata
+        for (let i = 0; i < allStops.length; i++) {
+          const s = allStops[i];
+          const lat = s.lat_actual || s.lat;
+          const lng = s.lng_actual || s.lng;
+          if (lat && lng && bounds.contains([lat, lng])) {
+            displayStops.push(s);
+            if (displayStops.length >= 160) break;
+          }
+        }
       } else {
-        regularStops.push(s);
+        // Quando la visuale è regionale / ampia: mostra gli Hub principali e le fermate con deviazioni
+        const regionStops = (typeof getStopsByRegion === 'function') ? getStopsByRegion(currentRegion) : allStops;
+        const hubs = regionStops.filter(s => s.isMainHub || s.isTemporary);
+        displayStops = hubs.length > 0 ? hubs : regionStops.slice(0, 100);
       }
     }
 
-    let displayStops = hubsAndSpecial;
-    if (displayStops.length < 50) {
-      displayStops = displayStops.concat(regularStops.slice(0, 50 - displayStops.length));
-    } else if (displayStops.length > 70) {
-      displayStops = displayStops.slice(0, 70);
+    if (!displayStops || displayStops.length === 0) {
+      displayStops = allStops.slice(0, 50);
     }
 
     displayStops.forEach(stop => {
@@ -314,7 +331,7 @@ class TransitMapEngine {
         iconClass = 'fa-taxi';
       } else {
         markerClass += isUrban ? ' marker-urban' : ' marker-regional';
-        iconClass = stop.isMainHub ? 'fa-building-columns' : 'fa-location-dot';
+        iconClass = stop.isMainHub ? 'fa-bus-simple' : 'fa-location-dot';
       }
 
       if (isTemp) {
@@ -338,11 +355,9 @@ class TransitMapEngine {
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
-      // Generazione Popup Lazy on Click per azzerare l'impatto sulla memoria
-      marker.on('click', () => {
-        const popupHtml = this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
-        marker.bindPopup(popupHtml, { maxWidth: 350, className: 'transit-popup' }).openPopup();
-      });
+      // Generazione e associazione Popup interattivo
+      const popupHtml = this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
+      marker.bindPopup(popupHtml, { maxWidth: 350, className: 'transit-popup' });
 
       this.stopMarkersLayer.addLayer(marker);
     });
