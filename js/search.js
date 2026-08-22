@@ -519,6 +519,7 @@ class RouteSearchEngine {
       const origRegion = getRegionById(originStop.region);
       const destRegion = getRegionById(destStop.region);
       const origHub = getMainHubForRegion(originStop.region) || originStop;
+      const destHub = getMainHubForRegion(destStop.region) || destStop;
       const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
       const isTrain = currentMode === "train";
       const isFlight = currentMode === "flight";

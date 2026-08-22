@@ -286,28 +286,43 @@ class TransitMapEngine {
     } else {
       const zoom = this.map.getZoom();
       const bounds = this.map.getBounds();
+      const regionStops = (typeof getStopsByRegion === 'function') ? getStopsByRegion(currentRegion) : allStops;
+      const searchPool = (regionStops && regionStops.length > 0) ? regionStops : allStops;
 
-      if (zoom >= 12 && bounds) {
-        // Quando zoomato su una città/comune: mostra tutte le fermate visibili nell'area inquadrata
-        for (let i = 0; i < allStops.length; i++) {
-          const s = allStops[i];
+      if (zoom >= 11 && bounds) {
+        // Mostra tutte le fermate visibili nell'area inquadrata (fino a 250 fermate)
+        for (let i = 0; i < searchPool.length; i++) {
+          const s = searchPool[i];
           const lat = s.lat_actual || s.lat;
           const lng = s.lng_actual || s.lng;
           if (lat && lng && bounds.contains([lat, lng])) {
             displayStops.push(s);
-            if (displayStops.length >= 160) break;
+            if (displayStops.length >= 250) break;
           }
         }
+        // Se poche fermate nel bounds (es. inquadratura tra confini), aggiungi hub
+        if (displayStops.length < 30) {
+          const hubs = searchPool.filter(s => s.isMainHub || s.isTemporary);
+          hubs.forEach(h => {
+            if (!displayStops.includes(h)) displayStops.push(h);
+          });
+        }
       } else {
-        // Quando la visuale è regionale / ampia: mostra gli Hub principali e le fermate con deviazioni
-        const regionStops = (typeof getStopsByRegion === 'function') ? getStopsByRegion(currentRegion) : allStops;
-        const hubs = regionStops.filter(s => s.isMainHub || s.isTemporary);
-        displayStops = hubs.length > 0 ? hubs : regionStops.slice(0, 100);
+        // Vista ampia: mostra tutti gli hub, fermate provvisorie e un campione uniforme di fermate regionali
+        const hubs = searchPool.filter(s => s.isMainHub || s.isTemporary);
+        const regular = searchPool.filter(s => !s.isMainHub && !s.isTemporary);
+        const step = Math.max(1, Math.floor(regular.length / 140));
+        const sampled = [];
+        for (let i = 0; i < regular.length; i += step) {
+          sampled.push(regular[i]);
+          if (sampled.length >= 140) break;
+        }
+        displayStops = hubs.concat(sampled);
       }
     }
 
     if (!displayStops || displayStops.length === 0) {
-      displayStops = allStops.slice(0, 50);
+      displayStops = allStops.slice(0, 80);
     }
 
     displayStops.forEach(stop => {
@@ -317,7 +332,7 @@ class TransitMapEngine {
       const isTempInactive = isTemp && stop.temporaryStatus !== 'active';
       const lat = stop.lat_actual || stop.lat;
       const lng = stop.lng_actual || stop.lng;
-      if (!lat || !lng) return;
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
 
       let iconClass = 'fa-location-dot';
       let markerClass = 'custom-stop-marker';
@@ -360,14 +375,10 @@ class TransitMapEngine {
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
-      // Generazione Popup Lazy on Click per azzerare il peso in memoria
-      marker.on('click', () => {
-        if (!marker.getPopup()) {
-          const popupHtml = this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
-          marker.bindPopup(popupHtml, { maxWidth: 350, className: 'transit-popup' });
-        }
-        marker.openPopup();
-      });
+      // Generazione Popup nativo Leaflet con callback lazy
+      marker.bindPopup(() => {
+        return this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
+      }, { maxWidth: 350, className: 'transit-popup' });
 
       this.stopMarkersLayer.addLayer(marker);
     });
