@@ -64,7 +64,8 @@
 
 .leaflet-map-canvas {
   width: 100%;
-  height: 600px;
+  height: clamp(360px, 58vh, 660px);
+  min-height: 320px;
   background-color: #e5e7eb;
   z-index: 1;
 }
