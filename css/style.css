@@ -2045,8 +2045,32 @@ button, input, select, textarea {
 }
 
 /* ==========================================================================
-   MODE SWITCH LOADING OVERLAY & ANIMATION
+   INITIAL APP PRELOADER & MODE SWITCH LOADING OVERLAYS
    ========================================================================== */
+
+.app-initial-preloader {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-body, #0f172a);
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.45s ease;
+}
+
+.app-initial-preloader.fade-out {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.app-initial-preloader .mode-loader-card {
+  transform: scale(1);
+}
 
 .mode-switch-loader-overlay {
   position: fixed;

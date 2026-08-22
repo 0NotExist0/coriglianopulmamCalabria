@@ -115,6 +115,24 @@
 <body>
 
   <!-- ==========================================
+       PRELOADER INIZIALE ALL'APERTURA DELLA PAGINA (CARICAMENTO.GIF)
+       ========================================== -->
+  <div class="app-initial-preloader" id="initialPreloader" aria-live="polite" aria-label="Caricamento dell'applicazione in corso">
+    <div class="mode-loader-card">
+      <div class="mode-loader-visual">
+        <img src="caricamento.gif" alt="Caricamento ItaliaBus" class="mode-loader-gif">
+      </div>
+      <div class="mode-loader-texts">
+        <h3 class="mode-loader-title">ItaliaBus & Mobilità Nazionale</h3>
+        <p class="mode-loader-sub">Inizializzazione orari in tempo reale, rotte e telemetria satellitare...</p>
+        <div class="mode-loader-progress-track">
+          <div class="mode-loader-progress-bar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
        ANIMAZIONE DI CARICAMENTO SWITCH MODALITÀ (PULLMAN, TAXI, TRAM, TRENI, AEREI)
        ========================================== -->
   <div class="mode-switch-loader-overlay" id="modeSwitchLoader" aria-live="polite" aria-label="Caricamento modalità di trasporto">

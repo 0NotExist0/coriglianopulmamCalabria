@@ -58,8 +58,10 @@ class AppController {
       this.renderTariffsSection();
       this.renderAlertsBanner();
       this.notifyLocationChange();
+      this.dismissInitialPreloader();
     } catch (err) {
       console.error("AppController init error:", err);
+      this.dismissInitialPreloader();
     }
   }
 
@@ -620,6 +622,21 @@ class AppController {
     safeStorageSet("italiabus_hero_hidden", "false");
   }
 
+  // Chiusura fluida del preloader iniziale all'avvio dell'app
+  dismissInitialPreloader() {
+    const preloader = document.getElementById("initialPreloader");
+    if (preloader) {
+      setTimeout(() => {
+        preloader.classList.add("fade-out");
+        setTimeout(() => {
+          if (preloader.parentNode) {
+            preloader.parentNode.removeChild(preloader);
+          }
+        }, 500);
+      }, 400);
+    }
+  }
+
   // Navigazione tra le sezioni
   switchTab(tabId) {
     this.currentTab = tabId;
@@ -816,3 +833,13 @@ if (document.readyState === 'loading') {
 } else {
   initAppController();
 }
+
+window.addEventListener('load', () => {
+  const preloader = document.getElementById("initialPreloader");
+  if (preloader && !preloader.classList.contains("fade-out")) {
+    preloader.classList.add("fade-out");
+    setTimeout(() => {
+      if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
+    }, 500);
+  }
+});
