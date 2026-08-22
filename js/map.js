@@ -457,6 +457,11 @@ class TransitMapEngine {
         }
       }
 
+      // Pulisci prefissi "Fermata 12345 - "
+      if (destName && /^Fermata\s+\d+\s*-\s*/i.test(destName)) {
+        destName = destName.replace(/^Fermata\s+\d+\s*-\s*/i, "");
+      }
+
       // Orari programmati
       let rawSchedule = l.schedule?.weekday || ["06:30", "07:15", "08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "17:00", "18:30", "20:00"];
       let nextTimeStr = null;
