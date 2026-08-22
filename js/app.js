@@ -45,6 +45,8 @@ class AppController {
 
   init() {
     try {
+      const preloader = document.getElementById("initialPreloader");
+      if (preloader) preloader.setAttribute("data-mode", this.currentMode || "pullman");
       this.bindModeSwitcher();
       this.applyTransportMode(this.currentMode);
       this.populateLocationSelectors();
@@ -123,11 +125,12 @@ class AppController {
   showModeSwitchLoader(mode) {
     const loader = document.getElementById("modeSwitchLoader");
     const modeData = window.TRANSIT_DATA?.modes?.[mode] || { name: "Trasporto", icon: "fa-bus" };
-    const iconEl = document.getElementById("modeLoaderIcon");
     const titleEl = document.getElementById("modeLoaderTitle");
     const subEl = document.getElementById("modeLoaderSub");
 
-    if (iconEl) iconEl.className = `fa-solid ${modeData.icon || 'fa-bus'}`;
+    if (loader) {
+      loader.setAttribute("data-mode", mode);
+    }
     if (titleEl) titleEl.textContent = `Caricamento Rete ${modeData.name}...`;
 
     const MODE_DESCRIPTIONS = {
