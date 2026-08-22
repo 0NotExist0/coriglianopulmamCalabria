@@ -566,25 +566,32 @@ class GeoLocatorEngine {
       this.walkSeconds = Math.round(this.haversine(refLatLng, depLatLng) / 1.35);
     }
 
-    // 2. Marker Fermata di Partenza Consigliata
+    // 2. Marker Fermata di Partenza Consigliata (Punto di Salita più vicino per la destinazione scelta)
     const depIcon = L.divIcon({
-      html: `<div class="serving-departure-pin" style="background:#16a34a; color:#fff; border:2px solid #ffffff; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(22,163,74,0.6); font-size:1.1rem;"><i class="fa-solid fa-person-walking-arrow-right"></i></div>`,
+      html: `<div class="serving-departure-pin" style="background:#16a34a; color:#fff; border:2.5px solid #ffffff; border-radius:50%; width:42px; height:42px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(22,163,74,0.7); font-size:1.25rem;"><i class="fa-solid fa-person-walking-arrow-right"></i></div>`,
       className: "serving-dep-pin-wrapper",
-      iconSize: [38, 38],
-      iconAnchor: [19, 38]
+      iconSize: [42, 42],
+      iconAnchor: [21, 42]
     });
 
-    L.marker(depLatLng, { icon: depIcon, zIndexOffset: 1500 })
+    const depMarker = L.marker(depLatLng, { icon: depIcon, zIndexOffset: 2500 })
       .bindPopup(`
-        <div style="min-width: 220px; padding: 4px;">
-          <span style="background:#16a34a; color:#fff; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.75rem;">PARTENZA CONSIGLIATA</span>
-          <h4 style="margin:6px 0 2px 0; font-size:1.05rem;">${dep.name}</h4>
-          <p style="margin:0 0 6px 0; font-size:0.8rem; color:#64748b;">${dep.address || dep.area || ''}</p>
-          <small style="color:#0284c7; font-weight:700;">Da qui partono i mezzi per ${dest.name}</small>
+        <div style="min-width: 240px; padding: 4px;">
+          <span style="background:#16a34a; color:#fff; padding:3px 8px; border-radius:4px; font-weight:800; font-size:0.75rem; display:inline-block; margin-bottom:4px;">
+            <i class="fa-solid fa-circle-check"></i> FERMATA PIÙ VICINA DA CUI PARTIRE
+          </span>
+          <h4 style="margin:4px 0 2px 0; font-size:1.08rem; color:#0f172a;">${dep.name}</h4>
+          <p style="margin:0 0 6px 0; font-size:0.8rem; color:#64748b;">${dep.address || dep.area || 'Fermata di salita utile'}</p>
+          <div style="background:#f1f5f9; padding:6px 8px; border-radius:6px; margin-bottom:6px;">
+            <small style="color:#0284c7; font-weight:800; display:block;">Per raggiungere: <strong>${dest.name}</strong></small>
+            <small style="color:#475569;">${routeInfo.servingLines?.length ? 'Linee dirette da questa fermata' : 'Collegamento consigliato'}</small>
+          </div>
+          <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${dep.id}'); } window.app.switchTab('live-board');">
+            <i class="fa-solid fa-clock"></i> Visualizza Orari di Partenza
+          </button>
         </div>
       `)
-      .addTo(this.geoLayer)
-      .openPopup();
+      .addTo(this.geoLayer);
 
     // 3. Marker Destinazione Finale
     const destIcon = L.divIcon({
@@ -596,27 +603,25 @@ class GeoLocatorEngine {
 
     L.marker(destLatLng, { icon: destIcon, zIndexOffset: 1600 })
       .bindPopup(`
-        <div style="min-width: 220px; padding: 4px;">
-          <span style="background:${primaryColor}; color:#fff; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.75rem;">DESTINAZIONE</span>
+        <div style="min-width: 200px; padding: 4px;">
+          <span style="background:${primaryColor}; color:#fff; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.75rem;">DESTINAZIONE FINALE</span>
           <h4 style="margin:6px 0 2px 0; font-size:1.05rem;">${dest.name}</h4>
-          <p style="margin:0; font-size:0.8rem; color:#64748b;">Arrivo previsto alla destinazione selezionata</p>
+          <p style="margin:0; font-size:0.8rem; color:#64748b;">Arrivo previsto</p>
         </div>
       `)
       .addTo(this.geoLayer);
 
-    // 4. Polilinea di connessione Diretta Partenza -> Destinazione
+    // 4. Tracciato di collegamento Partenza -> Destinazione
     const transitCoords = [depLatLng, destLatLng];
     L.polyline(transitCoords, {
       color: primaryColor,
       weight: 6,
-      opacity: 0.9,
+      opacity: 0.85,
       dashArray: isFlight ? "8, 12" : (isTrain ? "10, 6" : null)
-    }).bindTooltip(`<strong>Tratta Diretta</strong>: ${dep.name} &rarr; ${dest.name}`, { sticky: true }).addTo(this.geoLayer);
+    }).bindTooltip(`<strong>Tratta</strong>: da ${dep.name} a ${dest.name}`, { sticky: true }).addTo(this.geoLayer);
 
-    // Inquadratura cinematografica in stile Navigatore GPS Satellitare
+    // Inquadratura focalizzata sulla FERMATA DI PARTENZA PIÙ VICINA a te
     map.invalidateSize();
-    const bounds = L.latLngBounds([depLatLng, destLatLng]);
-    if (this.userLatLng) bounds.extend(this.userLatLng);
 
     // Blocca sovrascritture di zoom da altri eventi
     if (window.transitMap) {
@@ -624,20 +629,24 @@ class GeoLocatorEngine {
       window.transitMap.needsModeRefresh = false;
     }
 
-    // 1. Zoom immediato e fluido sulla fermata di partenza (focus al punto di salita)
-    map.flyTo(depLatLng, 15, { animate: true, duration: 0.9 });
+    if (this.userLatLng) {
+      // Inquadra l'utente e la fermata di partenza più vicina da raggiungere a piedi
+      const localBounds = L.latLngBounds([this.userLatLng, depLatLng]);
+      map.flyToBounds(localBounds, {
+        padding: [85, 85],
+        animate: true,
+        duration: 1.1,
+        maxZoom: 16
+      });
+    } else {
+      // Zooma direttamente sulla fermata di partenza utile più vicina
+      map.flyTo(depLatLng, 15, { animate: true, duration: 1.1 });
+    }
 
-    // 2. Transizione fluida verso la panoramica completa del percorso (Navigatore Full Route Overview)
+    // Apri subito il popup sulla fermata di partenza
     setTimeout(() => {
-      if (this.map) {
-        this.map.flyToBounds(bounds, {
-          padding: [75, 75],
-          animate: true,
-          duration: 1.4,
-          maxZoom: 16
-        });
-      }
-    }, 950);
+      depMarker.openPopup();
+    }, 450);
   }
 
   /* ==========================================================================
