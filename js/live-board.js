@@ -927,17 +927,19 @@ class LiveBoardEngine {
       html += `
         <div class="dep-card clickable-dep-card" data-line="${dep.lineCode}" style="border-left-color: ${dep.lineColor}" onclick="window.liveBoard.showRouteOnMap('${dep.lineId}', '${dep.id}')" title="Clicca per visualizzare il tracciato e le fermate di questa corsa sulla Mappa">
           <div class="dep-card-header">
-            <div class="dep-line-tag" style="background-color: ${dep.lineColor}">
-              <i class="fa-solid ${modeData.icon || 'fa-bus'}"></i>
-              <span>${dep.lineCode}</span>
+            <div class="dep-header-top-row">
+              <div class="dep-line-tag" style="background-color: ${dep.lineColor}">
+                <i class="fa-solid ${modeData.icon || 'fa-bus'}"></i>
+                <span>${dep.lineCode}</span>
+              </div>
+              <div class="dep-timer-box">
+                <span class="timer-label">Conto alla rovescia</span>
+                <div class="timer-clock" id="timer_${dep.id}">--:--</div>
+              </div>
             </div>
             <div class="dep-route-info">
               <h4 class="dep-destination">Per ${dep.destination}</h4>
               <p class="dep-via" title="${dep.viaInfo}">${dep.viaInfo}</p>
-            </div>
-            <div class="dep-timer-box">
-              <span class="timer-label">Conto alla rovescia</span>
-              <div class="timer-clock" id="timer_${dep.id}">--:--</div>
             </div>
           </div>
 
@@ -966,7 +968,7 @@ class LiveBoardEngine {
               <span class="price-label">${isFlight ? 'Tariffa Volo da' : 'Tariffa da'}</span>
               <span class="price-val">€${dep.priceBase.toFixed(2)}</span>
             </div>
-            <div class="dep-actions" style="display: flex; gap: 6px; flex-wrap: wrap;" onclick="event.stopPropagation();">
+            <div class="dep-actions" onclick="event.stopPropagation();">
               <button class="btn btn-sm btn-outline btn-check-timetable-card" onclick="event.stopPropagation(); window.liveBoard.openLineScheduleModal('${dep.lineId}', '${dep.lineCode}')" title="Controlla la tabella oraria completa e tutte le fermate">
                 <i class="fa-solid fa-clock text-primary"></i> ${isFlight ? 'Orari Volo' : 'Controlla Orari'}
               </button>
