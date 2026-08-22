@@ -889,11 +889,13 @@ class GeoLocatorEngine {
   findNearestStop(latlng) {
     if (!latlng || !latlng[0] || !latlng[1]) return null;
     let best = null, bestD = Infinity;
-    let bestHub = null, bestHubD = Infinity;
+    let bestStation = null, bestStationD = Infinity;
     const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const modeData = window.TRANSIT_DATA?.modes?.[mode] || window.TRANSIT_DATA?.modes?.pullman;
     const stops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
     if (!stops || stops.length === 0) return null;
+
+    const isBusStation = (s) => !!(s.isMainHub || (s.name && (s.name.includes("Terminal") || s.name.includes("Autostazione") || s.name.includes("Stazione FS") || s.name.includes("Scalo"))));
 
     for (let i = 0; i < stops.length; i++) {
       const stop = stops[i];
@@ -905,15 +907,15 @@ class GeoLocatorEngine {
         bestD = d;
         best = stop;
       }
-      if (stop.isMainHub && d < bestHubD) {
-        bestHubD = d;
-        bestHub = stop;
+      if (isBusStation(stop) && d < bestStationD) {
+        bestStationD = d;
+        bestStation = stop;
       }
     }
 
-    // Se c'è un Hub Ufficiale principale entro 2.5 km, privilegialo rispetto a una palina anonima
-    if (bestHub && bestHubD <= 2500) {
-      return bestHub;
+    // Se c'è una Stazione / Terminal Bus ufficiale entro 5 km, dalle sempre la priorità assoluta!
+    if (bestStation && bestStationD <= 5000) {
+      return bestStation;
     }
 
     return best;

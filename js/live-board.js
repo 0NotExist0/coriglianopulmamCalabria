@@ -149,8 +149,28 @@ class LiveBoardEngine {
       return;
     }
 
+    const isBusStation = (s) => !!(s.isMainHub || (s.name && (s.name.includes("Terminal") || s.name.includes("Autostazione") || s.name.includes("Stazione FS") || s.name.includes("Scalo"))));
+
+    const stationHubs = regionStops.filter(s => isBusStation(s));
+    const regularStops = regionStops.filter(s => !isBusStation(s));
+
+    // 1. STAZIONI & TERMINAL PRINCIPALI IN CIMA
+    if (stationHubs.length > 0) {
+      const stationGroup = document.createElement("optgroup");
+      stationGroup.label = "⭐ STAZIONI & TERMINAL PRINCIPALI";
+      stationHubs.forEach(stop => {
+        const opt = document.createElement("option");
+        opt.value = stop.id;
+        opt.textContent = `⭐ ${stop.name} (${stop.platforms ? stop.platforms[0] : 'Hub Principale'})`;
+        if (stop.id === this.activeStopId) opt.selected = true;
+        stationGroup.appendChild(opt);
+      });
+      this.filterHubSelect.appendChild(stationGroup);
+    }
+
+    // 2. Raggruppa le altre fermate per area
     const areas = {};
-    regionStops.forEach(stop => {
+    regularStops.forEach(stop => {
       if (!areas[stop.area]) areas[stop.area] = [];
       areas[stop.area].push(stop);
     });
@@ -179,6 +199,11 @@ class LiveBoardEngine {
       });
       this.filterHubSelect.appendChild(group);
     });
+
+    if (!this.activeStopId && stationHubs.length > 0) {
+      this.activeStopId = stationHubs[0].id;
+      this.filterHubSelect.value = this.activeStopId;
+    }
   }
 
   switchToStop(stopId) {

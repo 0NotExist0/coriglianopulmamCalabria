@@ -120,9 +120,32 @@
   border-color: #fde047 !important;
 }
 
-.marker-flight {
-  background: #0284c7 !important;
-  border-color: #7dd3fc !important;
+.marker-station-hub {
+  background: linear-gradient(135deg, #0284c7 0%, #1e40af 100%) !important;
+  border: 2.5px solid #fde047 !important;
+  box-shadow: 0 0 12px rgba(253, 224, 71, 0.6), 0 3px 8px rgba(0, 0, 0, 0.4) !important;
+  font-size: 15px !important;
+  position: relative;
+  z-index: 1500 !important;
+}
+
+.marker-station-hub::after {
+  content: '★';
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #eab308;
+  color: #0f172a;
+  font-size: 9px;
+  font-weight: 900;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
 }
 
 .custom-stop-marker:hover {

@@ -338,7 +338,18 @@ class TransitMapEngine {
       displayStops = allStops.slice(0, 80);
     }
 
+    // Ordina e filtra per garantire che le Stazioni Bus e i Terminal abbiano sempre priorità assoluta
+    const isBusStation = (s) => !!(s.isMainHub || (s.name && (s.name.includes("Terminal") || s.name.includes("Autostazione") || s.name.includes("Stazione FS") || s.name.includes("Scalo"))));
+
+    // Assicura che le stazioni siano sempre all'inizio dell'array
+    displayStops.sort((a, b) => {
+      const aHub = isBusStation(a) ? 1 : 0;
+      const bHub = isBusStation(b) ? 1 : 0;
+      return bHub - aHub;
+    });
+
     displayStops.forEach(stop => {
+      const isStation = isBusStation(stop);
       const isUrban = stop.category === "urban";
       const isTemp = !!stop.isTemporary;
       const isTempActive = isTemp && stop.temporaryStatus === 'active';
@@ -355,7 +366,7 @@ class TransitMapEngine {
         iconClass = 'fa-plane-departure';
       } else if (currentMode === 'train') {
         markerClass += ' marker-train';
-        iconClass = stop.isMainHub ? 'fa-train-subway' : 'fa-train';
+        iconClass = isStation ? 'fa-train-subway' : 'fa-train';
       } else if (currentMode === 'tram') {
         markerClass += ' marker-tram';
         iconClass = 'fa-train-tram';
@@ -363,8 +374,13 @@ class TransitMapEngine {
         markerClass += ' marker-taxi';
         iconClass = 'fa-taxi';
       } else {
-        markerClass += isUrban ? ' marker-urban' : ' marker-regional';
-        iconClass = stop.isMainHub ? 'fa-bus-simple' : 'fa-location-dot';
+        if (isStation) {
+          markerClass += ' marker-station-hub';
+          iconClass = 'fa-bus-simple';
+        } else {
+          markerClass += isUrban ? ' marker-urban' : ' marker-regional';
+          iconClass = 'fa-location-dot';
+        }
       }
 
       if (isTemp) {
@@ -378,15 +394,22 @@ class TransitMapEngine {
         </div>
       `;
 
+      const markerSize = isStation ? [34, 34] : (isTemp ? [32, 32] : [26, 26]);
+      const markerAnchor = isStation ? [17, 17] : (isTemp ? [16, 16] : [13, 13]);
+      const popupAnchor = isStation ? [0, -17] : (isTemp ? [0, -16] : [0, -13]);
+
       const customIcon = L.divIcon({
         html: iconHtml,
         className: 'stop-marker-wrapper',
-        iconSize: isTemp ? [32, 32] : [28, 28],
-        iconAnchor: isTemp ? [16, 16] : [14, 14],
-        popupAnchor: [0, -14]
+        iconSize: markerSize,
+        iconAnchor: markerAnchor,
+        popupAnchor: popupAnchor
       });
 
-      const marker = L.marker([lat, lng], { icon: customIcon });
+      const marker = L.marker([lat, lng], {
+        icon: customIcon,
+        zIndexOffset: isStation ? 1500 : (isTemp ? 1200 : 500)
+      });
 
       // Generazione Popup nativo Leaflet con callback lazy e autoPan: false per stabilita assoluta
       marker.bindPopup(() => {

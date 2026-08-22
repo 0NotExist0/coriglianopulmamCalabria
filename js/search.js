@@ -136,14 +136,30 @@ class RouteSearchEngine {
       return;
     }
 
-    // Raggruppa per area
+    const isBusStation = (s) => !!(s.isMainHub || (s.name && (s.name.includes("Terminal") || s.name.includes("Autostazione") || s.name.includes("Stazione FS") || s.name.includes("Scalo"))));
+
+    const stationHubs = stops.filter(s => isBusStation(s));
+    const regularStops = stops.filter(s => !isBusStation(s));
+
+    let html = "";
+
+    // 1. STAZIONI & TERMINAL PRINCIPALI IN CIMA CON PRIORITÀ
+    if (stationHubs.length > 0) {
+      html += `<optgroup label="⭐ STAZIONI & TERMINAL BUS PRINCIPALI">`;
+      stationHubs.forEach(s => {
+        const isSel = (selectedStopId && s.id === selectedStopId) ? 'selected' : '';
+        html += `<option value="${s.id}" ${isSel}>⭐ ${s.name} &bull; ${s.address || s.area}</option>`;
+      });
+      html += `</optgroup>`;
+    }
+
+    // 2. Raggruppa le altre fermate per area
     const areas = {};
-    stops.forEach(s => {
+    regularStops.forEach(s => {
       if (!areas[s.area]) areas[s.area] = [];
       areas[s.area].push(s);
     });
 
-    let html = "";
     Object.entries(areas).forEach(([area, areaStops]) => {
       const sample = areaStops[0];
       const icon = sample.localityType === 'city' ? '🏙️' : (sample.localityType === 'frazione' ? '🌿' : '🏡');
@@ -167,6 +183,8 @@ class RouteSearchEngine {
 
     if (selectedStopId && stops.some(s => s.id === selectedStopId)) {
       stopSelect.value = selectedStopId;
+    } else if (stationHubs.length > 0) {
+      stopSelect.value = stationHubs[0].id;
     } else if (stops.length > 0) {
       stopSelect.selectedIndex = 0;
     }
