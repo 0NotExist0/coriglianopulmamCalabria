@@ -765,10 +765,18 @@ class AppController {
             stopId: this.currentStopId,
             regionId: this.currentRegion
           });
+        } else if (window.transitMap.needsRegionRefresh) {
+          window.transitMap.needsRegionRefresh = false;
+          window.transitMap.refreshMapForRegion(window.transitMap.lastRegionDetail || {
+            regionId: this.currentRegion,
+            stopId: this.currentStopId
+          });
         }
         setTimeout(() => {
-          window.transitMap.map.invalidateSize();
-        }, 60);
+          if (window.transitMap && window.transitMap.map) {
+            window.transitMap.map.invalidateSize();
+          }
+        }, 50);
       }
 
       if (tabId === "strikes" && window.strikesEngine) {

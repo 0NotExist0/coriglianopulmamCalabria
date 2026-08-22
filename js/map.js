@@ -32,32 +32,13 @@ class TransitMapEngine {
 
     document.addEventListener('regionChanged', (e) => {
       if (!this.map || typeof L === 'undefined') return;
-      try {
-        const regionId = e.detail?.regionId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-        const stopId = e.detail?.stopId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_stop", "") : "");
-        const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
-        
-        let targetStop = stopId ? getStopById(stopId) : null;
-        if (!targetStop) {
-          const regionStops = getStopsByRegion(regionId);
-          targetStop = regionStops.find(s => s.isMainHub) || regionStops[0];
-        }
-
-        if (targetStop && this.map) {
-          this.map.flyTo([targetStop.lat, targetStop.lng], 14, { duration: 1.5 });
-        } else {
-          const region = getRegionById(regionId);
-          if (region && this.map) {
-            this.map.flyTo(region.mapCenter, region.mapZoom, { duration: 1.5 });
-          }
-        }
-        this.drawRoutePolylines();
-        this.placeStopMarkers();
-        this.spawnLiveBuses();
-        this.bindMapControls();
-      } catch (err) {
-        console.warn("Leaflet Map region change error:", err);
+      const isMapActive = document.getElementById("section-map")?.classList.contains("active");
+      if (!isMapActive) {
+        this.needsRegionRefresh = true;
+        this.lastRegionDetail = e.detail;
+        return;
       }
+      this.refreshMapForRegion(e.detail);
     });
 
     document.addEventListener('transportModeChanged', (e) => {
@@ -70,6 +51,35 @@ class TransitMapEngine {
       }
       this.refreshMapForMode(e.detail);
     });
+  }
+
+  refreshMapForRegion(detail) {
+    if (!this.map || typeof L === 'undefined') return;
+    try {
+      const regionId = detail?.regionId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+      const stopId = detail?.stopId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_stop", "") : "");
+      
+      let targetStop = stopId ? getStopById(stopId) : null;
+      if (!targetStop) {
+        const regionStops = getStopsByRegion(regionId);
+        targetStop = regionStops.find(s => s.isMainHub) || regionStops[0];
+      }
+
+      if (targetStop && this.map) {
+        this.map.flyTo([targetStop.lat_actual || targetStop.lat, targetStop.lng_actual || targetStop.lng], 14, { duration: 1.0 });
+      } else {
+        const region = getRegionById(regionId);
+        if (region && this.map) {
+          this.map.flyTo(region.mapCenter, region.mapZoom, { duration: 1.0 });
+        }
+      }
+      this.drawRoutePolylines();
+      this.placeStopMarkers();
+      this.spawnLiveBuses();
+      this.bindMapControls();
+    } catch (err) {
+      console.warn("Leaflet Map region change error:", err);
+    }
   }
 
   refreshMapForMode(detail) {
@@ -96,7 +106,7 @@ class TransitMapEngine {
       }
 
       if (targetStop && this.map) {
-        this.map.flyTo([targetStop.lat, targetStop.lng], 14, { duration: 0.8 });
+        this.map.flyTo([targetStop.lat_actual || targetStop.lat, targetStop.lng_actual || targetStop.lng], 14, { duration: 0.8 });
       } else {
         const region = getRegionById(currentRegion);
         if (region && this.map) {
@@ -194,6 +204,7 @@ class TransitMapEngine {
   }
 
   drawRoutePolylines() {
+    if (!this.routeLinesLayer) return;
     this.routeLinesLayer.clearLayers();
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
@@ -202,25 +213,35 @@ class TransitMapEngine {
     if ((!lines || lines.length === 0) && currentMode !== 'pullman') {
       lines = getLinesByRegion('all');
     }
+    if (!lines) return;
 
-    lines.forEach(line => {
-      // Ottieni le coordinate delle fermate della linea in ordine
+    // Crea un lookup index per le coordinate delle fermate O(1)
+    const modeData = window.TRANSIT_DATA?.modes?.[currentMode] || window.TRANSIT_DATA?.modes?.pullman;
+    const allStops = modeData?.stops || [];
+    const stopCoordMap = new Map();
+    for (let i = 0; i < allStops.length; i++) {
+      const s = allStops[i];
+      stopCoordMap.set(s.id, [s.lat_actual || s.lat, s.lng_actual || s.lng]);
+    }
+
+    // Renderizza al massimo le prime 30 linee principali per garantire 60fps
+    const linesToDraw = lines.slice(0, 30);
+
+    linesToDraw.forEach(line => {
+      const sIds = line.stopsIds || line.stops || [];
       const latlngs = [];
-      line.stopsIds.forEach(stopId => {
-        const stop = getStopById(stopId);
-        if (stop) {
-          const lat = stop.lat_actual || stop.lat;
-          const lng = stop.lng_actual || stop.lng;
-          latlngs.push([lat, lng]);
-        }
-      });
+      for (let i = 0; i < sIds.length; i++) {
+        const coords = stopCoordMap.get(sIds[i]);
+        if (coords) latlngs.push(coords);
+      }
 
       if (latlngs.length >= 2) {
         const isTrain = currentMode === 'train' || line.type === 'av';
         const polyline = L.polyline(latlngs, {
           color: line.color || (isTrain ? '#dc2626' : '#0284c7'),
-          weight: isTrain ? 6 : 5,
+          weight: isTrain ? 5 : 4,
           opacity: 0.85,
+          smoothFactor: 1.5,
           lineJoin: 'round',
           dashArray: line.type === 'suburban' ? '6, 8' : (isTrain ? '8, 4' : null)
         });
@@ -236,6 +257,7 @@ class TransitMapEngine {
   }
 
   placeStopMarkers() {
+    if (!this.stopMarkersLayer) return;
     this.stopMarkersLayer.clearLayers();
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
@@ -245,16 +267,36 @@ class TransitMapEngine {
     if ((!stops || stops.length === 0) && currentMode !== 'pullman') {
       stops = getStopsByRegion('all');
     }
+    if (!stops || stops.length === 0) return;
 
-    stops.forEach(stop => {
+    // Seleziona gli Hub principali, le fermate con cantieri/variazioni e un campione bilanciato (max 65) per fluidità totale
+    const hubsAndSpecial = [];
+    const regularStops = [];
+    for (let i = 0; i < stops.length; i++) {
+      const s = stops[i];
+      if (s.isMainHub || s.isTemporary) {
+        hubsAndSpecial.push(s);
+      } else {
+        regularStops.push(s);
+      }
+    }
+
+    let displayStops = hubsAndSpecial;
+    if (displayStops.length < 50) {
+      displayStops = displayStops.concat(regularStops.slice(0, 50 - displayStops.length));
+    } else if (displayStops.length > 70) {
+      displayStops = displayStops.slice(0, 70);
+    }
+
+    displayStops.forEach(stop => {
       const isUrban = stop.category === "urban";
       const isTemp = !!stop.isTemporary;
       const isTempActive = isTemp && stop.temporaryStatus === 'active';
       const isTempInactive = isTemp && stop.temporaryStatus !== 'active';
       const lat = stop.lat_actual || stop.lat;
       const lng = stop.lng_actual || stop.lng;
+      if (!lat || !lng) return;
 
-      // Icona e stile personalizzati per il mezzo selezionato
       let iconClass = 'fa-location-dot';
       let markerClass = 'custom-stop-marker';
 
@@ -276,17 +318,12 @@ class TransitMapEngine {
       }
 
       if (isTemp) {
-        if (isTempActive) {
-          markerClass = 'custom-stop-marker marker-temporary-active';
-          iconClass = 'fa-triangle-exclamation';
-        } else {
-          markerClass = 'custom-stop-marker marker-temporary-inactive';
-          iconClass = 'fa-person-digging';
-        }
+        markerClass += isTempActive ? ' marker-temporary-active' : ' marker-temporary-inactive';
+        iconClass = isTempActive ? 'fa-triangle-exclamation' : 'fa-person-digging';
       }
 
       const iconHtml = `
-        <div class="${markerClass}" title="${isTemp ? (isTempActive ? 'Fermata Provvisoria ATTIVA' : 'Fermata Provvisoria NON ATTIVA / Chiusa per Lavori') : stop.name}">
+        <div class="${markerClass}" title="${stop.name}">
           <i class="fa-solid ${iconClass}"></i>
         </div>
       `;
@@ -301,114 +338,98 @@ class TransitMapEngine {
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
-      // Linee servite
-      const servingLines = TRANSIT_DATA.lines ? TRANSIT_DATA.lines.filter(l => l.stopsIds && l.stopsIds.includes(stop.id)) : [];
+      // Generazione Popup Lazy on Click per azzerare l'impatto sulla memoria
+      marker.on('click', () => {
+        const popupHtml = this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
+        marker.bindPopup(popupHtml, { maxWidth: 350, className: 'transit-popup' }).openPopup();
+      });
 
-      // Dati fermata alternativa se provvisoria/non attiva
-      const altData = isTemp ? (typeof window.getAlternativeActiveStop === 'function' ? window.getAlternativeActiveStop(stop.id) : null) : null;
-
-      const popupContent = `
-        <div class="map-popup-card ${isTemp ? 'popup-card-temporary' : ''}">
-          <div class="map-popup-head">
-            <div class="popup-top-badges">
-              <span class="popup-badge">${stop.area}</span>
-              ${isTemp ? (isTempActive ? 
-                '<span class="popup-badge-temp-active"><i class="fa-solid fa-triangle-exclamation"></i> Provvisoria ATTIVA</span>' : 
-                '<span class="popup-badge-temp-inactive"><i class="fa-solid fa-ban"></i> Chiusa per Lavori</span>'
-              ) : ''}
-              <span class="popup-code-badge" title="Codice Palina / Stazione"><i class="fa-solid fa-barcode"></i> ${stop.stopCode || 'Transit Code'}</span>
-            </div>
-            <h4 style="${isTempInactive ? 'text-decoration: line-through; opacity: 0.85;' : ''}">${stop.name}</h4>
-            <p class="popup-addr"><i class="fa-solid fa-map-pin"></i> ${stop.address}</p>
-            <p class="popup-operator"><i class="fa-solid fa-building"></i> ${stop.operatorName || 'Operatore di Servizio'}</p>
-          </div>
-
-          ${isTemp ? `
-            <div class="temporary-alert-box ${isTempActive ? 'alert-active' : 'alert-inactive'}">
-              <div class="temp-alert-title">
-                <i class="fa-solid ${isTempActive ? 'fa-circle-check text-success' : 'fa-triangle-exclamation text-danger'}"></i>
-                <strong>${isTempActive ? 'Fermata Provvisoria ATTIVA' : 'Fermata Provvisoria NON ATTIVA / Sospesa'}</strong>
-              </div>
-              <p class="temp-alert-reason"><i class="fa-solid fa-wrench"></i> ${stop.temporaryReason || 'Cantiere stradale o variazione di percorso'}</p>
-              <small class="temp-alert-valid"><i class="fa-regular fa-clock"></i> Validità: <strong>${stop.temporaryValidUntil || 'Fino a termine lavori'}</strong></small>
-            </div>
-          ` : ''}
-
-          ${isTemp && isTempInactive && altData && altData.alternativeStop ? `
-            <div class="temporary-reroute-card">
-              <div class="reroute-card-head">
-                <i class="fa-solid fa-person-walking text-warning"></i>
-                <strong>Fermata Ufficiale Alternativa Consigliata:</strong>
-              </div>
-              <div class="reroute-card-body">
-                <h5 class="reroute-dest-name">${altData.alternativeStop.name}</h5>
-                <p class="reroute-dest-addr"><i class="fa-solid fa-location-dot"></i> ${altData.alternativeStop.address}</p>
-                <div class="reroute-meta-tags">
-                  <span class="reroute-tag-dist"><i class="fa-solid fa-ruler-horizontal"></i> ${altData.distanceMeters} metri</span>
-                  <span class="reroute-tag-time"><i class="fa-solid fa-person-walking"></i> circa ${altData.walkTimeMin} min a piedi</span>
-                </div>
-              </div>
-              <div class="reroute-card-actions">
-                <button type="button" class="btn btn-xs btn-warning-pedestrian" onclick="window.transitMap.drawWalkingRoute('${stop.id}', '${altData.alternativeStop.id}')">
-                  <i class="fa-solid fa-shoe-prints"></i> Traccia a Piedi su Mappa
-                </button>
-                <a href="https://www.google.com/maps/dir/?api=1&origin=${stop.lat},${stop.lng}&destination=${altData.alternativeStop.lat},${altData.alternativeStop.lng}&travelmode=walking" target="_blank" rel="noopener" class="btn-reroute-gmaps-link">
-                  <i class="fa-brands fa-google"></i> Indicazioni Google Maps
-                </a>
-              </div>
-            </div>
-          ` : ''}
-          
-          <div class="map-popup-lines">
-            <span class="lines-lbl">${currentMode === 'flight' ? 'Voli e rotte in partenza:' : 'Linee e collegamenti in transito:'}</span>
-            <div class="popup-badges-row">
-              ${servingLines.length > 0 ? servingLines.map(l => `
-                <span class="popup-line-pill" style="background:${l.color}20; color:${l.color}; border:1px solid ${l.color}">
-                  ${l.code}
-                </span>
-              `).join('') : `<small style="color:var(--text-muted);">${currentMode === 'flight' ? 'Hub Aeroportuale ENAC / IATA' : (currentMode === 'taxi' ? 'Servizio RadioTaxi H24' : (currentMode === 'train' ? 'Rete Ferroviaria Regionale / AV' : 'Servizio su gomma integrato'))}</small>`}
-            </div>
-          </div>
-
-          <div class="map-popup-gmaps-links">
-            <a href="${stop.gmapsUrl}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Visualizza su Google Maps">
-              <i class="fa-brands fa-google"></i> Google Maps
-            </a>
-            <a href="${stop.streetViewUrl}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Visualizza Street View a 360°">
-              <i class="fa-solid fa-street-view"></i> Street View
-            </a>
-            <a href="${stop.gmapsDirUrl}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Calcola percorso">
-              <i class="fa-solid fa-diamond-turn-right"></i> Indicazioni
-            </a>
-          </div>
-
-          <div class="map-popup-features">
-            ${stop.features ? stop.features.map(f => `<span class="feat-pill"><i class="fa-solid fa-check"></i> ${f}</span>`).join('') : ''}
-          </div>
-
-          <div class="map-popup-actions" style="display: flex; flex-direction: column; gap: 6px;">
-            ${currentMode === 'taxi' ? `
-              <a href="tel:${stop.phone || '+39063570'}" class="btn btn-xs btn-success w-100" style="background:#16a34a; color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 10px; border-radius:6px; text-decoration:none;">
-                <i class="fa-solid fa-phone-volume"></i> Chiama Taxi: ${stop.phoneDisplay || '06 3570'}
-              </a>
-              <a href="https://wa.me/${(stop.whatsapp || '+393471234567').replace(/\+/g, '')}?text=Salve,%20desidero%20un%20taxi%20a%20${encodeURIComponent(stop.name)}" target="_blank" class="btn btn-xs btn-success w-100" style="background:#25d366; color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; padding:6px 10px; border-radius:6px; text-decoration:none;">
-                <i class="fa-brands fa-whatsapp"></i> Invia Posizione WhatsApp
-              </a>
-            ` : ''}
-            <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'); } window.app.switchTab('live-board');">
-              <i class="fa-solid ${currentMode === 'flight' ? 'fa-plane-departure' : (currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-clock'))}"></i> ${currentMode === 'flight' ? 'Tabellone Voli Aeroporto' : (currentMode === 'taxi' ? 'Dettagli Posteggio & Tariffe' : (currentMode === 'train' ? 'Tabellone Stazione FS' : 'Visualizza Partenze Live'))} ${isTempInactive ? '(Fermata Ufficiale)' : ''}
-            </button>
-          </div>
-        </div>
-      `;
-
-      marker.bindPopup(popupContent, { maxWidth: 350, className: 'transit-popup' });
       this.stopMarkersLayer.addLayer(marker);
     });
   }
 
+  buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive) {
+    const altData = isTemp ? (typeof window.getAlternativeActiveStop === 'function' ? window.getAlternativeActiveStop(stop.id) : null) : null;
+    const modeData = window.TRANSIT_DATA?.modes?.[currentMode] || window.TRANSIT_DATA?.modes?.pullman;
+    const lines = modeData?.lines || [];
+    const servingLines = lines.filter(l => (l.stopsIds || l.stops || []).includes(stop.id)).slice(0, 6);
+
+    return `
+      <div class="map-popup-card ${isTemp ? 'popup-card-temporary' : ''}">
+        <div class="map-popup-head">
+          <div class="popup-top-badges">
+            <span class="popup-badge">${stop.area || 'Rete'}</span>
+            ${isTemp ? (isTempActive ? 
+              '<span class="popup-badge-temp-active"><i class="fa-solid fa-triangle-exclamation"></i> Provvisoria ATTIVA</span>' : 
+              '<span class="popup-badge-temp-inactive"><i class="fa-solid fa-ban"></i> Chiusa per Lavori</span>'
+            ) : ''}
+            <span class="popup-code-badge"><i class="fa-solid fa-barcode"></i> ${stop.stopCode || 'Transit Code'}</span>
+          </div>
+          <h4 style="${isTempInactive ? 'text-decoration: line-through; opacity: 0.85;' : ''}">${stop.name}</h4>
+          <p class="popup-addr"><i class="fa-solid fa-map-pin"></i> ${stop.address || 'Posizione Georeferenziata'}</p>
+          <p class="popup-operator"><i class="fa-solid fa-building"></i> ${stop.operatorName || 'Operatore di Servizio'}</p>
+        </div>
+
+        ${isTemp ? `
+          <div class="temporary-alert-box ${isTempActive ? 'alert-active' : 'alert-inactive'}">
+            <div class="temp-alert-title">
+              <i class="fa-solid ${isTempActive ? 'fa-circle-check text-success' : 'fa-triangle-exclamation text-danger'}"></i>
+              <strong>${isTempActive ? 'Fermata Provvisoria ATTIVA' : 'Fermata Provvisoria NON ATTIVA / Sospesa'}</strong>
+            </div>
+            <p class="temp-alert-reason"><i class="fa-solid fa-wrench"></i> ${stop.temporaryReason || 'Cantiere stradale o variazione di percorso'}</p>
+            <small class="temp-alert-valid"><i class="fa-regular fa-clock"></i> Validità: <strong>${stop.temporaryValidUntil || 'Fino a termine lavori'}</strong></small>
+          </div>
+        ` : ''}
+
+        ${isTemp && isTempInactive && altData && altData.alternativeStop ? `
+          <div class="temporary-reroute-card">
+            <div class="reroute-card-head">
+              <i class="fa-solid fa-person-walking text-warning"></i>
+              <strong>Fermata Ufficiale Alternativa Consigliata:</strong>
+            </div>
+            <div class="reroute-card-body">
+              <h5 class="reroute-dest-name">${altData.alternativeStop.name}</h5>
+              <p class="reroute-dest-addr"><i class="fa-solid fa-location-dot"></i> ${altData.alternativeStop.address}</p>
+              <div class="reroute-meta-tags">
+                <span class="reroute-tag-dist"><i class="fa-solid fa-ruler-horizontal"></i> ${altData.distanceMeters} metri</span>
+                <span class="reroute-tag-time"><i class="fa-solid fa-person-walking"></i> circa ${altData.walkTimeMin} min a piedi</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+        
+        <div class="map-popup-lines">
+          <span class="lines-lbl">${currentMode === 'flight' ? 'Voli e rotte in partenza:' : 'Linee e collegamenti in transito:'}</span>
+          <div class="popup-badges-row">
+            ${servingLines.length > 0 ? servingLines.map(l => `
+              <span class="popup-line-pill" style="background:${l.color}20; color:${l.color}; border:1px solid ${l.color}">
+                ${l.code}
+              </span>
+            `).join('') : `<small style="color:var(--text-muted);">${currentMode === 'flight' ? 'Hub Aeroportuale ENAC / IATA' : (currentMode === 'taxi' ? 'Servizio RadioTaxi H24' : (currentMode === 'train' ? 'Rete Ferroviaria Regionale / AV' : 'Servizio su gomma integrato'))}</small>`}
+          </div>
+        </div>
+
+        <div class="map-popup-gmaps-links">
+          <a href="${stop.gmapsUrl || 'https://www.google.com/maps'}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Visualizza su Google Maps">
+            <i class="fa-brands fa-google"></i> Google Maps
+          </a>
+          <a href="${stop.streetViewUrl || 'https://www.google.com/maps'}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Visualizza Street View a 360°">
+            <i class="fa-solid fa-street-view"></i> Street View
+          </a>
+        </div>
+
+        <div class="map-popup-actions" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+          <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'); } window.app.switchTab('live-board');">
+            <i class="fa-solid ${currentMode === 'flight' ? 'fa-plane-departure' : (currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-clock'))}"></i> ${currentMode === 'flight' ? 'Tabellone Voli Aeroporto' : (currentMode === 'taxi' ? 'Dettagli Posteggio & Tariffe' : (currentMode === 'train' ? 'Tabellone Stazione FS' : 'Visualizza Partenze Live'))}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   spawnLiveBuses() {
     this.activeBuses = [];
+    if (!this.liveBusesLayer) return;
     this.liveBusesLayer.clearLayers();
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
@@ -417,9 +438,14 @@ class TransitMapEngine {
     if ((!lines || lines.length === 0) && currentMode !== 'pullman') {
       lines = getLinesByRegion('all');
     }
+    if (!lines || lines.length === 0) return;
 
-    lines.forEach((line, idx) => {
-      const stops = line.stopsIds.map(sId => getStopById(sId)).filter(Boolean);
+    // Seleziona fino a 12 veicoli live per evitare sovraccarico di animazione
+    const activeLines = lines.slice(0, 12);
+
+    activeLines.forEach((line, idx) => {
+      const sIds = line.stopsIds || line.stops || [];
+      const stops = sIds.map(sId => getStopById(sId)).filter(Boolean);
       if (stops.length < 2) return;
 
       const isTrain = currentMode === "train" || line.type === "av";
@@ -468,7 +494,7 @@ class TransitMapEngine {
       }
 
       const busIconHtml = `
-        <div class="${vehicleMarkerClass}" style="background-color: ${line.color}; box-shadow: 0 0 14px ${line.color}90;">
+        <div class="${vehicleMarkerClass}" style="background-color: ${line.color}; box-shadow: 0 0 10px ${line.color}80;">
           <i class="fa-solid ${vehicleIconClass}"></i>
           <span class="bus-badge-num">${line.code}</span>
         </div>
@@ -488,11 +514,17 @@ class TransitMapEngine {
     });
 
     if (this.animationTimer) clearInterval(this.animationTimer);
-    this.animationTimer = setInterval(() => this.animateBusesStep(), 2000);
+    this.animationTimer = setInterval(() => this.animateBusesStep(), 2500);
   }
 
   animateBusesStep() {
-    this.activeBuses.forEach(bus => {
+    // Non eseguire l'animazione se la scheda mappa non è visibile o la pagina è nascosta
+    if (document.hidden) return;
+    const isMapActive = document.getElementById("section-map")?.classList.contains("active");
+    if (!isMapActive) return;
+
+    for (let i = 0; i < this.activeBuses.length; i++) {
+      const bus = this.activeBuses[i];
       bus.progress += 0.08;
 
       if (bus.progress >= 1.0) {
@@ -502,6 +534,7 @@ class TransitMapEngine {
 
       const fromStop = bus.stops[bus.currentSegmentIdx];
       const toStop = bus.stops[bus.currentSegmentIdx + 1];
+      if (!fromStop || !toStop) continue;
 
       const fromLat = fromStop.lat_actual || fromStop.lat;
       const fromLng = fromStop.lng_actual || fromStop.lng;
@@ -511,9 +544,10 @@ class TransitMapEngine {
       const curLat = fromLat + (toLat - fromLat) * bus.progress;
       const curLng = fromLng + (toLng - fromLng) * bus.progress;
 
-      bus.marker.setLatLng([curLat, curLng]);
-      this.updateBusTooltip(bus);
-    });
+      if (bus.marker) {
+        bus.marker.setLatLng([curLat, curLng]);
+      }
+    }
   }
 
   updateBusTooltip(bus) {
