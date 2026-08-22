@@ -283,14 +283,7 @@ class RouteSearchEngine {
       return;
     }
 
-    this.resultsContainer.innerHTML = `
-      <div class="search-loading">
-        <div class="spinner"></div>
-        <p>Ricerca orari, banchine e disponibilità posti in tempo reale...</p>
-      </div>
-    `;
-
-    setTimeout(() => {
+    const doSearch = () => {
       let actualOriginId = originId;
       let actualDestId = destId;
       let originRerouted = null;
@@ -317,7 +310,18 @@ class RouteSearchEngine {
 
       const results = this.findRoutes(actualOriginId, actualDestId, dateVal, timeVal, lineTypeFilter, passengers);
       this.renderResults(results, actualOriginId, actualDestId, dateVal, passengers, originRerouted, destRerouted);
-    }, 300);
+
+      const resElem = document.getElementById("searchResultsContainer");
+      if (resElem) {
+        setTimeout(() => resElem.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      }
+    };
+
+    if (typeof window.withAppLoader === 'function') {
+      window.withAppLoader("Ricerca Migliori Collegamenti...", "Verifica orari, banchine e disponibilità posti in tempo reale...", doSearch, 280);
+    } else {
+      doSearch();
+    }
   }
 
   findRoutes(originId, destId, dateStr, timeStr, typeFilter, passengers) {

@@ -468,48 +468,56 @@ class GeoLocatorEngine {
     const map = this.ensureMap();
     if (!map) return;
 
-    // Switch alla tab mappa
-    if (window.app && typeof window.app.switchTab === 'function') {
-      window.app.switchTab('map');
-    }
-
-    // Posizione di partenza di riferimento: GPS utente oppure centro della mappa/hub regionale
-    let refLatLng = this.userLatLng;
-    if (!refLatLng) {
-      const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-      const hub = typeof getMainHubForRegion === 'function' ? getMainHubForRegion(currentRegion) : null;
-      if (hub) {
-        refLatLng = [hub.lat, hub.lng];
-      } else {
-        const c = map.getCenter();
-        refLatLng = [c.lat, c.lng];
+    const doRouting = async () => {
+      // Switch alla tab mappa
+      if (window.app && typeof window.app.switchTab === 'function') {
+        window.app.switchTab('map');
       }
-    }
 
-    const routeInfo = this.findServingDepartureStop(dest, refLatLng);
-    if (!routeInfo || !routeInfo.departureStop) {
-      this.showError("Nessuna fermata di partenza trovata per raggiungere questa destinazione.");
-      return;
-    }
-
-    this.activeRouteInfo = routeInfo;
-    this.nearestStop = routeInfo.departureStop;
-
-    // Sincronizza Tabellone Live con la fermata di partenza calcolata
-    if (window.liveBoard) {
-      window.liveBoard.activeStopId = routeInfo.departureStop.id;
-      if (window.liveBoard.filterHubSelect) {
-        window.liveBoard.filterHubSelect.value = routeInfo.departureStop.id;
+      // Posizione di partenza di riferimento: GPS utente oppure centro della mappa/hub regionale
+      let refLatLng = this.userLatLng;
+      if (!refLatLng) {
+        const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+        const hub = typeof getMainHubForRegion === 'function' ? getMainHubForRegion(currentRegion) : null;
+        if (hub) {
+          refLatLng = [hub.lat, hub.lng];
+        } else {
+          const c = map.getCenter();
+          refLatLng = [c.lat, c.lng];
+        }
       }
-      window.liveBoard.generateInitialDepartures();
-      window.liveBoard.render();
+
+      const routeInfo = this.findServingDepartureStop(dest, refLatLng);
+      if (!routeInfo || !routeInfo.departureStop) {
+        this.showError("Nessuna fermata di partenza trovata per raggiungere questa destinazione.");
+        return;
+      }
+
+      this.activeRouteInfo = routeInfo;
+      this.nearestStop = routeInfo.departureStop;
+
+      // Sincronizza Tabellone Live con la fermata di partenza calcolata
+      if (window.liveBoard) {
+        window.liveBoard.activeStopId = routeInfo.departureStop.id;
+        if (window.liveBoard.filterHubSelect) {
+          window.liveBoard.filterHubSelect.value = routeInfo.departureStop.id;
+        }
+        window.liveBoard.generateInitialDepartures();
+        window.liveBoard.render();
+      }
+
+      // Disegna il percorso visivo sulla mappa
+      await this.drawSmartRouteOnMap(routeInfo, refLatLng);
+
+      // Renderizza il pannello con i dati del viaggio
+      this.renderSmartRoutePanel(routeInfo, refLatLng);
+    };
+
+    if (typeof window.withAppLoader === 'function') {
+      await window.withAppLoader(`Calcolo Itinerario per ${dest.name || 'Destinazione'}...`, "Individuazione fermata di salita ottimale e tracciato...", doRouting, 240);
+    } else {
+      await doRouting();
     }
-
-    // Disegna il percorso visivo sulla mappa
-    await this.drawSmartRouteOnMap(routeInfo, refLatLng);
-
-    // Renderizza il pannello con i dati del viaggio
-    this.renderSmartRoutePanel(routeInfo, refLatLng);
   }
 
   /* ==========================================================================

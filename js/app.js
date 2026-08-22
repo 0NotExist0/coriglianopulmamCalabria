@@ -66,6 +66,7 @@ class AppController {
       this.bindNavLinks();
       this.bindThemeToggle();
       this.bindMobileMenu();
+      this.bindGlobalClickFeedback();
       this.applyTheme(this.theme);
       this.initHeroBanner();
       this.renderFleetSection();
@@ -136,7 +137,8 @@ class AppController {
 
   showModeSwitchLoader(mode) {
     const loader = document.getElementById("modeSwitchLoader");
-    const modeData = window.TRANSIT_DATA?.modes?.[mode] || { name: "Trasporto", icon: "fa-bus" };
+    const currentMode = mode || this.currentMode || (typeof getActiveMode === "function" ? getActiveMode() : "pullman");
+    const modeData = window.TRANSIT_DATA?.modes?.[currentMode] || { name: "Trasporto", icon: "fa-bus" };
     const titleEl = document.getElementById("modeLoaderTitle");
     const subEl = document.getElementById("modeLoaderSub");
     const gifEl = document.getElementById("modeLoaderGif");
@@ -159,13 +161,13 @@ class AppController {
     };
 
     if (loader) {
-      loader.setAttribute("data-mode", mode);
+      loader.setAttribute("data-mode", currentMode);
     }
-    if (gifEl && MODE_FILTERS[mode]) {
-      gifEl.style.filter = MODE_FILTERS[mode];
+    if (gifEl && MODE_FILTERS[currentMode]) {
+      gifEl.style.filter = MODE_FILTERS[currentMode];
     }
-    if (progressEl && MODE_GRADIENTS[mode]) {
-      progressEl.style.background = MODE_GRADIENTS[mode];
+    if (progressEl && MODE_GRADIENTS[currentMode]) {
+      progressEl.style.background = MODE_GRADIENTS[currentMode];
     }
     if (titleEl) titleEl.textContent = `Caricamento Rete ${modeData.name}...`;
 
@@ -177,17 +179,49 @@ class AppController {
       flight: "Tracking radar rotte aeree, aeroporti, terminal e varchi d'imbarco"
     };
 
-    if (subEl) subEl.textContent = MODE_DESCRIPTIONS[mode] || "Aggiornamento orari e telemetria in tempo reale...";
+    if (subEl) subEl.textContent = MODE_DESCRIPTIONS[currentMode] || "Aggiornamento orari e telemetria in tempo reale...";
 
     if (loader) {
       loader.classList.add("active");
     }
   }
 
+  showAppLoading(title = "Caricamento in corso...", sub = "Elaborazione dati e sincronizzazione in tempo reale...") {
+    this.showModeSwitchLoader(this.currentMode);
+    const titleEl = document.getElementById("modeLoaderTitle");
+    const subEl = document.getElementById("modeLoaderSub");
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = sub;
+  }
+
   hideModeSwitchLoader() {
     const loader = document.getElementById("modeSwitchLoader");
     if (loader) {
       loader.classList.remove("active");
+    }
+  }
+
+  hideAppLoading() {
+    this.hideModeSwitchLoader();
+  }
+
+  async withAppLoader(title, sub, fn, minDuration = 180) {
+    this.showAppLoading(title, sub);
+    const start = Date.now();
+    try {
+      // Attesa microtask per consentire al browser di renderizzare il loader PRIMA del lavoro CPU/DOM
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 25)));
+      if (typeof fn === 'function') {
+        await fn();
+      }
+    } catch (err) {
+      console.error("withAppLoader execution error:", err);
+    } finally {
+      const elapsed = Date.now() - start;
+      const remain = Math.max(0, minDuration - elapsed);
+      setTimeout(() => {
+        this.hideAppLoading();
+      }, remain);
     }
   }
 
@@ -561,36 +595,45 @@ class AppController {
 
     if (regionSelect) {
       regionSelect.addEventListener("change", (e) => {
-        this.currentRegion = (e && e.target) ? e.target.value : regionSelect.value;
-        this.currentCity = "all";
-        this.currentStopId = typeof getMainHubForRegion === "function" ? (getMainHubForRegion(this.currentRegion)?.id || "") : "";
-        
-        safeStorageSet("italiabus_region", this.currentRegion);
-        safeStorageSet("italiabus_city", this.currentCity);
-        safeStorageSet("italiabus_stop", this.currentStopId);
-        
-        this.populateCitySelector();
-        this.populateStopSelector();
-        this.notifyLocationChange();
+        const val = (e && e.target) ? e.target.value : regionSelect.value;
+        this.withAppLoader("Aggiornamento Rete Regionale...", "Sincronizzazione fermate e linee della regione...", () => {
+          this.currentRegion = val;
+          this.currentCity = "all";
+          this.currentStopId = typeof getMainHubForRegion === "function" ? (getMainHubForRegion(this.currentRegion)?.id || "") : "";
+          
+          safeStorageSet("italiabus_region", this.currentRegion);
+          safeStorageSet("italiabus_city", this.currentCity);
+          safeStorageSet("italiabus_stop", this.currentStopId);
+          
+          this.populateCitySelector();
+          this.populateStopSelector();
+          this.notifyLocationChange();
+        }, 160);
       });
     }
 
     if (citySelect) {
       citySelect.addEventListener("change", (e) => {
-        this.currentCity = (e && e.target) ? e.target.value : citySelect.value;
-        safeStorageSet("italiabus_city", this.currentCity);
-        this.populateStopSelector();
-        this.currentStopId = stopSelect ? stopSelect.value : "";
-        safeStorageSet("italiabus_stop", this.currentStopId);
-        this.notifyLocationChange();
+        const val = (e && e.target) ? e.target.value : citySelect.value;
+        this.withAppLoader("Filtro Città & Frazioni...", "Caricamento delle fermate urbane e locali...", () => {
+          this.currentCity = val;
+          safeStorageSet("italiabus_city", this.currentCity);
+          this.populateStopSelector();
+          this.currentStopId = stopSelect ? stopSelect.value : "";
+          safeStorageSet("italiabus_stop", this.currentStopId);
+          this.notifyLocationChange();
+        }, 140);
       });
     }
 
     if (stopSelect) {
       stopSelect.addEventListener("change", (e) => {
-        this.currentStopId = (e && e.target) ? e.target.value : stopSelect.value;
-        safeStorageSet("italiabus_stop", this.currentStopId);
-        this.notifyLocationChange();
+        const val = (e && e.target) ? e.target.value : stopSelect.value;
+        this.withAppLoader("Sincronizzazione Fermata...", "Aggiornamento tabellone orari per questa fermata...", () => {
+          this.currentStopId = val;
+          safeStorageSet("italiabus_stop", this.currentStopId);
+          this.notifyLocationChange();
+        }, 140);
       });
     }
   }
@@ -680,44 +723,62 @@ class AppController {
     }
   }
 
-  // Navigazione tra le sezioni
+  // Navigazione tra le sezioni con feedback e preloader asincrono
   switchTab(tabId) {
-    this.currentTab = tabId;
-
-    document.querySelectorAll(".nav-link, .mobile-nav-item, .mobile-nav-btn").forEach(link => {
-      link.classList.toggle("active", link.dataset.tab === tabId);
-    });
-
-    document.querySelectorAll(".app-section").forEach(sec => {
-      sec.classList.toggle("active", sec.id === `section-${tabId}`);
-    });
-
-    // Scroll fluido in alto al cambio scheda su mobile
-    if (window.innerWidth <= 768) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    if (this.currentTab === tabId && document.querySelector(`.app-section#section-${tabId}.active`)) {
+      return;
     }
 
-    if (tabId === "map" && window.transitMap && window.transitMap.map) {
-      if (window.transitMap.needsModeRefresh) {
-        window.transitMap.needsModeRefresh = false;
-        window.transitMap.refreshMapForMode(window.transitMap.lastModeDetail || {
-          mode: this.currentMode,
-          stopId: this.currentStopId,
-          regionId: this.currentRegion
-        });
+    const TAB_LABELS = {
+      "live-board": { title: "Tabellone Orari in Tempo Reale", sub: "Sincronizzazione orari di arrivo e partenze live..." },
+      "map": { title: "Mappa Satellitare GPS & Fermate", sub: "Inizializzazione tracciati, linee e fermate..." },
+      "search": { title: "Pianificazione Itinerario di Viaggio", sub: "Calcolo percorsi, orari e coincidenze..." },
+      "strikes": { title: "Calendario Scioperi & Aggiornamenti", sub: "Sincronizzazione dati Ministero delle Infrastrutture e dei Trasporti..." },
+      "fleet": { title: "Parco Mezzi & Flotta", sub: "Caricamento allestimenti, tipologie e dotazioni di bordo..." },
+      "tariffs": { title: "Tariffe & Titoli di Viaggio", sub: "Consultazione prezzi, abbonamenti e agevolazioni..." },
+      "alerts": { title: "Avvisi di Servizio & Info Mobilità", sub: "Verifica circolazione, deviazioni e allerte..." }
+    };
+
+    const info = TAB_LABELS[tabId] || { title: "Caricamento Sezione...", sub: "Elaborazione contenuti in tempo reale..." };
+
+    this.withAppLoader(info.title, info.sub, () => {
+      this.currentTab = tabId;
+
+      document.querySelectorAll(".nav-link, .mobile-nav-item, .mobile-nav-btn").forEach(link => {
+        link.classList.toggle("active", link.dataset.tab === tabId);
+      });
+
+      document.querySelectorAll(".app-section").forEach(sec => {
+        sec.classList.toggle("active", sec.id === `section-${tabId}`);
+      });
+
+      // Scroll fluido in alto al cambio scheda su mobile
+      if (window.innerWidth <= 768) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
-      setTimeout(() => {
-        window.transitMap.map.invalidateSize();
-      }, 150);
-    }
 
-    if (tabId === "strikes" && window.strikesEngine) {
-      window.strikesEngine.renderStrikesList();
-      window.strikesEngine.updateStatsBar();
-    }
+      if (tabId === "map" && window.transitMap && window.transitMap.map) {
+        if (window.transitMap.needsModeRefresh) {
+          window.transitMap.needsModeRefresh = false;
+          window.transitMap.refreshMapForMode(window.transitMap.lastModeDetail || {
+            mode: this.currentMode,
+            stopId: this.currentStopId,
+            regionId: this.currentRegion
+          });
+        }
+        setTimeout(() => {
+          window.transitMap.map.invalidateSize();
+        }, 60);
+      }
 
-    const mobileDrawer = document.getElementById("mobileDrawer");
-    if (mobileDrawer) mobileDrawer.classList.remove("open");
+      if (tabId === "strikes" && window.strikesEngine) {
+        window.strikesEngine.renderStrikesList();
+        window.strikesEngine.updateStatsBar();
+      }
+
+      const mobileDrawer = document.getElementById("mobileDrawer");
+      if (mobileDrawer) mobileDrawer.classList.remove("open");
+    }, 180);
   }
 
   bindNavLinks() {
@@ -862,6 +923,20 @@ class AppController {
       <button class="btn-ticker-details" onclick="window.app.switchTab('alerts')">Dettagli Avvisi</button>
     `;
   }
+
+  // Feedback istantaneo a 0ms su ogni click/tap prima del freeze o caricamento
+  bindGlobalClickFeedback() {
+    const handlePress = (e) => {
+      const btn = e.target.closest("button, .btn, .nav-link, .mobile-nav-btn, .mobile-nav-item, .quick-tab-chip, .filter-chip, .dest-dropdown-item, .drawer-mode-chip, .btn-mode-card, .btn-action, .btn-theme-toggle, .live-board-mode-pill, [onclick], [role='button'], input[type='submit']");
+      if (btn) {
+        btn.classList.add("btn-pressed");
+        setTimeout(() => btn.classList.remove("btn-pressed"), 180);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePress, { passive: true, capture: true });
+    document.addEventListener("touchstart", handlePress, { passive: true, capture: true });
+  }
 }
 
 // Inizializzazione sicura per qualsiasi stato del DOM (completo, interattivo o in caricamento)
@@ -869,6 +944,10 @@ function initAppController() {
   if (!window.app) {
     window.app = new AppController();
   }
+  // Export globali universali per tutte le sezioni
+  window.showAppLoading = (title, sub) => window.app.showAppLoading(title, sub);
+  window.hideAppLoading = () => window.app.hideAppLoading();
+  window.withAppLoader = (title, sub, fn, minTime) => window.app.withAppLoader(title, sub, fn, minTime);
 }
 
 if (document.readyState === 'loading') {
