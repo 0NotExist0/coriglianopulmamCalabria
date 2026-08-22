@@ -416,7 +416,10 @@
   <!-- ==========================================
        HERO BANNER
        ========================================== -->
-  <section class="hero-banner">
+  <section class="hero-banner" id="mainHeroBanner">
+    <button type="button" class="btn-close-hero" id="btnCloseHeroBanner" onclick="window.app.hideHeroBanner()" title="Nascondi questo banner">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
     <div class="container hero-content">
       <div>
         <div class="hero-badge">
@@ -483,6 +486,10 @@
           <!-- Populated by app.js -->
         </select>
       </div>
+
+      <button type="button" class="btn-restore-hero" id="btnRestoreHeroBanner" onclick="window.app.showHeroBanner()" style="display: none;" title="Mostra di nuovo il banner informativo">
+        <i class="fa-solid fa-circle-info"></i> Mostra Banner
+      </button>
     </div>
   </div>
 

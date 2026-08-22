@@ -53,6 +53,7 @@ class AppController {
       this.bindThemeToggle();
       this.bindMobileMenu();
       this.applyTheme(this.theme);
+      this.initHeroBanner();
       this.renderFleetSection();
       this.renderTariffsSection();
       this.renderAlertsBanner();
@@ -526,6 +527,40 @@ class AppController {
         this.applyTheme(nextTheme);
       });
     }
+  }
+
+  // Gestione visibilità Hero Banner (Nascondi con X / Mostra)
+  initHeroBanner() {
+    const isHidden = safeStorageGet("italiabus_hero_hidden", "false") === "true";
+    if (isHidden) {
+      this.hideHeroBanner(false);
+    }
+  }
+
+  hideHeroBanner(persist = true) {
+    const hero = document.getElementById("mainHeroBanner");
+    const restoreBtn = document.getElementById("btnRestoreHeroBanner");
+    if (hero) {
+      hero.classList.add("hero-hidden");
+    }
+    if (restoreBtn) {
+      restoreBtn.style.display = "inline-flex";
+    }
+    if (persist) {
+      safeStorageSet("italiabus_hero_hidden", "true");
+    }
+  }
+
+  showHeroBanner() {
+    const hero = document.getElementById("mainHeroBanner");
+    const restoreBtn = document.getElementById("btnRestoreHeroBanner");
+    if (hero) {
+      hero.classList.remove("hero-hidden");
+    }
+    if (restoreBtn) {
+      restoreBtn.style.display = "none";
+    }
+    safeStorageSet("italiabus_hero_hidden", "false");
   }
 
   // Navigazione tra le sezioni
