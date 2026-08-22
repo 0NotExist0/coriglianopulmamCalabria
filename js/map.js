@@ -541,6 +541,29 @@ class TransitMapEngine {
     });
   }
 
+  zoomIn() {
+    if (this.map) {
+      this.map.zoomIn();
+    }
+  }
+
+  zoomOut() {
+    if (this.map) {
+      this.map.zoomOut();
+    }
+  }
+
+  resetView() {
+    if (!this.map) return;
+    const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    const r = getRegionById(currentRegion);
+    if (r) {
+      this.map.flyTo(r.mapCenter, r.mapZoom, { duration: 1.2 });
+    } else {
+      this.map.flyTo([42.5, 12.5], 6, { duration: 1.2 });
+    }
+  }
+
   bindMapControls() {
     const container = document.getElementById("mapQuickButtonsContainer");
     if (!container) return;
@@ -554,15 +577,47 @@ class TransitMapEngine {
     const hubStops = allStops.filter(s => s.isMainHub);
     const displayStops = hubStops.length > 0 ? hubStops : allStops;
     
-    // Clear existing buttons (keep the label span)
-    const label = container.querySelector('span');
     container.innerHTML = '';
-    if (label) container.appendChild(label);
 
-    // Add GPS My Location Button first
+    // 1. Label
+    const label = document.createElement('span');
+    label.className = 'text-muted';
+    label.style.cssText = 'font-size: 0.8rem; font-weight: 700; align-self: center;';
+    label.textContent = 'Zoom & Controlli:';
+    container.appendChild(label);
+
+    // 2. Pulsanti Zoom + e Zoom -
+    const zoomInBtn = document.createElement('button');
+    zoomInBtn.type = 'button';
+    zoomInBtn.className = 'map-btn-pill btn-zoom-in';
+    zoomInBtn.innerHTML = `<i class="fa-solid fa-plus text-primary"></i> Zoom +`;
+    zoomInBtn.title = "Ingrandisci la visuale della mappa";
+    zoomInBtn.addEventListener('click', () => this.zoomIn());
+    container.appendChild(zoomInBtn);
+
+    const zoomOutBtn = document.createElement('button');
+    zoomOutBtn.type = 'button';
+    zoomOutBtn.className = 'map-btn-pill btn-zoom-out';
+    zoomOutBtn.innerHTML = `<i class="fa-solid fa-minus text-primary"></i> Zoom -`;
+    zoomOutBtn.title = "Rimpicciolisci la visuale della mappa";
+    zoomOutBtn.addEventListener('click', () => this.zoomOut());
+    container.appendChild(zoomOutBtn);
+
+    // 3. Pulsante Panoramica / Centra
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'map-btn-pill btn-reset-zoom';
+    resetBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate text-primary"></i> Centra`;
+    resetBtn.title = "Riporta la mappa alla visuale completa della regione";
+    resetBtn.addEventListener('click', () => this.resetView());
+    container.appendChild(resetBtn);
+
+    // 4. GPS My Location Button
     const gpsBtn = document.createElement('button');
+    gpsBtn.type = 'button';
     gpsBtn.className = 'map-btn-pill btn-pill-gps-active';
-    gpsBtn.innerHTML = `<i class="fa-solid fa-location-crosshairs text-primary"></i> La Mia Posizione GPS`;
+    gpsBtn.innerHTML = `<i class="fa-solid fa-location-crosshairs text-primary"></i> GPS`;
+    gpsBtn.title = "Centra e trova fermate alla tua posizione GPS";
     gpsBtn.addEventListener('click', () => {
       if (window.geoLocator) {
         window.geoLocator.locateAndRoute();
@@ -572,27 +627,33 @@ class TransitMapEngine {
     });
     container.appendChild(gpsBtn);
 
+    // 5. Hub principali univoci per la modalità attiva
     const modeIcon = currentMode === 'flight' ? '✈️' : (currentMode === 'train' ? '🚆' : (currentMode === 'tram' ? '🚋' : (currentMode === 'taxi' ? '🚕' : '🚏')));
-    
-    displayStops.slice(0, 4).forEach(stop => {
+    const seenNames = new Set();
+    const uniqueStops = [];
+    for (let i = 0; i < displayStops.length; i++) {
+      const s = displayStops[i];
+      const shortName = s.name.split(' (')[0].split(' - ')[0];
+      if (!seenNames.has(shortName) && s.lat && s.lng) {
+        seenNames.add(shortName);
+        uniqueStops.push({ stop: s, shortName });
+        if (uniqueStops.length >= 3) break;
+      }
+    }
+
+    uniqueStops.forEach(({ stop, shortName }) => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = 'map-btn-pill';
-      btn.textContent = `${modeIcon} ${stop.name.split(' (')[0].split(' - ')[0]}`;
+      btn.textContent = `${modeIcon} ${shortName}`;
+      btn.title = `Zumma su ${stop.name}`;
       btn.addEventListener('click', () => {
-        this.map.flyTo([stop.lat, stop.lng], 14, { duration: 1.5 });
+        if (this.map && stop.lat && stop.lng) {
+          this.map.flyTo([stop.lat, stop.lng], 15, { duration: 1.2 });
+        }
       });
       container.appendChild(btn);
     });
-    
-    // Add region overview button
-    const regionBtn = document.createElement('button');
-    regionBtn.className = 'map-btn-pill';
-    regionBtn.textContent = `🌍 Panoramica ${getRegionById(currentRegion)?.name || 'Regione'}`;
-    regionBtn.addEventListener('click', () => {
-      const r = getRegionById(currentRegion);
-      if (r) this.map.flyTo(r.mapCenter, r.mapZoom, { duration: 1.8 });
-    });
-    container.appendChild(regionBtn);
   }
 
   highlightLineRoute(lineId, dep = null, customColor = null) {
