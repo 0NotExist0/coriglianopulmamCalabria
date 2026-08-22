@@ -169,13 +169,26 @@ class TransitMapEngine {
 
     // Aggiorna le fermate visibili quando l'utente si sposta o zumma,
     // ma NON durante le animazioni di navigazione (flyTo/flyToBounds del geoLocator)
+    // né quando si apre un popup di una fermata
     this._moveEndTimer = null;
     this._skipMoveEnd = false;
+
+    this.map.on('popupopen', () => {
+      this._skipMoveEnd = true;
+    });
+    this.map.on('popupclose', () => {
+      setTimeout(() => {
+        this._skipMoveEnd = false;
+      }, 400);
+    });
+
     this.map.on('moveend', () => {
       if (!this.map || this._skipMoveEnd) return;
       clearTimeout(this._moveEndTimer);
       this._moveEndTimer = setTimeout(() => {
-        this.placeStopMarkers();
+        if (!this._skipMoveEnd) {
+          this.placeStopMarkers();
+        }
       }, 300);
     });
   }
