@@ -2173,17 +2173,17 @@ body.mode-tram .mode-loader-progress-bar {
   background: linear-gradient(90deg, #10b981, #6ee7b7) !important;
 }
 
-/* 4. Modalità Taxi: Verde Smeraldo Naturale (#10b981) */
+/* 4. Modalità Taxi: Giallo Taxi Brillante (#f59e0b / #fbbf24) */
 #modeSwitchLoader[data-mode="taxi"] .mode-loader-gif,
 #initialPreloader[data-mode="taxi"] .mode-loader-gif,
 body.mode-taxi .mode-loader-gif {
-  filter: hue-rotate(0deg) saturate(1.2) brightness(1.0) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.45)) !important;
+  filter: hue-rotate(-88deg) saturate(1.8) brightness(1.15) drop-shadow(0 8px 24px rgba(245, 158, 11, 0.5)) !important;
 }
 
 #modeSwitchLoader[data-mode="taxi"] .mode-loader-progress-bar,
 #initialPreloader[data-mode="taxi"] .mode-loader-progress-bar,
 body.mode-taxi .mode-loader-progress-bar {
-  background: linear-gradient(90deg, #10b981, #34d399) !important;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
 }
 
 /* 5. Modalità Aerei / Voli: Ciano / Sky Blue (#0ea5e9) */
