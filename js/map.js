@@ -167,11 +167,16 @@ class TransitMapEngine {
     });
     this.map.addControl(new LocateControl());
 
-    // Aggiorna dinamicamente le fermate visibili quando l'utente si sposta o zumma sulla mappa
+    // Aggiorna le fermate visibili quando l'utente si sposta o zumma,
+    // ma NON durante le animazioni di navigazione (flyTo/flyToBounds del geoLocator)
+    this._moveEndTimer = null;
+    this._skipMoveEnd = false;
     this.map.on('moveend', () => {
-      if (this.map) {
+      if (!this.map || this._skipMoveEnd) return;
+      clearTimeout(this._moveEndTimer);
+      this._moveEndTimer = setTimeout(() => {
         this.placeStopMarkers();
-      }
+      }, 300);
     });
   }
 
@@ -355,9 +360,14 @@ class TransitMapEngine {
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
-      // Generazione e associazione Popup interattivo
-      const popupHtml = this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
-      marker.bindPopup(popupHtml, { maxWidth: 350, className: 'transit-popup' });
+      // Generazione Popup Lazy on Click per azzerare il peso in memoria
+      marker.on('click', () => {
+        if (!marker.getPopup()) {
+          const popupHtml = this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
+          marker.bindPopup(popupHtml, { maxWidth: 350, className: 'transit-popup' });
+        }
+        marker.openPopup();
+      });
 
       this.stopMarkersLayer.addLayer(marker);
     });

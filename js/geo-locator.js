@@ -61,7 +61,7 @@ class GeoLocatorEngine {
     if (window.transitMap && window.transitMap.map && typeof L !== 'undefined') {
       this.map = window.transitMap.map;
       if (!this.geoLayer) {
-        this.geoLayer = L.layerGroup().addTo(this.map);
+        this.geoLayer = L.featureGroup().addTo(this.map);
       }
     }
     return this.map;
@@ -623,10 +623,11 @@ class GeoLocatorEngine {
     // Inquadratura focalizzata sulla FERMATA DI PARTENZA PIÙ VICINA a te
     map.invalidateSize();
 
-    // Blocca sovrascritture di zoom da altri eventi
+    // Blocca moveend e sovrascritture di zoom da altri eventi durante la navigazione
     if (window.transitMap) {
       window.transitMap.needsRegionRefresh = false;
       window.transitMap.needsModeRefresh = false;
+      window.transitMap._skipMoveEnd = true;
     }
 
     if (this.userLatLng) {
@@ -643,10 +644,17 @@ class GeoLocatorEngine {
       map.flyTo(depLatLng, 15, { animate: true, duration: 1.1 });
     }
 
-    // Apri subito il popup sulla fermata di partenza
+    // Dopo l'animazione: riattiva moveend, porta il layer del percorso in primo piano e apri il popup
     setTimeout(() => {
+      if (window.transitMap) {
+        window.transitMap._skipMoveEnd = false;
+      }
+      // Assicura che il geoLayer sia sopra tutti gli altri layer
+      if (this.geoLayer) {
+        this.geoLayer.bringToFront();
+      }
       depMarker.openPopup();
-    }, 450);
+    }, 1300);
   }
 
   /* ==========================================================================
