@@ -115,6 +115,27 @@
 <body>
 
   <!-- ==========================================
+       ANIMAZIONE DI CARICAMENTO SWITCH MODALITÀ (PULLMAN, TAXI, TRAM, TRENI, AEREI)
+       ========================================== -->
+  <div class="mode-switch-loader-overlay" id="modeSwitchLoader" aria-live="polite" aria-label="Caricamento modalità di trasporto">
+    <div class="mode-loader-card">
+      <div class="mode-loader-visual">
+        <div class="mode-loader-spinner-ring"></div>
+        <div class="mode-loader-icon-bubble" id="modeLoaderIconBubble">
+          <i class="fa-solid fa-bus" id="modeLoaderIcon"></i>
+        </div>
+      </div>
+      <div class="mode-loader-texts">
+        <h3 class="mode-loader-title" id="modeLoaderTitle">Caricamento Trasporto...</h3>
+        <p class="mode-loader-sub" id="modeLoaderSub">Sincronizzazione orari, rotte e telemetria satellitare in tempo reale</p>
+        <div class="mode-loader-progress-track">
+          <div class="mode-loader-progress-bar" id="modeLoaderProgressBar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
        MENU A COMPARSA LATERALE SINISTRO (MODALITÀ DI TRASPORTO)
        ========================================== -->
   <div class="mode-sidebar-overlay" id="modeSidebarOverlay"></div>

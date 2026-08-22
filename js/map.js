@@ -62,39 +62,50 @@ class TransitMapEngine {
 
     document.addEventListener('transportModeChanged', (e) => {
       if (!this.map || typeof L === 'undefined') return;
-      try {
-        const mode = e.detail?.mode || (typeof getActiveMode === "function" ? getActiveMode() : "pullman");
-        const stopId = e.detail?.stopId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_stop", "") : "");
-        const currentRegion = e.detail?.regionId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-
-        this.drawRoutePolylines();
-        this.placeStopMarkers();
-        this.spawnLiveBuses();
-        this.bindMapControls();
-
-        // Trova la fermata/stazione target per la modalità attiva
-        let targetStop = stopId ? getStopById(stopId) : null;
-        if (!targetStop) {
-          const regionStops = getStopsByRegion(currentRegion);
-          targetStop = regionStops.find(s => s.isMainHub) || regionStops[0];
-        }
-        if (!targetStop && mode !== 'pullman') {
-          const allStops = getStopsByRegion('all');
-          targetStop = allStops.find(s => s.isMainHub) || allStops[0];
-        }
-
-        if (targetStop && this.map) {
-          this.map.flyTo([targetStop.lat, targetStop.lng], 14, { duration: 1.5 });
-        } else {
-          const region = getRegionById(currentRegion);
-          if (region && this.map) {
-            this.map.flyTo(region.mapCenter, region.mapZoom, { duration: 1.5 });
-          }
-        }
-      } catch (err) {
-        console.warn("Leaflet Map mode change error:", err);
+      const isMapActive = document.getElementById("section-map")?.classList.contains("active");
+      if (!isMapActive) {
+        this.needsModeRefresh = true;
+        this.lastModeDetail = e.detail;
+        return;
       }
+      this.refreshMapForMode(e.detail);
     });
+  }
+
+  refreshMapForMode(detail) {
+    if (!this.map || typeof L === 'undefined') return;
+    try {
+      const mode = detail?.mode || (typeof getActiveMode === "function" ? getActiveMode() : "pullman");
+      const stopId = detail?.stopId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_stop", "") : "");
+      const currentRegion = detail?.regionId || (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+
+      this.drawRoutePolylines();
+      this.placeStopMarkers();
+      this.spawnLiveBuses();
+      this.bindMapControls();
+
+      // Trova la fermata/stazione target per la modalità attiva
+      let targetStop = stopId ? getStopById(stopId) : null;
+      if (!targetStop) {
+        const regionStops = getStopsByRegion(currentRegion);
+        targetStop = regionStops.find(s => s.isMainHub) || regionStops[0];
+      }
+      if (!targetStop && mode !== 'pullman') {
+        const allStops = getStopsByRegion('all');
+        targetStop = allStops.find(s => s.isMainHub) || allStops[0];
+      }
+
+      if (targetStop && this.map) {
+        this.map.flyTo([targetStop.lat, targetStop.lng], 14, { duration: 0.8 });
+      } else {
+        const region = getRegionById(currentRegion);
+        if (region && this.map) {
+          this.map.flyTo(region.mapCenter, region.mapZoom, { duration: 0.8 });
+        }
+      }
+    } catch (err) {
+      console.warn("Leaflet Map mode change error:", err);
+    }
   }
 
   setupMap() {

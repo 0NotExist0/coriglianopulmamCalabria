@@ -118,38 +118,95 @@ class AppController {
     });
   }
 
+  showModeSwitchLoader(mode) {
+    const loader = document.getElementById("modeSwitchLoader");
+    const modeData = window.TRANSIT_DATA?.modes?.[mode] || { name: "Trasporto", icon: "fa-bus" };
+    const iconEl = document.getElementById("modeLoaderIcon");
+    const titleEl = document.getElementById("modeLoaderTitle");
+    const subEl = document.getElementById("modeLoaderSub");
+
+    if (iconEl) iconEl.className = `fa-solid ${modeData.icon || 'fa-bus'}`;
+    if (titleEl) titleEl.textContent = `Caricamento Rete ${modeData.name}...`;
+
+    const MODE_DESCRIPTIONS = {
+      pullman: "Sincronizzazione orari pullman, autostazioni e telemetria satellitare",
+      train: "Caricamento orari ferroviari, linee Alta Velocità, regionali e binari",
+      tram: "Sincronizzazione frequenze tramviarie urbane e fermate cittadine",
+      taxi: "Connessione con posteggi taxi, centralini radio e tariffe chilometriche",
+      flight: "Tracking radar rotte aeree, aeroporti, terminal e varchi d'imbarco"
+    };
+
+    if (subEl) subEl.textContent = MODE_DESCRIPTIONS[mode] || "Aggiornamento orari e telemetria in tempo reale...";
+
+    if (loader) {
+      loader.classList.add("active");
+    }
+  }
+
+  hideModeSwitchLoader() {
+    const loader = document.getElementById("modeSwitchLoader");
+    if (loader) {
+      loader.classList.remove("active");
+    }
+  }
+
   switchTransportMode(mode) {
     if (!mode || !window.TRANSIT_DATA || !window.TRANSIT_DATA.modes[mode]) return;
-    this.currentMode = mode;
-    safeStorageSet("italiabus_transport_mode", mode);
-    window.TRANSIT_DATA.activeMode = mode;
-    this.applyTransportMode(mode);
-
-    // Reimposta stop di riferimento per la modalità
-    const modeData = window.TRANSIT_DATA.modes[mode];
-    const modeStops = (modeData.stops && modeData.stops.length > 0) ? modeData.stops : [];
-    const regionalStop = modeStops.find(s => s.region === this.currentRegion);
-    const hub = regionalStop || modeStops[0];
-    if (hub) {
-      this.currentStopId = hub.id;
-      this.currentCity = "all";
-      if (!regionalStop && hub.region) {
-        this.currentRegion = hub.region;
-        safeStorageSet("italiabus_region", this.currentRegion);
-      }
-      safeStorageSet("italiabus_city", "all");
-      safeStorageSet("italiabus_stop", this.currentStopId);
+    if (this.currentMode === mode) {
+      const dock = document.getElementById("modeSidebarDock");
+      const overlay = document.getElementById("modeSidebarOverlay");
+      if (dock) dock.classList.remove("open");
+      if (overlay) overlay.classList.remove("active");
+      return;
     }
 
-    this.populateLocationSelectors();
-    this.renderFleetSection();
-    this.renderTariffsSection();
+    // 1. Chiudi subito dock/overlay per reattività immediata
+    const dock = document.getElementById("modeSidebarDock");
+    const overlay = document.getElementById("modeSidebarOverlay");
+    if (dock) dock.classList.remove("open");
+    if (overlay) overlay.classList.remove("active");
 
-    // Notifica tutti i componenti dello switch modalità
-    document.dispatchEvent(new CustomEvent("transportModeChanged", {
-      detail: { mode: mode, modeData: modeData, stopId: this.currentStopId, regionId: this.currentRegion }
-    }));
-    this.notifyLocationChange();
+    // 2. Mostra animazione di caricamento
+    this.showModeSwitchLoader(mode);
+
+    // 3. Esegui il cambio stato asincronamente per garantire la massima fluidità a 60fps
+    setTimeout(() => {
+      this.currentMode = mode;
+      safeStorageSet("italiabus_transport_mode", mode);
+      window.TRANSIT_DATA.activeMode = mode;
+      this.applyTransportMode(mode);
+
+      // Reimposta stop di riferimento per la modalità
+      const modeData = window.TRANSIT_DATA.modes[mode];
+      const modeStops = (modeData.stops && modeData.stops.length > 0) ? modeData.stops : [];
+      const regionalStop = modeStops.find(s => s.region === this.currentRegion);
+      const hub = regionalStop || modeStops[0];
+      if (hub) {
+        this.currentStopId = hub.id;
+        this.currentCity = "all";
+        if (!regionalStop && hub.region) {
+          this.currentRegion = hub.region;
+          safeStorageSet("italiabus_region", this.currentRegion);
+        }
+        safeStorageSet("italiabus_city", "all");
+        safeStorageSet("italiabus_stop", this.currentStopId);
+      }
+
+      this.populateLocationSelectors();
+      this.renderFleetSection();
+      this.renderTariffsSection();
+
+      // Notifica tutti i componenti dello switch modalità
+      document.dispatchEvent(new CustomEvent("transportModeChanged", {
+        detail: { mode: mode, modeData: modeData, stopId: this.currentStopId, regionId: this.currentRegion }
+      }));
+      this.notifyLocationChange();
+
+      // 4. Concludi l'animazione di caricamento in modo morbido
+      setTimeout(() => {
+        this.hideModeSwitchLoader();
+      }, 260);
+    }, 120);
   }
 
   applyTransportMode(mode) {
@@ -581,9 +638,17 @@ class AppController {
     }
 
     if (tabId === "map" && window.transitMap && window.transitMap.map) {
+      if (window.transitMap.needsModeRefresh) {
+        window.transitMap.needsModeRefresh = false;
+        window.transitMap.refreshMapForMode(window.transitMap.lastModeDetail || {
+          mode: this.currentMode,
+          stopId: this.currentStopId,
+          regionId: this.currentRegion
+        });
+      }
       setTimeout(() => {
         window.transitMap.map.invalidateSize();
-      }, 200);
+      }, 150);
     }
 
     if (tabId === "strikes" && window.strikesEngine) {
