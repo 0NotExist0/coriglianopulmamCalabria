@@ -367,7 +367,7 @@ class GeoLocatorEngine {
 
     const targetStopId = targetDest.id || targetDest.stop?.id;
 
-    // Crea un lookup index per le fermate per accesso O(1)
+    // Lookup index fermate per accesso O(1)
     const stopMap = new Map();
     for (let i = 0; i < allStops.length; i++) {
       stopMap.set(allStops[i].id, allStops[i]);
@@ -399,36 +399,36 @@ class GeoLocatorEngine {
       candidateDepartureStops = Array.from(candidateStopIds).map(id => stopMap.get(id)).filter(Boolean);
     }
 
-    // Fallback: se non trovate linee dirette registrate, considera le fermate della regione o principali
+    // Fallback: se non trovate linee dirette registrate, considera tutte le fermate disponibili
     if (candidateDepartureStops.length === 0) {
-      candidateDepartureStops = allStops.slice(0, 50).filter(s => s.id !== targetStopId);
-    }
-    if (candidateDepartureStops.length === 0) {
-      candidateDepartureStops = allStops.slice(0, 50);
+      candidateDepartureStops = allStops;
     }
 
-    // 2. Tra tutte le fermate che servono la destinazione, trova la PIÙ VICINA alla posizione di riferimento
+    // 2. Tra tutte le candidate, trova la PIÙ VICINA alla posizione di partenza dell'utente
     let bestDeparture = null;
     let minDistance = Infinity;
 
-    candidateDepartureStops.forEach(stop => {
-      const dist = this.haversine(referenceLatLng, [stop.lat, stop.lng]);
+    for (let i = 0; i < candidateDepartureStops.length; i++) {
+      const stop = candidateDepartureStops[i];
+      const dist = this.haversine(referenceLatLng, [stop.lat_actual || stop.lat, stop.lng_actual || stop.lng]);
       if (dist < minDistance) {
         minDistance = dist;
         bestDeparture = stop;
       }
-    });
+    }
 
-    if (!bestDeparture) bestDeparture = candidateDepartureStops[0] || allStops[0];
+    if (!bestDeparture) {
+      bestDeparture = this.findNearestStop(referenceLatLng) || allStops[0];
+    }
 
-    // Linee di collegamento
+    // Linee di collegamento della fermata di partenza
     let directConnectingLines = servingLines.filter(l => {
       const arr = l.stopsIds || l.stops || [];
-      return arr.includes(bestDeparture.id) && arr.includes(targetStopId);
+      return arr.includes(bestDeparture.id);
     });
 
     if (directConnectingLines.length === 0) {
-      directConnectingLines = servingLines.length > 0 ? servingLines : (allLines.slice(0, 2));
+      directConnectingLines = servingLines.length > 0 ? servingLines : (this.linesServingStop(bestDeparture.id));
     }
 
     const targetStopObj = stopMap.get(targetStopId) || targetDest.stop || {
@@ -492,7 +492,7 @@ class GeoLocatorEngine {
         window.liveBoard.render();
       }
 
-      // Disegna il percorso visivo sulla mappa
+      // Disegna il percorso visivo sulla mappa (focalizzato sulla partenza)
       await this.drawSmartRouteOnMap(routeInfo, refLatLng);
 
       // Renderizza il pannello con i dati del viaggio
@@ -502,7 +502,7 @@ class GeoLocatorEngine {
       if (window.notificationManager) {
         window.notificationManager.send(
           `Fermata Trovata: ${routeInfo.departureStop.name} 🚏`,
-          `Punto di salita ottimale per raggiungere ${dest.name}. Linee attive e orari disponibili.`,
+          `Punto di salita utile per raggiungere ${dest.name}. Linee attive e orari disponibili.`,
           { type: "success", icon: "fa-person-walking-arrow-right", tabTarget: "map", showToast: true, sendNative: false }
         );
       }
@@ -515,8 +515,57 @@ class GeoLocatorEngine {
     }
   }
 
+  async routeToNearestDeparture(stop) {
+    const map = this.ensureMap();
+    if (!map || !stop) return;
+
+    const doRoute = async () => {
+      if (window.app && typeof window.app.switchTab === 'function') {
+        window.app.switchTab('map');
+      }
+
+      const refLatLng = this.userLatLng || [stop.lat, stop.lng];
+      const routeInfo = {
+        departureStop: stop,
+        destinationStop: null,
+        servingLines: this.linesServingStop(stop.id),
+        distanceToDestKm: 0,
+        isDirectNearest: true
+      };
+
+      this.activeRouteInfo = routeInfo;
+      this.nearestStop = stop;
+
+      if (window.liveBoard) {
+        window.liveBoard.activeStopId = stop.id;
+        if (window.liveBoard.filterHubSelect) {
+          window.liveBoard.filterHubSelect.value = stop.id;
+        }
+        window.liveBoard.generateInitialDepartures();
+        window.liveBoard.render();
+      }
+
+      await this.drawSmartRouteOnMap(routeInfo, refLatLng);
+      this.renderSmartRoutePanel(routeInfo, refLatLng);
+
+      if (window.notificationManager) {
+        window.notificationManager.send(
+          `Fermata Più Vicina: ${stop.name} 📍`,
+          `Sei a pochi minuti a piedi dalla fermata. Consulta gli orari in tempo reale.`,
+          { type: "success", icon: "fa-location-dot", tabTarget: "map", showToast: true, sendNative: false }
+        );
+      }
+    };
+
+    if (typeof window.withAppLoader === 'function') {
+      await window.withAppLoader("Localizzazione Fermata Più Vicina...", "Calcolo percorso a piedi verso la fermata...", doRoute, 240);
+    } else {
+      await doRoute();
+    }
+  }
+
   /* ==========================================================================
-     DISEGNO VETTORIALE SULLA MAPPA LEAFLET
+     DISEGNO VETTORIALE SULLA MAPPA LEAFLET (ZOOM STILE NAVIGATORE GPS)
      ========================================================================== */
 
   async drawSmartRouteOnMap(routeInfo, refLatLng) {
@@ -527,15 +576,19 @@ class GeoLocatorEngine {
 
     const dep = routeInfo.departureStop;
     const dest = routeInfo.destinationStop;
-    const depLatLng = [dep.lat, dep.lng];
-    const destLatLng = [dest.lat, dest.lng];
+    const depLatLng = [dep.lat_actual || dep.lat, dep.lng_actual || dep.lng];
 
     const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const isFlight = currentMode === 'flight';
     const isTrain = currentMode === 'train';
     const isTaxi = currentMode === 'taxi';
+    const isTram = currentMode === 'tram';
 
-    const primaryColor = isFlight ? '#0284c7' : (isTrain ? '#dc2626' : (isTaxi ? '#10b981' : '#0284c7'));
+    let modeIcon = 'fa-bus';
+    if (isFlight) modeIcon = 'fa-plane-departure';
+    else if (isTrain) modeIcon = 'fa-train';
+    else if (isTaxi) modeIcon = 'fa-taxi';
+    else if (isTram) modeIcon = 'fa-train-tram';
 
     // 1. Marker Posizione Utente (se GPS presente)
     if (this.userLatLng) {
@@ -546,7 +599,7 @@ class GeoLocatorEngine {
         iconAnchor: [14, 14]
       });
       L.marker(this.userLatLng, { icon: userIcon, zIndexOffset: 2000 })
-        .bindPopup(`<strong>📍 La tua Posizione</strong><br><small>GPS rilevato</small>`)
+        .bindPopup(`<strong>📍 La tua Posizione Attuale</strong><br><small>Punto di partenza GPS</small>`)
         .addTo(this.geoLayer);
 
       // Percorso a piedi fino alla fermata di partenza
@@ -565,74 +618,68 @@ class GeoLocatorEngine {
       }
       if (!this.walkSeconds) this.walkSeconds = Math.round(walkMeters / 1.35);
 
+      // Tracciato navigatore ad alta visibilità
       L.polyline(walkCoords, {
-        color: "#64748b",
-        weight: 5,
-        opacity: 0.85,
-        dashArray: "6, 8"
-      }).bindTooltip("🚶 Tragitto a piedi verso la fermata di partenza", { sticky: true }).addTo(this.geoLayer);
+        color: "#2563eb",
+        weight: 6,
+        opacity: 0.9,
+        dashArray: "8, 8",
+        lineCap: "round",
+        lineJoin: "round"
+      }).bindTooltip(`🚶 Tragitto a piedi verso ${dep.name} (${Math.round(walkMeters)} m • ~${Math.round(this.walkSeconds / 60)} min)`, { sticky: true }).addTo(this.geoLayer);
     } else {
       this.walkSeconds = Math.round(this.haversine(refLatLng, depLatLng) / 1.35);
     }
 
-    // 2. Marker Fermata di Partenza Consigliata (Punto di Salita più vicino per la destinazione scelta)
+    // 2. Marker Fermata / Stazione di Partenza (Punto di Salita utile)
     const depIcon = L.divIcon({
-      html: `<div class="serving-departure-pin" style="background:#16a34a; color:#fff; border:2.5px solid #ffffff; border-radius:50%; width:42px; height:42px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 16px rgba(22,163,74,0.7); font-size:1.25rem;"><i class="fa-solid fa-person-walking-arrow-right"></i></div>`,
+      html: `
+        <div class="serving-departure-nav-pin" style="background:#16a34a; color:#fff; border:3px solid #ffffff; border-radius:50%; width:46px; height:46px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 20px rgba(22,163,74,0.8), 0 0 0 8px rgba(22,163,74,0.25); font-size:1.35rem; animation: pulse-nav-pin 2s infinite;">
+          <i class="fa-solid ${modeIcon}"></i>
+        </div>
+      `,
       className: "serving-dep-pin-wrapper",
-      iconSize: [42, 42],
-      iconAnchor: [21, 42]
+      iconSize: [46, 46],
+      iconAnchor: [23, 46]
     });
 
-    const depMarker = L.marker(depLatLng, { icon: depIcon, zIndexOffset: 2500 })
+    const destContextHtml = dest && !routeInfo.isDirectNearest ? `
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:8px 10px; border-radius:8px; margin-bottom:8px;">
+        <small style="color:#166534; font-weight:800; display:block; font-size:0.82rem;">
+          <i class="fa-solid fa-arrow-right-long"></i> Salita utile per: <strong>${dest.name}</strong>
+        </small>
+        <small style="color:#475569; font-size:0.75rem;">Prendi qui il tuo mezzo per raggiungere la destinazione</small>
+      </div>
+    ` : `
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:8px 10px; border-radius:8px; margin-bottom:8px;">
+        <small style="color:#0284c7; font-weight:800; display:block; font-size:0.82rem;">
+          <i class="fa-solid fa-location-dot"></i> Fermata di riferimento più vicina a te
+        </small>
+      </div>
+    `;
+
+    const depMarker = L.marker(depLatLng, { icon: depIcon, zIndexOffset: 3000 })
       .bindPopup(`
-        <div style="min-width: 240px; padding: 4px;">
-          <span style="background:#16a34a; color:#fff; padding:3px 8px; border-radius:4px; font-weight:800; font-size:0.75rem; display:inline-block; margin-bottom:4px;">
-            <i class="fa-solid fa-circle-check"></i> FERMATA PIÙ VICINA DA CUI PARTIRE
+        <div style="min-width: 250px; padding: 4px;">
+          <span style="background:#16a34a; color:#fff; padding:4px 10px; border-radius:6px; font-weight:800; font-size:0.78rem; display:inline-block; margin-bottom:6px; letter-spacing:0.3px;">
+            <i class="fa-solid fa-circle-check"></i> FERMATA DI PARTENZA DA RAGGIUNGERE
           </span>
-          <h4 style="margin:4px 0 2px 0; font-size:1.08rem; color:#0f172a;">${dep.name}</h4>
-          <p style="margin:0 0 6px 0; font-size:0.8rem; color:#64748b;">${dep.address || dep.area || 'Fermata di salita utile'}</p>
-          <div style="background:#f1f5f9; padding:6px 8px; border-radius:6px; margin-bottom:6px;">
-            <small style="color:#0284c7; font-weight:800; display:block;">Per raggiungere: <strong>${dest.name}</strong></small>
-            <small style="color:#475569;">${routeInfo.servingLines?.length ? 'Linee dirette da questa fermata' : 'Collegamento consigliato'}</small>
-          </div>
-          <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${dep.id}'); } window.app.switchTab('live-board');">
-            <i class="fa-solid fa-clock"></i> Visualizza Orari di Partenza
+          <h4 style="margin:4px 0 2px 0; font-size:1.15rem; color:#0f172a; font-weight:800;">${dep.name}</h4>
+          <p style="margin:0 0 8px 0; font-size:0.82rem; color:#64748b;">${dep.address || dep.area || 'Fermata di salita utile'}</p>
+          ${destContextHtml}
+          <button class="btn btn-xs btn-primary w-100" style="padding:7px 12px; font-size:0.82rem;" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${dep.id}'); } window.app.switchTab('live-board');">
+            <i class="fa-solid fa-clock"></i> Visualizza Tabellone Partenze
           </button>
         </div>
       `)
       .addTo(this.geoLayer);
 
-    // 3. Marker Destinazione Finale
-    const destIcon = L.divIcon({
-      html: `<div class="target-dest-checkered-pin" style="background:${primaryColor}; color:#ffffff; border:2px solid #ffffff; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(2,132,199,0.6); font-size:1.15rem;"><i class="fa-solid fa-flag-checkered"></i></div>`,
-      className: "target-dest-pin-wrapper",
-      iconSize: [38, 38],
-      iconAnchor: [19, 38]
-    });
+    // NOTA: La mappa NON segna la fine del viaggio (nessun marker remoto a 600km)
+    // per rimanere focalizzata sulla navigazione locale e sulla fermata di partenza!
 
-    L.marker(destLatLng, { icon: destIcon, zIndexOffset: 1600 })
-      .bindPopup(`
-        <div style="min-width: 200px; padding: 4px;">
-          <span style="background:${primaryColor}; color:#fff; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.75rem;">DESTINAZIONE FINALE</span>
-          <h4 style="margin:6px 0 2px 0; font-size:1.05rem;">${dest.name}</h4>
-          <p style="margin:0; font-size:0.8rem; color:#64748b;">Arrivo previsto</p>
-        </div>
-      `)
-      .addTo(this.geoLayer);
-
-    // 4. Tracciato di collegamento Partenza -> Destinazione
-    const transitCoords = [depLatLng, destLatLng];
-    L.polyline(transitCoords, {
-      color: primaryColor,
-      weight: 6,
-      opacity: 0.85,
-      dashArray: isFlight ? "8, 12" : (isTrain ? "10, 6" : null)
-    }).bindTooltip(`<strong>Tratta</strong>: da ${dep.name} a ${dest.name}`, { sticky: true }).addTo(this.geoLayer);
-
-    // Inquadratura focalizzata sulla FERMATA DI PARTENZA PIÙ VICINA a te
+    // Inquadratura & Zoom cinematografico stile navigatore
     map.invalidateSize();
 
-    // Blocca moveend e sovrascritture di zoom da altri eventi durante la navigazione
     if (window.transitMap) {
       window.transitMap.needsRegionRefresh = false;
       window.transitMap.needsModeRefresh = false;
@@ -640,30 +687,33 @@ class GeoLocatorEngine {
     }
 
     if (this.userLatLng) {
-      // Inquadra l'utente e la fermata di partenza più vicina da raggiungere a piedi
+      // Inquadra l'utente e la fermata di partenza con zoom ravvicinato da navigatore
       const localBounds = L.latLngBounds([this.userLatLng, depLatLng]);
       map.flyToBounds(localBounds, {
-        padding: [85, 85],
+        padding: [80, 80],
         animate: true,
-        duration: 1.1,
-        maxZoom: 16
+        duration: 1.4,
+        maxZoom: 17,
+        easeLinearity: 0.25
       });
     } else {
-      // Zooma direttamente sulla fermata di partenza utile più vicina
-      map.flyTo(depLatLng, 15, { animate: true, duration: 1.1 });
+      // Zooma direttamente e da vicino sulla fermata di partenza
+      map.flyTo(depLatLng, 16, {
+        animate: true,
+        duration: 1.4,
+        easeLinearity: 0.25
+      });
     }
 
-    // Dopo l'animazione: riattiva moveend, porta il layer del percorso in primo piano e apri il popup
     setTimeout(() => {
       if (window.transitMap) {
         window.transitMap._skipMoveEnd = false;
       }
-      // Assicura che il geoLayer sia sopra tutti gli altri layer
       if (this.geoLayer) {
         this.geoLayer.bringToFront();
       }
       depMarker.openPopup();
-    }, 1300);
+    }, 1400);
   }
 
   /* ==========================================================================
@@ -681,7 +731,7 @@ class GeoLocatorEngine {
     const isFlight = mode === 'flight';
     const isTaxi = mode === 'taxi';
 
-    const distFromUserMeters = this.haversine(refLatLng, [dep.lat, dep.lng]);
+    const distFromUserMeters = this.haversine(refLatLng, [dep.lat_actual || dep.lat, dep.lng_actual || dep.lng]);
     const distTxt = distFromUserMeters >= 1000 
       ? (distFromUserMeters / 1000).toFixed(2) + " km" 
       : Math.round(distFromUserMeters) + " m";
@@ -693,16 +743,20 @@ class GeoLocatorEngine {
       </span>
     `).join(" ");
 
+    const headTitle = dest && !routeInfo.isDirectNearest
+      ? `Per arrivare a <strong>${dest.name}</strong>`
+      : `Fermata di Partenza Più Vicina: <strong>${dep.name}</strong>`;
+
     this.panel.innerHTML = `
       <div class="geo-route-head" style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
         <div>
           <span style="background:rgba(22,163,74,0.15); color:#16a34a; border:1px solid #16a34a; font-weight:800; font-size:0.75rem; padding:3px 8px; border-radius:6px;">
-            <i class="fa-solid fa-circle-check"></i> FERMATA CORRETTA PER LA TUA DESTINAZIONE
+            <i class="fa-solid fa-circle-check"></i> FERMATA DI PARTENZA CONSIGLIATA
           </span>
           <h3 style="margin:6px 0 2px 0; font-size:1.2rem; color:var(--text-primary);">
-            Per arrivare a <strong>${dest.name}</strong>
+            ${headTitle}
           </h3>
-          <small class="text-muted">Itinerario calcolato in tempo reale con orari di partenza e linee dirette</small>
+          <small class="text-muted">Raggiungi questa fermata per prendere il tuo mezzo di trasporto</small>
         </div>
         <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()">
           <i class="fa-solid fa-table-list"></i> Tabellone Orari Completo
@@ -711,30 +765,38 @@ class GeoLocatorEngine {
 
       <div class="geo-stats-grid">
         <div class="geo-stat-card" style="border-left:4px solid #16a34a;">
-          <span class="geo-stat-label"><i class="fa-solid fa-person-walking-arrow-right text-success"></i> Fermata di Partenza Consigliata</span>
+          <span class="geo-stat-label"><i class="fa-solid fa-person-walking-arrow-right text-success"></i> Fermata da Raggiungere</span>
           <strong class="geo-stat-val text-success">${dep.name}</strong>
           <small class="text-muted">${dep.address || dep.area || 'Punto di salita utile'}</small>
         </div>
+        ${dest && !routeInfo.isDirectNearest ? `
         <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-flag-checkered text-primary"></i> Destinazione Selezionata</span>
+          <span class="geo-stat-label"><i class="fa-solid fa-location-arrow text-primary"></i> Destinazione Voluta</span>
           <strong class="geo-stat-val text-primary">${dest.name}</strong>
-          <small class="text-muted">Distanza in linea d'aria: ~${Math.round(routeInfo.distanceToDestKm || 1)} km</small>
+          <small class="text-muted">Linee e orari collegati</small>
         </div>
+        ` : `
         <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-person-walking"></i> Distanza da Te alla Fermata</span>
+          <span class="geo-stat-label"><i class="fa-solid fa-location-crosshairs text-primary"></i> Modalità Attiva</span>
+          <strong class="geo-stat-val text-primary">${mode.toUpperCase()}</strong>
+          <small class="text-muted">Rete trasporti in tempo reale</small>
+        </div>
+        `}
+        <div class="geo-stat-card">
+          <span class="geo-stat-label"><i class="fa-solid fa-person-walking"></i> Tragitto a Piedi</span>
           <strong class="geo-stat-val">${distTxt}</strong>
-          <small class="text-muted">~${walkMin} min a piedi</small>
+          <small class="text-muted">~${walkMin} min di camminata</small>
         </div>
         <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-route"></i> Linee / Mezzi da Prendere</span>
-          <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">${lineBadgesHtml}</div>
-          <small class="text-muted" style="margin-top:4px;">${lines[0]?.name || 'Collegamento Diretto'}</small>
+          <span class="geo-stat-label"><i class="fa-solid fa-route"></i> Linee da Questa Fermata</span>
+          <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">${lineBadgesHtml || '<span class="text-muted">Tutte le linee attive</span>'}</div>
+          <small class="text-muted" style="margin-top:4px;">${lines[0]?.name || 'Transito orari regolari'}</small>
         </div>
       </div>
 
       <div class="geo-departures-wrapper" style="margin-top:14px;">
         <div class="geo-departures-title" style="font-weight:800; font-size:0.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-          <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${dep.name}</strong> verso <strong>${dest.name}</strong>
+          <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${dep.name}</strong> ${dest && !routeInfo.isDirectNearest ? `verso <strong>${dest.name}</strong>` : ''}
         </div>
         <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
         <div id="geoVerdict" class="geo-verdict-box" style="margin-top:10px;"></div>
@@ -802,20 +864,13 @@ class GeoLocatorEngine {
     this.userLatLng = [pos.coords.latitude, pos.coords.longitude];
 
     if (this.selectedDestination) {
-      // Se c'è già una destinazione scelta, calcola direttamente la fermata giusta
+      // Se c'è già una destinazione scelta, calcola direttamente la fermata di partenza giusta
       await this.routeToDestination(this.selectedDestination);
     } else {
-      // Se non è ancora stata scelta una destinazione, trova la fermata più vicina generica
+      // Se non è stata digitata una destinazione, trova direttamente la fermata più vicina
       const defaultStop = this.findNearestStop(this.userLatLng);
       if (defaultStop) {
-        this.routeToDestination({
-          id: defaultStop.id,
-          name: defaultStop.name,
-          lat: defaultStop.lat,
-          lng: defaultStop.lng,
-          stop: defaultStop,
-          category: 'Fermata più vicina'
-        });
+        await this.routeToNearestDeparture(defaultStop);
       }
     }
   }
