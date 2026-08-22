@@ -887,7 +887,9 @@ class GeoLocatorEngine {
   }
 
   findNearestStop(latlng) {
+    if (!latlng || !latlng[0] || !latlng[1]) return null;
     let best = null, bestD = Infinity;
+    let bestHub = null, bestHubD = Infinity;
     const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const modeData = window.TRANSIT_DATA?.modes?.[mode] || window.TRANSIT_DATA?.modes?.pullman;
     const stops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
@@ -895,12 +897,25 @@ class GeoLocatorEngine {
 
     for (let i = 0; i < stops.length; i++) {
       const stop = stops[i];
-      const d = this.haversine(latlng, [stop.lat, stop.lng]);
+      const lat = stop.lat_actual || stop.lat;
+      const lng = stop.lng_actual || stop.lng;
+      if (!lat || !lng || isNaN(lat) || isNaN(lng)) continue;
+      const d = this.haversine(latlng, [lat, lng]);
       if (d < bestD) {
         bestD = d;
         best = stop;
       }
+      if (stop.isMainHub && d < bestHubD) {
+        bestHubD = d;
+        bestHub = stop;
+      }
     }
+
+    // Se c'è un Hub Ufficiale principale entro 2.5 km, privilegialo rispetto a una palina anonima
+    if (bestHub && bestHubD <= 2500) {
+      return bestHub;
+    }
+
     return best;
   }
 
@@ -955,6 +970,8 @@ class GeoLocatorEngine {
       let targetDest = destName;
       if (line.name && line.name.includes(" - ")) {
         targetDest = line.name.split(" - ").pop().split(" (")[0];
+      } else if (line.name && line.name.includes("➔")) {
+        targetDest = line.name.split("➔").pop().trim();
       }
 
       return {

@@ -388,10 +388,15 @@ class TransitMapEngine {
 
       const marker = L.marker([lat, lng], { icon: customIcon });
 
-      // Generazione Popup nativo Leaflet con callback lazy
+      // Generazione Popup nativo Leaflet con callback lazy e autoPan: false per stabilita assoluta
       marker.bindPopup(() => {
         return this.buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive);
-      }, { maxWidth: 350, className: 'transit-popup' });
+      }, {
+        maxWidth: 360,
+        minWidth: 280,
+        className: 'transit-popup',
+        autoPan: false
+      });
 
       this.stopMarkersLayer.addLayer(marker);
     });
@@ -400,23 +405,94 @@ class TransitMapEngine {
   buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive) {
     const altData = isTemp ? (typeof window.getAlternativeActiveStop === 'function' ? window.getAlternativeActiveStop(stop.id) : null) : null;
     const modeData = window.TRANSIT_DATA?.modes?.[currentMode] || window.TRANSIT_DATA?.modes?.pullman;
-    const lines = modeData?.lines || [];
-    const servingLines = lines.filter(l => (l.stopsIds || l.stops || []).includes(stop.id)).slice(0, 6);
+    const allLines = modeData?.lines || [];
+    
+    // Trova le linee che transitano per questa fermata
+    let servingLines = allLines.filter(l => (l.stopsIds || l.stops || []).includes(stop.id));
+    if (servingLines.length === 0) {
+      servingLines = allLines.filter(l => l.region === stop.region || (l.area && l.area === stop.area)).slice(0, 4);
+    }
+    if (servingLines.length === 0) {
+      servingLines = allLines.slice(0, 3);
+    }
+
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // Costruisci le schede dei pullman con destinazioni e prossimi orari
+    const linesCardsHtml = servingLines.slice(0, 4).map(l => {
+      const stopsArr = l.stopsIds || l.stops || [];
+      const destStopId = stopsArr.length > 0 ? stopsArr[stopsArr.length - 1] : null;
+      let destName = destStopId && typeof getStopById === 'function' ? getStopById(destStopId)?.name : null;
+      if (!destName || destName === stop.name) {
+        if (l.name && l.name.includes("➔")) {
+          destName = l.name.split("➔").pop().trim();
+        } else if (l.name && l.name.includes(" - ")) {
+          destName = l.name.split(" - ").pop().trim();
+        } else {
+          destName = l.name;
+        }
+      }
+
+      // Orari programmati
+      let rawSchedule = l.schedule?.weekday || ["06:30", "07:15", "08:00", "09:30", "11:00", "12:30", "14:00", "15:30", "17:00", "18:30", "20:00"];
+      let nextTimeStr = null;
+      let minDiff = Infinity;
+
+      for (let t of rawSchedule) {
+        const parts = t.split(":");
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (isNaN(h) || isNaN(m)) continue;
+        const tMin = h * 60 + m;
+        const diff = tMin - currentMinutes;
+        if (diff > 0 && diff < minDiff) {
+          minDiff = diff;
+          nextTimeStr = t;
+        }
+      }
+
+      if (!nextTimeStr) {
+        nextTimeStr = rawSchedule[0];
+      }
+
+      const nextBadge = minDiff !== Infinity && minDiff <= 60
+        ? `<span style="background:#16a34a; color:#fff; padding:2px 6px; border-radius:4px; font-weight:800; font-size:0.72rem;"><i class="fa-solid fa-clock"></i> ${nextTimeStr} (tra ${minDiff} min)</span>`
+        : `<span style="background:#0284c7; color:#fff; padding:2px 6px; border-radius:4px; font-weight:800; font-size:0.72rem;"><i class="fa-regular fa-clock"></i> Prossimo: ${nextTimeStr}</span>`;
+
+      return `
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:7px 9px; margin-bottom:6px; border-left:4px solid ${l.color || '#0284c7'};">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; flex-wrap:wrap; gap:4px;">
+            <strong style="color:${l.color || '#0284c7'}; font-size:0.86rem; display:inline-flex; align-items:center; gap:4px;">
+              <i class="fa-solid ${currentMode === 'flight' ? 'fa-plane' : (currentMode === 'train' ? 'fa-train' : 'fa-bus')}"></i>
+              ${l.code || l.name}
+            </strong>
+            ${nextBadge}
+          </div>
+          <div style="font-size:0.8rem; color:#0f172a; margin-bottom:2px; font-weight:600;">
+            <span style="color:#64748b; font-weight:400;">Destinazione:</span> ${destName}
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; color:#64748b;">
+            <span><i class="fa-solid fa-building"></i> ${l.operator || 'Servizio TPL'}</span>
+            <span><i class="fa-solid fa-clock-rotate-left"></i> ${rawSchedule.slice(0, 3).join(', ')}...</span>
+          </div>
+        </div>
+      `;
+    }).join("");
 
     return `
-      <div class="map-popup-card ${isTemp ? 'popup-card-temporary' : ''}">
-        <div class="map-popup-head">
+      <div class="map-popup-card ${isTemp ? 'popup-card-temporary' : ''}" style="max-height:360px; overflow-y:auto;">
+        <div class="map-popup-head" style="margin-bottom:8px;">
           <div class="popup-top-badges">
             <span class="popup-badge">${stop.area || 'Rete'}</span>
             ${isTemp ? (isTempActive ? 
               '<span class="popup-badge-temp-active"><i class="fa-solid fa-triangle-exclamation"></i> Provvisoria ATTIVA</span>' : 
               '<span class="popup-badge-temp-inactive"><i class="fa-solid fa-ban"></i> Chiusa per Lavori</span>'
             ) : ''}
-            <span class="popup-code-badge"><i class="fa-solid fa-barcode"></i> ${stop.stopCode || 'Transit Code'}</span>
+            <span class="popup-code-badge"><i class="fa-solid fa-barcode"></i> ${stop.code || stop.stopCode || 'Transit Code'}</span>
           </div>
-          <h4 style="${isTempInactive ? 'text-decoration: line-through; opacity: 0.85;' : ''}">${stop.name}</h4>
-          <p class="popup-addr"><i class="fa-solid fa-map-pin"></i> ${stop.address || 'Posizione Georeferenziata'}</p>
-          <p class="popup-operator"><i class="fa-solid fa-building"></i> ${stop.operatorName || 'Operatore di Servizio'}</p>
+          <h4 style="margin:6px 0 2px 0; font-size:1.08rem; color:#0f172a; font-weight:800; ${isTempInactive ? 'text-decoration: line-through; opacity: 0.85;' : ''}">${stop.name}</h4>
+          <p class="popup-addr" style="margin:0 0 6px 0; font-size:0.78rem; color:#64748b;"><i class="fa-solid fa-map-pin"></i> ${stop.address || 'Posizione Georeferenziata'}</p>
         </div>
 
         ${isTemp ? `
@@ -430,46 +506,27 @@ class TransitMapEngine {
           </div>
         ` : ''}
 
-        ${isTemp && isTempInactive && altData && altData.alternativeStop ? `
-          <div class="temporary-reroute-card">
-            <div class="reroute-card-head">
-              <i class="fa-solid fa-person-walking text-warning"></i>
-              <strong>Fermata Ufficiale Alternativa Consigliata:</strong>
-            </div>
-            <div class="reroute-card-body">
-              <h5 class="reroute-dest-name">${altData.alternativeStop.name}</h5>
-              <p class="reroute-dest-addr"><i class="fa-solid fa-location-dot"></i> ${altData.alternativeStop.address}</p>
-              <div class="reroute-meta-tags">
-                <span class="reroute-tag-dist"><i class="fa-solid fa-ruler-horizontal"></i> ${altData.distanceMeters} metri</span>
-                <span class="reroute-tag-time"><i class="fa-solid fa-person-walking"></i> circa ${altData.walkTimeMin} min a piedi</span>
-              </div>
-            </div>
-          </div>
-        ` : ''}
-        
-        <div class="map-popup-lines">
-          <span class="lines-lbl">${currentMode === 'flight' ? 'Voli e rotte in partenza:' : 'Linee e collegamenti in transito:'}</span>
-          <div class="popup-badges-row">
-            ${servingLines.length > 0 ? servingLines.map(l => `
-              <span class="popup-line-pill" style="background:${l.color}20; color:${l.color}; border:1px solid ${l.color}">
-                ${l.code}
-              </span>
-            `).join('') : `<small style="color:var(--text-muted);">${currentMode === 'flight' ? 'Hub Aeroportuale ENAC / IATA' : (currentMode === 'taxi' ? 'Servizio RadioTaxi H24' : (currentMode === 'train' ? 'Rete Ferroviaria Regionale / AV' : 'Servizio su gomma integrato'))}</small>`}
+        <div style="margin-top:6px; margin-bottom:8px;">
+          <span style="font-weight:800; font-size:0.8rem; color:#334155; display:block; margin-bottom:6px;">
+            <i class="fa-solid fa-route text-primary"></i> ${currentMode === 'flight' ? 'Voli e Destinazioni in Partenza:' : (currentMode === 'train' ? 'Treni e Destinazioni in Transito:' : 'Pullman in Transito e Orari:')}
+          </span>
+          <div class="popup-lines-list">
+            ${linesCardsHtml}
           </div>
         </div>
 
-        <div class="map-popup-gmaps-links">
-          <a href="${stop.gmapsUrl || 'https://www.google.com/maps'}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Visualizza su Google Maps">
-            <i class="fa-brands fa-google"></i> Google Maps
+        <div class="map-popup-gmaps-links" style="display:flex; gap:6px; margin-bottom:8px;">
+          <a href="${stop.gmapsUrl || ('https://www.google.com/maps/search/?api=1&query=' + (stop.lat_actual || stop.lat) + ',' + (stop.lng_actual || stop.lng))}" target="_blank" rel="noopener" class="btn-popup-gmaps" style="flex:1; text-align:center; padding:5px 8px; font-size:0.75rem;" title="Visualizza su Google Maps">
+            <i class="fa-brands fa-google"></i> Maps
           </a>
-          <a href="${stop.streetViewUrl || 'https://www.google.com/maps'}" target="_blank" rel="noopener" class="btn-popup-gmaps" title="Visualizza Street View a 360°">
+          <a href="${stop.streetViewUrl || ('https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + (stop.lat_actual || stop.lat) + ',' + (stop.lng_actual || stop.lng))}" target="_blank" rel="noopener" class="btn-popup-gmaps" style="flex:1; text-align:center; padding:5px 8px; font-size:0.75rem;" title="Visualizza Street View a 360°">
             <i class="fa-solid fa-street-view"></i> Street View
           </a>
         </div>
 
-        <div class="map-popup-actions" style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
-          <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'); } window.app.switchTab('live-board');">
-            <i class="fa-solid ${currentMode === 'flight' ? 'fa-plane-departure' : (currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-clock'))}"></i> ${currentMode === 'flight' ? 'Tabellone Voli Aeroporto' : (currentMode === 'taxi' ? 'Dettagli Posteggio & Tariffe' : (currentMode === 'train' ? 'Tabellone Stazione FS' : 'Visualizza Partenze Live'))}
+        <div class="map-popup-actions" style="display: flex; flex-direction: column; gap: 6px;">
+          <button class="btn btn-xs btn-primary w-100" style="padding:7px 10px; font-size:0.82rem;" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'); } window.app.switchTab('live-board');">
+            <i class="fa-solid ${currentMode === 'flight' ? 'fa-plane-departure' : (currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-table-list'))}"></i> ${currentMode === 'flight' ? 'Tabellone Voli Completo' : (currentMode === 'taxi' ? 'Dettagli Posteggio & Tariffe' : (currentMode === 'train' ? 'Tabellone Stazione FS' : 'Tabellone Orari Completo'))}
           </button>
         </div>
       </div>

@@ -1126,6 +1126,452 @@
     "operatorName": "AMTAB Bari / STP / MarinoBus"
   }
 ];
+  const REAL_PULLMAN_LINES = [
+  {
+    "id": "LINE_COR_ROS_URB_01",
+    "region": "calabria",
+    "name": "Linea 1: Corigliano Scalo FS ⇄ Schiavonea ⇄ Rossano Scalo FS",
+    "code": "LINEA 1",
+    "shortName": "L1",
+    "type": "urban",
+    "operator": "IAS Scura / Simet TPL",
+    "stops": [
+      "HUB_CAL_CORIGLIANO_CENTRO",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_SCHIAVONEA_LUNGOMARE",
+      "HUB_CAL_SCHIAVONEA_PORTO",
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_ROSSANO_CENTRO"
+    ],
+    "stopsIds": [
+      "HUB_CAL_CORIGLIANO_CENTRO",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_SCHIAVONEA_LUNGOMARE",
+      "HUB_CAL_SCHIAVONEA_PORTO",
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_ROSSANO_CENTRO"
+    ],
+    "schedule": {
+      "weekday": [
+        "06:15",
+        "07:00",
+        "07:45",
+        "08:30",
+        "09:15",
+        "10:00",
+        "10:45",
+        "11:30",
+        "12:15",
+        "13:00",
+        "13:45",
+        "14:30",
+        "15:15",
+        "16:00",
+        "16:45",
+        "17:30",
+        "18:15",
+        "19:00",
+        "19:45",
+        "20:30",
+        "21:30"
+      ],
+      "saturday": [
+        "07:00",
+        "08:00",
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00",
+        "17:00",
+        "18:00",
+        "19:00",
+        "20:00"
+      ],
+      "sunday": [
+        "08:00",
+        "10:00",
+        "12:00",
+        "15:00",
+        "17:00",
+        "19:00",
+        "21:00"
+      ]
+    },
+    "duration": 35,
+    "priceBase": 1.5,
+    "busModel": "Mercedes-Benz Citaro Hybrid Euro 6",
+    "color": "#0284c7"
+  },
+  {
+    "id": "LINE_COR_UNICAL_CS_02",
+    "region": "calabria",
+    "name": "Linea Rapida Express: Corigliano Scalo FS ➔ UNICAL Arcavacata ➔ Cosenza Autostazione",
+    "code": "EXP-UNICAL",
+    "shortName": "UNICAL",
+    "type": "suburban",
+    "operator": "Consorzio Autolinee / IAS Scura",
+    "stops": [
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_CANTINELLA",
+      "HUB_CAL_RENDE_UNICAL",
+      "HUB_CAL_RENDE_CASTIGLIONE_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE"
+    ],
+    "stopsIds": [
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_CANTINELLA",
+      "HUB_CAL_RENDE_UNICAL",
+      "HUB_CAL_RENDE_CASTIGLIONE_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE"
+    ],
+    "schedule": {
+      "weekday": [
+        "06:45",
+        "07:30",
+        "08:15",
+        "09:30",
+        "11:00",
+        "12:30",
+        "13:45",
+        "15:00",
+        "16:30",
+        "17:45",
+        "19:00",
+        "20:15"
+      ],
+      "saturday": [
+        "07:30",
+        "09:00",
+        "11:30",
+        "13:45",
+        "16:00",
+        "18:30"
+      ],
+      "sunday": [
+        "09:00",
+        "14:00",
+        "18:00",
+        "20:30"
+      ]
+    },
+    "duration": 65,
+    "priceBase": 4.2,
+    "busModel": "Setra S 419 UL Business Euro 6",
+    "color": "#16a34a"
+  },
+  {
+    "id": "LINE_ROS_UNICAL_CS_03",
+    "region": "calabria",
+    "name": "Linea Rapida Express: Rossano Scalo FS ➔ UNICAL Arcavacata ➔ Cosenza Autostazione",
+    "code": "EXP-ROS-CS",
+    "shortName": "UNICAL",
+    "type": "suburban",
+    "operator": "Consorzio Autolinee / Simet TPL",
+    "stops": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_RENDE_UNICAL",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE"
+    ],
+    "stopsIds": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_RENDE_UNICAL",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE"
+    ],
+    "schedule": {
+      "weekday": [
+        "06:30",
+        "07:15",
+        "08:00",
+        "09:15",
+        "10:45",
+        "12:15",
+        "13:30",
+        "14:45",
+        "16:15",
+        "17:30",
+        "18:45",
+        "20:00"
+      ],
+      "saturday": [
+        "07:15",
+        "08:45",
+        "11:15",
+        "13:30",
+        "15:45",
+        "18:15"
+      ],
+      "sunday": [
+        "08:45",
+        "13:45",
+        "17:45",
+        "20:15"
+      ]
+    },
+    "duration": 75,
+    "priceBase": 4.6,
+    "busModel": "Iveco Crossway Pro Linea Euro 6",
+    "color": "#16a34a"
+  },
+  {
+    "id": "LINE_COR_SIB_CAS_04",
+    "region": "calabria",
+    "name": "Linea Jonica Nord: Corigliano Scalo ➔ Sibari FS ➔ Castrovillari Autostazione",
+    "code": "LINEA JONIO",
+    "shortName": "JONICA",
+    "type": "suburban",
+    "operator": "SAJ Autolinee / IAS Scura",
+    "stops": [
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_CANTINELLA",
+      "HUB_CAL_SIBARI_FS",
+      "HUB_CAL_CASTROVILLARI_AUTOSTAZIONE"
+    ],
+    "stopsIds": [
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_CANTINELLA",
+      "HUB_CAL_SIBARI_FS",
+      "HUB_CAL_CASTROVILLARI_AUTOSTAZIONE"
+    ],
+    "schedule": {
+      "weekday": [
+        "06:40",
+        "07:50",
+        "09:10",
+        "11:20",
+        "13:10",
+        "14:20",
+        "16:00",
+        "17:40",
+        "19:10"
+      ],
+      "saturday": [
+        "07:00",
+        "09:00",
+        "12:00",
+        "14:00",
+        "17:00",
+        "19:00"
+      ],
+      "sunday": [
+        "09:00",
+        "13:00",
+        "17:00"
+      ]
+    },
+    "duration": 50,
+    "priceBase": 3.5,
+    "busModel": "Mercedes-Benz Intouro Euro 6",
+    "color": "#0284c7"
+  },
+  {
+    "id": "LINE_COR_SUF_CZ_05",
+    "region": "calabria",
+    "name": "Navetta Aeroporto: Corigliano Scalo ➔ Lamezia Aeroporto (SUF) ➔ Catanzaro Matteotti",
+    "code": "SHUTTLE-SUF",
+    "shortName": "SUF-BUS",
+    "type": "suburban",
+    "operator": "Ferrovie della Calabria / IAS Scura",
+    "stops": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE",
+      "HUB_CAL_LAMEZIA_AEROPORTO",
+      "HUB_CAL_LAMEZIA_CENTRALE_FS",
+      "HUB_CAL_CATANZARO_MATTEOTTI"
+    ],
+    "stopsIds": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE",
+      "HUB_CAL_LAMEZIA_AEROPORTO",
+      "HUB_CAL_LAMEZIA_CENTRALE_FS",
+      "HUB_CAL_CATANZARO_MATTEOTTI"
+    ],
+    "schedule": {
+      "weekday": [
+        "05:30",
+        "07:00",
+        "09:30",
+        "12:00",
+        "14:30",
+        "17:00",
+        "19:30",
+        "21:30"
+      ],
+      "saturday": [
+        "06:00",
+        "09:00",
+        "12:00",
+        "15:00",
+        "18:00",
+        "21:00"
+      ],
+      "sunday": [
+        "06:00",
+        "09:00",
+        "14:00",
+        "18:00",
+        "21:00"
+      ]
+    },
+    "duration": 90,
+    "priceBase": 8.5,
+    "busModel": "Setra S 515 HD ComfortClass Euro 6",
+    "color": "#0284c7"
+  },
+  {
+    "id": "LINE_COR_KR_RC_06",
+    "region": "calabria",
+    "name": "Dorsale Jonica Sud: Corigliano ➔ Rossano ➔ Crotone Terminal ➔ Catanzaro Lido ➔ Reggio Calabria",
+    "code": "JONICA-SUD",
+    "shortName": "JONICA-SUD",
+    "type": "suburban",
+    "operator": "Autolinee Federico / Romano Regionali",
+    "stops": [
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CROTONE_AUTOSTAZIONE",
+      "HUB_CAL_CATANZARO_LIDO_FS",
+      "HUB_CAL_REGGIO_CALABRIA_FS"
+    ],
+    "stopsIds": [
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CROTONE_AUTOSTAZIONE",
+      "HUB_CAL_CATANZARO_LIDO_FS",
+      "HUB_CAL_REGGIO_CALABRIA_FS"
+    ],
+    "schedule": {
+      "weekday": [
+        "06:00",
+        "08:30",
+        "11:30",
+        "14:00",
+        "16:30",
+        "19:00"
+      ],
+      "saturday": [
+        "06:30",
+        "10:00",
+        "14:00",
+        "18:00"
+      ],
+      "sunday": [
+        "08:00",
+        "14:00",
+        "18:30"
+      ]
+    },
+    "duration": 180,
+    "priceBase": 12,
+    "busModel": "Scania Irizar i6S Grand Turismo",
+    "color": "#0284c7"
+  },
+  {
+    "id": "LINE_COR_RM_NAT_07",
+    "region": "calabria",
+    "name": "Autolinea Nazionale: Corigliano-Rossano ➔ Cosenza ➔ Roma Tiburtina Tibus / Termini",
+    "code": "NAT-ROMA",
+    "shortName": "ROMA",
+    "type": "national",
+    "operator": "IAS Scura / Simet Grandi Linee / FlixBus",
+    "stops": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE",
+      "HUB_LAZ_ROMA_TIBURTINA",
+      "HUB_LAZ_ROMA_TERMINI"
+    ],
+    "stopsIds": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE",
+      "HUB_LAZ_ROMA_TIBURTINA",
+      "HUB_LAZ_ROMA_TERMINI"
+    ],
+    "schedule": {
+      "weekday": [
+        "06:00",
+        "08:30",
+        "13:30",
+        "16:00",
+        "22:30",
+        "23:45"
+      ],
+      "saturday": [
+        "07:00",
+        "13:30",
+        "16:00",
+        "23:00"
+      ],
+      "sunday": [
+        "08:30",
+        "13:30",
+        "16:00",
+        "22:30",
+        "23:45"
+      ]
+    },
+    "duration": 330,
+    "priceBase": 26,
+    "busModel": "Setra S 517 HDH TopClass Double-Decker Wi-Fi",
+    "color": "#0284c7"
+  },
+  {
+    "id": "LINE_COR_MI_NAT_08",
+    "region": "calabria",
+    "name": "Autolinea Nazionale Notturna & Diurna: Corigliano-Rossano ➔ Bologna ➔ Milano Lampugnano",
+    "code": "NAT-MILANO",
+    "shortName": "MILANO",
+    "type": "national",
+    "operator": "IAS Scura / Simet Grandi Linee / Itabus",
+    "stops": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE",
+      "HUB_EMI_BOLOGNA_AUTOSTAZIONE",
+      "HUB_LOM_MILANO_LAMPUGNANO",
+      "HUB_LOM_MILANO_CENTRALE"
+    ],
+    "stopsIds": [
+      "HUB_CAL_ROSSANO_SCALO_FS",
+      "HUB_CAL_CORIGLIANO_SCALO_FS",
+      "HUB_CAL_COSENZA_AUTOSTAZIONE",
+      "HUB_EMI_BOLOGNA_AUTOSTAZIONE",
+      "HUB_LOM_MILANO_LAMPUGNANO",
+      "HUB_LOM_MILANO_CENTRALE"
+    ],
+    "schedule": {
+      "weekday": [
+        "07:30",
+        "18:00",
+        "19:30",
+        "21:00"
+      ],
+      "saturday": [
+        "08:00",
+        "19:00",
+        "21:00"
+      ],
+      "sunday": [
+        "08:00",
+        "18:00",
+        "19:30",
+        "21:00"
+      ]
+    },
+    "duration": 600,
+    "priceBase": 39,
+    "busModel": "MAN Lion's Coach L Supreme TopClass",
+    "color": "#0284c7"
+  }
+];
   const REAL_TRAIN_STATIONS = [
   {
     "id": "TRAIN_CORIGLIANO_SCALO",
@@ -2207,12 +2653,17 @@
   }
 ];
 
-  // 1. Inietta gli Hub Reali Pullman in cima a allStops
+  // 1. Inietta gli Hub Reali Pullman in cima a allStops e le Linee collegate
   if (_RAW_METADATA.modes && _RAW_METADATA.modes.pullman) {
     const existingStops = _RAW_METADATA.modes.pullman.stops || [];
     const realIds = new Set(REAL_PULLMAN_HUBS.map(h => h.id));
-    const filteredExisting = existingStops.filter(s => !realIds.has(s.id));
-    _RAW_METADATA.modes.pullman.stops = REAL_PULLMAN_HUBS.concat(filteredExisting);
+    const filteredExistingStops = existingStops.filter(s => !realIds.has(s.id));
+    _RAW_METADATA.modes.pullman.stops = REAL_PULLMAN_HUBS.concat(filteredExistingStops);
+
+    const existingLines = _RAW_METADATA.modes.pullman.lines || [];
+    const realLineIds = new Set(REAL_PULLMAN_LINES.map(l => l.id));
+    const filteredExistingLines = existingLines.filter(l => !realLineIds.has(l.id));
+    _RAW_METADATA.modes.pullman.lines = REAL_PULLMAN_LINES.concat(filteredExistingLines);
   }
 
   // 2. Inietta le Stazioni Ferroviarie Reali
