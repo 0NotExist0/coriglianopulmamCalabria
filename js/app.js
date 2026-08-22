@@ -46,7 +46,19 @@ class AppController {
   init() {
     try {
       const preloader = document.getElementById("initialPreloader");
-      if (preloader) preloader.setAttribute("data-mode", this.currentMode || "pullman");
+      const initialMode = this.currentMode || "pullman";
+      if (preloader) {
+        preloader.setAttribute("data-mode", initialMode);
+        const pGif = preloader.querySelector(".mode-loader-gif");
+        const MODE_FILTERS = {
+          pullman: "hue-rotate(75deg) saturate(1.4) brightness(1.05) drop-shadow(0 8px 24px rgba(2, 132, 199, 0.45))",
+          train: "hue-rotate(140deg) saturate(1.55) brightness(1.02) drop-shadow(0 8px 24px rgba(124, 58, 237, 0.45))",
+          tram: "hue-rotate(-88deg) saturate(1.6) brightness(1.15) drop-shadow(0 8px 24px rgba(245, 158, 11, 0.45))",
+          taxi: "hue-rotate(0deg) saturate(1.2) brightness(1.0) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.45))",
+          flight: "hue-rotate(60deg) saturate(1.45) brightness(1.1) drop-shadow(0 8px 24px rgba(14, 165, 233, 0.45))"
+        };
+        if (pGif && MODE_FILTERS[initialMode]) pGif.style.filter = MODE_FILTERS[initialMode];
+      }
       this.bindModeSwitcher();
       this.applyTransportMode(this.currentMode);
       this.populateLocationSelectors();
@@ -127,9 +139,33 @@ class AppController {
     const modeData = window.TRANSIT_DATA?.modes?.[mode] || { name: "Trasporto", icon: "fa-bus" };
     const titleEl = document.getElementById("modeLoaderTitle");
     const subEl = document.getElementById("modeLoaderSub");
+    const gifEl = document.getElementById("modeLoaderGif");
+    const progressEl = document.getElementById("modeLoaderProgressBar");
+
+    const MODE_FILTERS = {
+      pullman: "hue-rotate(75deg) saturate(1.4) brightness(1.05) drop-shadow(0 8px 24px rgba(2, 132, 199, 0.45))",
+      train: "hue-rotate(140deg) saturate(1.55) brightness(1.02) drop-shadow(0 8px 24px rgba(124, 58, 237, 0.45))",
+      tram: "hue-rotate(-88deg) saturate(1.6) brightness(1.15) drop-shadow(0 8px 24px rgba(245, 158, 11, 0.45))",
+      taxi: "hue-rotate(0deg) saturate(1.2) brightness(1.0) drop-shadow(0 8px 24px rgba(16, 185, 129, 0.45))",
+      flight: "hue-rotate(60deg) saturate(1.45) brightness(1.1) drop-shadow(0 8px 24px rgba(14, 165, 233, 0.45))"
+    };
+
+    const MODE_GRADIENTS = {
+      pullman: "linear-gradient(90deg, #0284c7, #38bdf8)",
+      train: "linear-gradient(90deg, #7c3aed, #a855f7)",
+      tram: "linear-gradient(90deg, #f59e0b, #fbbf24)",
+      taxi: "linear-gradient(90deg, #10b981, #34d399)",
+      flight: "linear-gradient(90deg, #0284c7, #38bdf8)"
+    };
 
     if (loader) {
       loader.setAttribute("data-mode", mode);
+    }
+    if (gifEl && MODE_FILTERS[mode]) {
+      gifEl.style.filter = MODE_FILTERS[mode];
+    }
+    if (progressEl && MODE_GRADIENTS[mode]) {
+      progressEl.style.background = MODE_GRADIENTS[mode];
     }
     if (titleEl) titleEl.textContent = `Caricamento Rete ${modeData.name}...`;
 
@@ -171,10 +207,14 @@ class AppController {
     if (dock) dock.classList.remove("open");
     if (overlay) overlay.classList.remove("active");
 
-    // 2. Mostra animazione di caricamento
+    // 2. Imposta ISTANTANEAMENTE le classi body per il colore corretto prima del caricamento
+    document.body.classList.remove("mode-pullman", "mode-train", "mode-tram", "mode-taxi", "mode-flight");
+    document.body.classList.add(`mode-${mode}`);
+
+    // 3. Mostra animazione di caricamento con il colore già applicato a 0ms
     this.showModeSwitchLoader(mode);
 
-    // 3. Esegui il cambio stato asincronamente per garantire la massima fluidità a 60fps
+    // 4. Esegui il cambio stato asincronamente per garantire la massima fluidità a 60fps
     setTimeout(() => {
       this.currentMode = mode;
       safeStorageSet("italiabus_transport_mode", mode);
