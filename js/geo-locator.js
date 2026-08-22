@@ -613,11 +613,31 @@ class GeoLocatorEngine {
       dashArray: isFlight ? "8, 12" : (isTrain ? "10, 6" : null)
     }).bindTooltip(`<strong>Tratta Diretta</strong>: ${dep.name} &rarr; ${dest.name}`, { sticky: true }).addTo(this.geoLayer);
 
-    // Inquadra la mappa sull'intero itinerario
+    // Inquadratura cinematografica in stile Navigatore GPS Satellitare
     map.invalidateSize();
     const bounds = L.latLngBounds([depLatLng, destLatLng]);
     if (this.userLatLng) bounds.extend(this.userLatLng);
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+
+    // Blocca sovrascritture di zoom da altri eventi
+    if (window.transitMap) {
+      window.transitMap.needsRegionRefresh = false;
+      window.transitMap.needsModeRefresh = false;
+    }
+
+    // 1. Zoom immediato e fluido sulla fermata di partenza (focus al punto di salita)
+    map.flyTo(depLatLng, 15, { animate: true, duration: 0.9 });
+
+    // 2. Transizione fluida verso la panoramica completa del percorso (Navigatore Full Route Overview)
+    setTimeout(() => {
+      if (this.map) {
+        this.map.flyToBounds(bounds, {
+          padding: [75, 75],
+          animate: true,
+          duration: 1.4,
+          maxZoom: 16
+        });
+      }
+    }, 950);
   }
 
   /* ==========================================================================
