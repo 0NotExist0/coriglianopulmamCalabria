@@ -517,11 +517,14 @@ class RouteSearchEngine {
       const origHub = getMainHubForRegion(originStop.region) || originStop;
       const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
       const isTrain = currentMode === "train";
+      const isFlight = currentMode === "flight";
 
       for (let i = 0; i < 3; i++) {
         const depMinutes = reqBaseMinutes + i * 90;
         let totalDuration = 180 + (Math.abs(originStop.lat - destStop.lat) * 25);
-        if (isTrain) {
+        if (isFlight) {
+          totalDuration = Math.round(55 + (Math.abs(originStop.lat - destStop.lat) * 6)); // Volo aereo 50-110 min
+        } else if (isTrain) {
           totalDuration = Math.round(totalDuration * 0.45); // AV è molto più veloce
         }
 
@@ -531,11 +534,20 @@ class RouteSearchEngine {
         const arrH = Math.floor(arrMinutes / 60) % 24;
         const arrM = Math.floor(arrMinutes % 60);
 
-        const price = isTrain 
-          ? Math.round(29.00 + (Math.abs(originStop.lat - destStop.lat) * 6.50))
-          : Math.round(18.00 + (Math.abs(originStop.lat - destStop.lat) * 4.50));
+        const price = isFlight
+          ? Math.round(39.00 + (Math.abs(originStop.lat - destStop.lat) * 4.00))
+          : (isTrain 
+              ? Math.round(29.00 + (Math.abs(originStop.lat - destStop.lat) * 6.50))
+              : Math.round(18.00 + (Math.abs(originStop.lat - destStop.lat) * 4.50)));
 
-        const interLine = isTrain ? {
+        const interLine = isFlight ? {
+          code: `AZ ${1150 + i * 20}`,
+          name: `Volo Diretto ${origRegion?.name || ''} ➔ ${destRegion?.name || ''}`,
+          color: "#0284c7",
+          operator: "ITA Airways / Volotea / Ryanair",
+          busModel: "Airbus A320neo / Boeing 737 MAX",
+          airline: "ITA Airways"
+        } : (isTrain ? {
           code: `FR-${9000 + i * 15}`,
           name: `Frecciarossa AV Nazionale ${origRegion?.name || ''} ⇄ ${destRegion?.name || ''}`,
           color: "#dc2626",
@@ -547,7 +559,7 @@ class RouteSearchEngine {
           color: "#0284c7",
           operator: "ItaliaBus Grandi Linee Nazionali",
           busModel: "Setra S 517 HDH TopClass Double-Decker"
-        };
+        });
 
         const intermediateStops = [
           { name: `${originStop.name} (${originStop.address})`, time: `${String(depH).padStart(2, '0')}:${String(depM).padStart(2, '0')}`, isStart: true },
@@ -568,7 +580,7 @@ class RouteSearchEngine {
           durationMinutes: Math.round(totalDuration),
           price: price,
           totalPrice: price * passengers,
-          freeSeats: isTrain ? 42 : 18,
+          freeSeats: isFlight ? 54 : (isTrain ? 42 : 18),
           passengers: passengers,
           dateStr: dateStr,
           intermediateStops: intermediateStops,
@@ -671,17 +683,17 @@ class RouteSearchEngine {
 
             <div class="trip-line-col">
               <div class="line-badge-pill" style="background-color: ${line.color}15; color: ${line.color}; border: 1px solid ${line.color}">
-                <i class="fa-solid fa-bus"></i>
+                <i class="fa-solid ${typeof getActiveMode === 'function' && getActiveMode() === 'flight' ? 'fa-plane-departure' : (typeof getActiveMode === 'function' && getActiveMode() === 'train' ? 'fa-train' : 'fa-bus')}"></i>
                 <strong>${isDirect ? line.code : `${trip.leg1.line.code} + ${trip.leg2.line.code}`}</strong>
               </div>
-              <span class="line-carrier-text" title="Operatore del servizio">${line.operator || 'Operatore di Linea'}</span>
-              <span class="bus-model-text"><i class="fa-solid fa-shield-halved"></i> ${line.busModel ? line.busModel.split(' ')[0] : 'Bus GT'}</span>
+              <span class="line-carrier-text" title="Operatore del servizio">${line.airline || line.operator || 'Operatore di Linea'}</span>
+              <span class="bus-model-text"><i class="fa-solid ${typeof getActiveMode === 'function' && getActiveMode() === 'flight' ? 'fa-plane' : 'fa-shield-halved'}"></i> ${line.busModel ? line.busModel.split(' ')[0] : (typeof getActiveMode === 'function' && getActiveMode() === 'flight' ? 'Airbus' : 'Bus GT')}</span>
             </div>
 
             <div class="trip-price-col">
               <div class="price-amount-box">
                 <span class="price-val">€${trip.totalPrice.toFixed(2)}</span>
-                <span class="price-sub">${typeof getActiveMode === 'function' && getActiveMode() === 'taxi' ? 'Stima a Tassametro' : (passengers > 1 ? `€${trip.price.toFixed(2)} cad.` : 'Tariffa Totale')}</span>
+                <span class="price-sub">${typeof getActiveMode === 'function' && getActiveMode() === 'taxi' ? 'Stima a Tassametro' : (typeof getActiveMode === 'function' && getActiveMode() === 'flight' ? (passengers > 1 ? `€${trip.price.toFixed(2)} a passeggero` : 'Tariffa Volo') : (passengers > 1 ? `€${trip.price.toFixed(2)} cad.` : 'Tariffa Totale'))}</span>
               </div>
               ${typeof getActiveMode === 'function' && getActiveMode() === 'taxi' ? `
                 <a href="tel:${origin.phone || '+39063570'}" class="btn btn-success btn-book-trip" style="background:#16a34a; text-decoration:none; color:#fff; display:inline-flex; align-items:center; justify-content:center; gap:6px; font-weight:800;">
@@ -689,7 +701,7 @@ class RouteSearchEngine {
                 </a>
               ` : `
                 <button class="btn btn-primary btn-book-trip btn-coming-soon" disabled>
-                  <i class="fa-solid fa-check"></i> Prenota
+                  <i class="fa-solid ${typeof getActiveMode === 'function' && getActiveMode() === 'flight' ? 'fa-ticket' : 'fa-check'}"></i> ${typeof getActiveMode === 'function' && getActiveMode() === 'flight' ? 'Carta d\'Imbarco' : 'Prenota'}
                   <span class="coming-soon-badge">Coming Soon</span>
                 </button>
               `}

@@ -112,6 +112,9 @@ class LiveBoardEngine {
       if (currentMode === 'taxi') {
         if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-taxi text-warning"></i> Seleziona Posteggio Taxi:';
         if (searchInput) searchInput.placeholder = "Cerca posteggio o ditta taxi...";
+      } else if (currentMode === 'flight') {
+        if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-plane-departure text-info"></i> Seleziona Aeroporto / Hub:';
+        if (searchInput) searchInput.placeholder = "Cerca volo, codice IATA o destinazione...";
       } else if (currentMode === 'train') {
         if (stopLabel) stopLabel.innerHTML = '<i class="fa-solid fa-train text-danger"></i> Seleziona Stazione FS:';
         if (searchInput) searchInput.placeholder = "Cerca treno, convoglio o destinazione...";
@@ -195,6 +198,7 @@ class LiveBoardEngine {
     const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const isTrain = currentMode === 'train';
     const isTaxi = currentMode === 'taxi';
+    const isFlight = currentMode === 'flight';
 
     if (isTaxi) {
       const taxiStops = typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion) : [];
@@ -223,7 +227,7 @@ class LiveBoardEngine {
     const lines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
     if (!lines || lines.length === 0) return;
 
-    // Genera 14 corse realistiche a partire dall'orario corrente
+    // Genera 14 corse/voli realistici a partire dall'orario corrente
     const offsets = [1, 3, 5, 8, 12, 16, 21, 26, 32, 39, 48, 58, 70, 85]; // Minuti dal tempo attuale
 
     offsets.forEach((minOffset, index) => {
@@ -233,44 +237,46 @@ class LiveBoardEngine {
       // Calcola ritardo simulato
       const delayMinutes = Math.random() > 0.7 ? Math.floor(Math.random() * 4) + 1 : 0;
       
-      // Banchina o Binario
+      // Banchina, Binario o Gate
       const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || 
-                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isTrain ? 'Stazione Centrale' : 'Hub Principale' });
+                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isFlight ? 'Aeroporto Principale' : (isTrain ? 'Stazione Centrale' : 'Hub Principale') });
       const platform = (currentStop.platforms && currentStop.platforms.length > 0)
         ? currentStop.platforms[index % currentStop.platforms.length]
-        : (isTrain ? "Binario 1" : "Banchina 1");
+        : (isFlight ? "Gate 1" : (isTrain ? "Binario 1" : "Banchina 1"));
 
       // Capienza simulata
       const occupancy = Math.floor(Math.random() * 45) + 30; // 30% - 75%
 
-      // Destinazione principale della corsa
+      // Destinazione principale della corsa o del volo
       const stopsList = line.stopsIds || line.stops || [];
       const destStopId = stopsList.length > 0 ? stopsList[stopsList.length - 1] : null;
       let destName = (destStopId && typeof getStopById === 'function' ? getStopById(destStopId)?.name : null);
       if (!destName || destName === "Capolinea") {
         if (line.name && line.name.includes(" - ")) {
           destName = line.name.split(" - ").pop().split(" (")[0];
+        } else if (line.name && line.name.includes("➔")) {
+          destName = line.name.split("➔").pop().trim();
         } else {
-          destName = isTrain ? "Stazione Terminus" : "Capolinea Centrale";
+          destName = isFlight ? "Aeroporto di Destinazione" : (isTrain ? "Stazione Terminus" : "Capolinea Centrale");
         }
       }
       
-      const vehicleId = isTrain ? `CONVOGLIO-FS-${1000 + (index * 6)}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${100 + index}`;
+      const vehicleId = isFlight ? `${line.airline || 'ITA Airways'} (${line.busModel || 'Airbus A320neo'})` : (isTrain ? `CONVOGLIO-FS-${1000 + (index * 6)}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${100 + index}`);
 
       this.departures.push({
         id: `DEP_${Date.now()}_${index}`,
         lineId: line.id,
-        lineCode: line.code || line.shortName || (isTrain ? `R-${index + 1}` : `L-${index + 1}`),
+        lineCode: line.flightNumber || line.code || line.shortName || (isFlight ? `AZ ${1100 + index}` : (isTrain ? `R-${index + 1}` : `L-${index + 1}`)),
         lineName: line.name,
-        lineColor: line.color || (isTrain ? "#dc2626" : "#0284c7"),
-        lineType: line.type || (isTrain ? "regional" : "suburban"),
+        lineColor: line.color || (isFlight ? "#0284c7" : (isTrain ? "#dc2626" : "#0284c7")),
+        lineType: line.type || (isFlight ? "national" : (isTrain ? "regional" : "suburban")),
         destination: destName,
-        viaInfo: line.fullName || line.name,
+        viaInfo: line.airline ? `Compagnia: ${line.airline} &bull; ${line.name}` : (line.fullName || line.name),
         scheduledTime: depDate,
         delayMinutes: delayMinutes,
         platform: platform,
-        busModel: line.busModel || (isTrain ? "Treno Elettrico Pop ETR 104" : "Autobus Climatizzato Euro 6"),
-        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isTrain ? 4.50 : 2.50),
+        busModel: line.busModel || line.aircraft || (isFlight ? "Airbus A320neo" : (isTrain ? "Treno Elettrico Pop ETR 104" : "Autobus Climatizzato Euro 6")),
+        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isFlight ? 49.00 : (isTrain ? 4.50 : 2.50)),
         occupancy: occupancy,
         vehicleId: vehicleId,
         isAcquiring: false
@@ -292,6 +298,7 @@ class LiveBoardEngine {
     const currentRegion = typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria";
     const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const isTrain = currentMode === 'train';
+    const isFlight = currentMode === 'flight';
     const lines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
     if (!lines || lines.length === 0) return;
 
@@ -309,33 +316,35 @@ class LiveBoardEngine {
       if (!destName || destName === "Capolinea") {
         if (line.name && line.name.includes(" - ")) {
           destName = line.name.split(" - ").pop().split(" (")[0];
+        } else if (line.name && line.name.includes("➔")) {
+          destName = line.name.split("➔").pop().trim();
         } else {
-          destName = isTrain ? "Stazione Terminus" : "Capolinea Centrale";
+          destName = isFlight ? "Aeroporto di Destinazione" : (isTrain ? "Stazione Terminus" : "Capolinea Centrale");
         }
       }
 
       const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || 
-                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isTrain ? 'Stazione Centrale' : 'Hub Principale' });
+                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isFlight ? 'Aeroporto Principale' : (isTrain ? 'Stazione Centrale' : 'Hub Principale') });
       const platform = (currentStop && currentStop.platforms && currentStop.platforms.length > 0)
         ? currentStop.platforms[Math.floor(Math.random() * currentStop.platforms.length)]
-        : (isTrain ? "Binario 1" : "Banchina 1");
-      const vehicleId = isTrain ? `CONVOGLIO-FS-${Math.floor(Math.random() * 800) + 1000}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${Math.floor(Math.random() * 80) + 100}`;
+        : (isFlight ? "Gate 1" : (isTrain ? "Binario 1" : "Banchina 1"));
+      const vehicleId = isFlight ? `${line.airline || 'ITA Airways'} (${line.busModel || 'Airbus A320neo'})` : (isTrain ? `CONVOGLIO-FS-${Math.floor(Math.random() * 800) + 1000}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${Math.floor(Math.random() * 80) + 100}`);
 
       this.departures.push({
         id: `DEP_${Date.now()}_${Math.floor(Math.random()*1000)}`,
         lineId: line.id,
-        lineCode: line.code || line.shortName || (isTrain ? "R-FS" : "L-BUS"),
+        lineCode: line.flightNumber || line.code || line.shortName || (isFlight ? "AZ" : (isTrain ? "R-FS" : "L-BUS")),
         lineName: line.name,
-        lineColor: line.color || (isTrain ? "#dc2626" : "#0284c7"),
-        lineType: line.type || (isTrain ? "regional" : "suburban"),
+        lineColor: line.color || (isFlight ? "#0284c7" : (isTrain ? "#dc2626" : "#0284c7")),
+        lineType: line.type || (isFlight ? "national" : (isTrain ? "regional" : "suburban")),
         destination: destName,
-        viaInfo: line.fullName || line.name,
+        viaInfo: line.airline ? `Compagnia: ${line.airline} &bull; ${line.name}` : (line.fullName || line.name),
         scheduledTime: nextTime,
-        delayMinutes: 0,
+        delayMinutes: Math.random() > 0.75 ? Math.floor(Math.random() * 5) + 1 : 0,
         platform: platform,
-        busModel: line.busModel || (isTrain ? "Treno Elettrico Pop ETR 104" : "Autobus Climatizzato Euro 6"),
-        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isTrain ? 4.50 : 2.50),
-        occupancy: Math.floor(Math.random() * 50) + 20,
+        busModel: line.busModel || line.aircraft || (isFlight ? "Airbus A320neo" : (isTrain ? "Treno Pop ETR 104" : "Autobus Climatizzato Euro 6")),
+        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isFlight ? 49.00 : (isTrain ? 4.50 : 2.50)),
+        occupancy: Math.floor(Math.random() * 40) + 35,
         vehicleId: vehicleId,
         isAcquiring: false
       });
@@ -626,11 +635,12 @@ class LiveBoardEngine {
     const isTaxi = currentMode === 'taxi';
     const isTrain = currentMode === 'train';
     const isTram = currentMode === 'tram';
+    const isFlight = currentMode === 'flight';
 
     const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || { 
-      name: isTaxi ? "Posteggio Taxi Principale" : (isTrain ? "Stazione Centrale FS" : "Hub Principale"), 
+      name: isTaxi ? "Posteggio Taxi Principale" : (isFlight ? "Aeroporto Principale" : (isTrain ? "Stazione Centrale FS" : "Hub Principale")), 
       address: "Centro Città",
-      stopCode: isTaxi ? "TAXI-IT-01" : "BUS-IT-100",
+      stopCode: isTaxi ? "TAXI-IT-01" : (isFlight ? "SUF" : "BUS-IT-100"),
       gmapsUrl: "https://www.google.com/maps",
       streetViewUrl: "https://www.google.com/maps"
     };
@@ -649,12 +659,13 @@ class LiveBoardEngine {
     const filtered = this.getFilteredDepartures();
 
     if (!isTaxi && filtered.length === 0) {
-      const modeLabel = isTrain ? 'treno' : (isTram ? 'tram' : 'pullman');
+      const modeLabel = isFlight ? 'volo' : (isTrain ? 'treno' : (isTram ? 'tram' : 'pullman'));
+      const emptyIcon = isFlight ? 'fa-plane' : (isTrain ? 'fa-train' : (isTram ? 'fa-train-tram' : 'fa-bus-simple'));
       this.container.innerHTML = `
         <div class="empty-board-state">
-          <i class="fa-solid ${isTrain ? 'fa-train' : (isTram ? 'fa-train-tram' : 'fa-bus-simple')} fa-3x"></i>
+          <i class="fa-solid ${emptyIcon} fa-3x"></i>
           <h3>Nessuna partenza trovata</h3>
-          <p>Nessun ${modeLabel} corrisponde ai filtri selezionati per questa fermata/stazione.</p>
+          <p>Nessun ${modeLabel} corrisponde ai filtri selezionati per questa fermata/aeroporto.</p>
           <button class="btn btn-outline" onclick="window.liveBoard.resetFilters()">Reimposta Filtri</button>
         </div>
       `;
@@ -936,44 +947,44 @@ class LiveBoardEngine {
               <span>Orario: <strong>${schedTimeStr}</strong></span>
             </div>
             <div class="meta-item">
-              <i class="fa-solid fa-signs-post"></i>
+              <i class="fa-solid ${isFlight ? 'fa-door-open text-info' : 'fa-signs-post'}"></i>
               <span>${dep.platform}</span>
             </div>
             <div class="meta-item">
               <span id="badge_${dep.id}" class="status-badge ${dep.delayMinutes > 0 ? 'status-delayed' : 'status-ontime'}">
-                ${dep.delayMinutes > 0 ? `Ritardo +${dep.delayMinutes}'` : 'In Orario'}
+                ${dep.delayMinutes > 0 ? `Ritardo +${dep.delayMinutes}'` : (isFlight ? 'In Orario' : 'In Orario')}
               </span>
             </div>
             <div class="meta-item bus-model-badge" title="${dep.busModel}">
-              <i class="fa-solid fa-shield-halved"></i>
-              <span>${dep.busModel ? dep.busModel.split(' ')[0] : 'Mezzo'} ${(dep.busModel && dep.busModel.split(' ')[1]) || ''}</span>
+              <i class="fa-solid ${isFlight ? 'fa-plane' : 'fa-shield-halved'}"></i>
+              <span>${dep.busModel ? dep.busModel.split(' ')[0] : (isFlight ? 'Airbus' : 'Mezzo')} ${(dep.busModel && dep.busModel.split(' ')[1]) || ''}</span>
             </div>
           </div>
 
           <div class="dep-card-footer">
             <div class="dep-price-tag">
-              <span class="price-label">Tariffa da</span>
+              <span class="price-label">${isFlight ? 'Tariffa Volo da' : 'Tariffa da'}</span>
               <span class="price-val">€${dep.priceBase.toFixed(2)}</span>
             </div>
             <div class="dep-actions" style="display: flex; gap: 6px; flex-wrap: wrap;" onclick="event.stopPropagation();">
               <button class="btn btn-sm btn-outline btn-check-timetable-card" onclick="event.stopPropagation(); window.liveBoard.openLineScheduleModal('${dep.lineId}', '${dep.lineCode}')" title="Controlla la tabella oraria completa e tutte le fermate">
-                <i class="fa-solid fa-clock text-primary"></i> Controlla Orari
+                <i class="fa-solid fa-clock text-primary"></i> ${isFlight ? 'Orari Volo' : 'Controlla Orari'}
               </button>
               <button class="btn btn-sm btn-outline btn-telemetry-inspect" onclick="event.stopPropagation(); if (window.realtimeTransit) window.realtimeTransit.openTelemetryInspector(window.liveBoard.departures.find(d => d.id === '${dep.id}'))" title="Ispeziona telemetria satellitare GPS e confronta con orario GTFS">
-                <i class="fa-solid fa-satellite"></i> Telemetria Live
+                <i class="fa-solid ${isFlight ? 'fa-satellite-dish' : 'fa-satellite'}"></i> ${isFlight ? 'Radar GPS' : 'Telemetria Live'}
               </button>
               <button class="btn btn-sm btn-outline btn-view-route" onclick="window.liveBoard.showRouteOnMap('${dep.lineId}', '${dep.id}')" title="Visualizza percorso su mappa">
-                <i class="fa-solid fa-map-location-dot"></i> Vedi Mappa
+                <i class="fa-solid fa-map-location-dot"></i> ${isFlight ? 'Rotta Aerea' : 'Vedi Mappa'}
               </button>
               <button class="btn btn-sm btn-primary btn-coming-soon" disabled>
-                <i class="fa-solid fa-ticket"></i> Prenota
+                <i class="fa-solid fa-ticket"></i> ${isFlight ? 'Carta d\'Imbarco' : 'Prenota'}
                 <span class="coming-soon-badge">Coming Soon</span>
               </button>
             </div>
           </div>
           
           <div class="dep-card-hint">
-            <i class="fa-solid fa-route text-primary"></i> <span>Clicca per visualizzare il tracciato &bull; Premi "Telemetria Live" per confrontare con il GPS</span>
+            <i class="fa-solid ${isFlight ? 'fa-plane-departure text-info' : 'fa-route text-primary'}"></i> <span>${isFlight ? 'Clicca per visualizzare la rotta e gli aeroporti &bull; Premi "Radar GPS" per la telemetria di volo' : 'Clicca per visualizzare il tracciato &bull; Premi "Telemetria Live" per confrontare con il GPS'}</span>
           </div>
         </div>
       `;

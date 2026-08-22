@@ -1918,6 +1918,7 @@ button, input, select, textarea {
 .mode-icon-train { background: rgba(220, 38, 38, 0.15); color: #dc2626; }
 .mode-icon-tram { background: rgba(22, 163, 74, 0.15); color: #16a34a; }
 .mode-icon-taxi { background: rgba(217, 119, 6, 0.15); color: #d97706; }
+.mode-icon-flight { background: rgba(14, 165, 233, 0.15); color: #0284c7; }
 
 .mode-info-box {
   display: flex;
@@ -2016,6 +2017,54 @@ body.mode-taxi {
   --brand-primary-soft: rgba(217, 119, 6, 0.1);
   --brand-glow: rgba(217, 119, 6, 0.3);
   --brand-gradient: linear-gradient(135deg, #d97706, #0f172a);
+}
+
+body.mode-flight {
+  --brand-primary: #0284c7;
+  --brand-primary-hover: #0369a1;
+  --brand-primary-soft: rgba(2, 132, 199, 0.12);
+  --brand-glow: rgba(2, 132, 199, 0.35);
+  --brand-gradient: linear-gradient(135deg, #0284c7, #0f172a);
+}
+
+/* Flight specific styling badges */
+.flight-code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(2, 132, 199, 0.12);
+  color: var(--brand-primary);
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(2, 132, 199, 0.25);
+  font-size: 0.85rem;
+}
+
+.flight-iata-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.flight-gate-tag {
+  background: #0f172a;
+  color: #38bdf8;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* ==========================================================================

@@ -247,7 +247,10 @@ class TransitMapEngine {
       let iconClass = 'fa-location-dot';
       let markerClass = 'custom-stop-marker';
 
-      if (currentMode === 'train') {
+      if (currentMode === 'flight') {
+        markerClass += ' marker-flight';
+        iconClass = 'fa-plane-departure';
+      } else if (currentMode === 'train') {
         markerClass += ' marker-train';
         iconClass = stop.isMainHub ? 'fa-train-subway' : 'fa-train';
       } else if (currentMode === 'tram') {
@@ -346,13 +349,13 @@ class TransitMapEngine {
           ` : ''}
           
           <div class="map-popup-lines">
-            <span class="lines-lbl">Linee e collegamenti in transito:</span>
+            <span class="lines-lbl">${currentMode === 'flight' ? 'Voli e rotte in partenza:' : 'Linee e collegamenti in transito:'}</span>
             <div class="popup-badges-row">
               ${servingLines.length > 0 ? servingLines.map(l => `
                 <span class="popup-line-pill" style="background:${l.color}20; color:${l.color}; border:1px solid ${l.color}">
                   ${l.code}
                 </span>
-              `).join('') : `<small style="color:var(--text-muted);">${currentMode === 'taxi' ? 'Servizio RadioTaxi H24' : (currentMode === 'train' ? 'Rete Ferroviaria Regionale / AV' : 'Servizio su gomma integrato')}</small>`}
+              `).join('') : `<small style="color:var(--text-muted);">${currentMode === 'flight' ? 'Hub Aeroportuale ENAC / IATA' : (currentMode === 'taxi' ? 'Servizio RadioTaxi H24' : (currentMode === 'train' ? 'Rete Ferroviaria Regionale / AV' : 'Servizio su gomma integrato'))}</small>`}
             </div>
           </div>
 
@@ -382,7 +385,7 @@ class TransitMapEngine {
               </a>
             ` : ''}
             <button class="btn btn-xs btn-primary w-100" onclick="if(window.liveBoard){ window.liveBoard.switchToStop('${isTempInactive && altData && altData.alternativeStop ? altData.alternativeStop.id : stop.id}'); } window.app.switchTab('live-board');">
-              <i class="fa-solid ${currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-clock')}"></i> ${currentMode === 'taxi' ? 'Dettagli Posteggio & Tariffe' : (currentMode === 'train' ? 'Tabellone Stazione FS' : 'Visualizza Partenze Live')} ${isTempInactive ? '(Fermata Ufficiale)' : ''}
+              <i class="fa-solid ${currentMode === 'flight' ? 'fa-plane-departure' : (currentMode === 'taxi' ? 'fa-taxi' : (currentMode === 'train' ? 'fa-train' : 'fa-clock'))}"></i> ${currentMode === 'flight' ? 'Tabellone Voli Aeroporto' : (currentMode === 'taxi' ? 'Dettagli Posteggio & Tariffe' : (currentMode === 'train' ? 'Tabellone Stazione FS' : 'Visualizza Partenze Live'))} ${isTempInactive ? '(Fermata Ufficiale)' : ''}
             </button>
           </div>
         </div>
@@ -439,7 +442,10 @@ class TransitMapEngine {
 
       let vehicleIconClass = 'fa-bus';
       let vehicleMarkerClass = 'custom-bus-marker';
-      if (isTrain) {
+      if (currentMode === 'flight') {
+        vehicleIconClass = 'fa-plane';
+        vehicleMarkerClass += ' custom-flight-marker';
+      } else if (isTrain) {
         vehicleIconClass = line.type === 'av' ? 'fa-train-subway' : 'fa-train';
         vehicleMarkerClass += ' custom-train-marker';
       } else if (isTram) {
@@ -555,7 +561,7 @@ class TransitMapEngine {
     });
     container.appendChild(gpsBtn);
 
-    const modeIcon = currentMode === 'train' ? '🚆' : (currentMode === 'tram' ? '🚋' : (currentMode === 'taxi' ? '🚕' : '🚏'));
+    const modeIcon = currentMode === 'flight' ? '✈️' : (currentMode === 'train' ? '🚆' : (currentMode === 'tram' ? '🚋' : (currentMode === 'taxi' ? '🚕' : '🚏')));
     
     displayStops.slice(0, 4).forEach(stop => {
       const btn = document.createElement('button');

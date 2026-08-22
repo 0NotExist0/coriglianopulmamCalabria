@@ -58,7 +58,479 @@
     };
   }
 
-  _RAW_METADATA.modes.pullman.stops = pullmanStops;
+    _RAW_METADATA.modes.pullman.stops = pullmanStops;
+  _RAW_METADATA.modes.pullman.fleet = [
+    {
+      model: "Mercedes-Benz Tourismo Euro 6D",
+      carrier: "Autolinee Nazionali & Gran Turismo",
+      imageBadge: "Top Class GT",
+      seats: "53 Poltrone Reclinabili SoftLine",
+      length: "Lunghezza 12.30 m / 2 Assi",
+      engine: "Mercedes-Benz OM 470 Euro 6D (315 kW / 428 CV)",
+      co2Reduction: "-18% Consumi & Filtro Antiparticolato DPF",
+      comfort: [
+        "Wi-Fi 5G Illimitato ad Alta Velocità a bordo",
+        "Prese di ricarica USB e 220V per ogni passeggero",
+        "Aria condizionata Climatronic con filtro antivirale",
+        "Toilette igienizzata a bordo e minibar refrigerato"
+      ]
+    },
+    {
+      model: "Setra S 517 HD ComfortClass",
+      carrier: "Linee Interregionali Lungo Raggio",
+      imageBadge: "Lungo Raggio",
+      seats: "59 Posti con poggiapiedi regolabili",
+      length: "Lunghezza 13.93 m / 3 Assi",
+      engine: "OM 471 BlueTec 6 (350 kW / 476 CV)",
+      co2Reduction: "Alta Efficienza Aerodinamica",
+      comfort: [
+        "Sedili ergonomici Setra Voyage Plus distanziati",
+        "Schermi multimediali individuali e radio DAB+",
+        "Sistema di frenata predittiva ABA 5 e Lane Assist",
+        "Spazio bagagli XL (oltre 12 metri cubi)"
+      ]
+    },
+    {
+      model: "Iveco Crossway Line 12M",
+      carrier: "Servizi Suburbani & Regionali",
+      imageBadge: "Regionale Affidabile",
+      seats: "45 Seduti + 18 In Piedi",
+      length: "Lunghezza 12.05 m / Pianale Rialzato",
+      engine: "Cursor 9 Euro 6 Step E (265 kW / 360 CV)",
+      co2Reduction: "Compatibilità Bio-Diesel HVO 100%",
+      comfort: [
+        "Pedana automatica per passeggeri a mobilità ridotta (PMR)",
+        "Display LED indicatori di percorso interni ed esterni",
+        "Posto dedicato per sedia a rotelle e passeggini",
+        "Telecamere di videosorveglianza attiva per la sicurezza"
+      ]
+    },
+    {
+      model: "Solaris Urbino 12 Electric",
+      carrier: "Rete Urbana Green 100% Elettrica",
+      imageBadge: "Zero Emissioni",
+      seats: "32 Seduti + 55 In Piedi",
+      length: "Lunghezza 12.00 m / Full Low Floor",
+      engine: "Motore Elettrico Centrale 160 kW / Batterie 400 kWh",
+      co2Reduction: "Zero Emissioni Locali CO2 & No Inquinamento Acustico",
+      comfort: [
+        "Pianale ribassato totale (Total Low Floor 100%)",
+        "Annunci vocali fermata e schermi TFT Next-Stop",
+        "Ricarica rapida a pantografo e presa Combo-2",
+        "Climatizzazione a pompa di calore ecologica a CO2"
+      ]
+    }
+  ];
+
+  _RAW_METADATA.modes.pullman.tariffs = [
+    {
+      name: "Corsa Singola Urbana",
+      type: "Biglietto Ordinario Urbano",
+      price: 1.50,
+      validity: "90 Minuti dalla convalida",
+      description: "Valido per 90 minuti su tutta la rete bus urbana della città selezionata, con possibilità di effettuare trasbordi su più linee."
+    },
+    {
+      name: "Biglietto Regionale Extraurbano",
+      type: "Corsa Interurbana Fino a 30 km",
+      price: 2.80,
+      validity: "Tratta Singola Regionale",
+      description: "Valido per un viaggio singolo sulla linea regionale extraurbana tra i comuni di origine e destinazione selezionati."
+    },
+    {
+      name: "Carnet 10 Corse Urbane",
+      type: "Multi-Viaggio Risparmio (Sconto 17%)",
+      price: 12.50,
+      validity: "10 Corse da 90 minuti ciascuna",
+      description: "Carnet digitale da 10 biglietti orari urbani cedibili e condivisibili, con sconto del 17% rispetto all'acquisto singolo."
+    },
+    {
+      name: "Abbonamento Mensile Personale",
+      type: "Viaggi Illimitati Rete Urbana",
+      price: 38.00,
+      validity: "Mese Solare Completo",
+      description: "Libera circolazione senza limiti su tutte le linee urbane per tutto il mese solare. Include pass digitale antifrode su smartphone."
+    }
+  ];
+
+  // ========================================================
+  // 5. MODALITÀ AEREI & VOLI (ITALIAFLIGHT) - RETE AEROPORTUALE COMPLETA
+  // ========================================================
+  const flightStops = [
+    // Calabria
+    { id: "FLIGHT_SUF", name: "Aeroporto Internazionale di Lamezia Terme (SUF)", code: "SUF", iata: "SUF", area: "Lamezia Terme", region: "calabria", localityType: "city", address: "Via Aeroporto, 88046 Lamezia Terme (CZ)", lat: 38.9054, lng: 16.2423, platforms: ["Gate 1", "Gate 2", "Gate 3", "Gate 4", "Gate 5", "Gate 6"], isMainHub: true, operatorName: "SACAL S.p.A. / ENAC", operatorFullName: "Società Aeroportuale Calabrese S.p.A.", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Lamezia+Terme", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=38.9054,16.2423", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=38.9054,16.2423" },
+    { id: "FLIGHT_REG", name: "Aeroporto dello Stretto Tito Minniti (REG)", code: "REG", iata: "REG", area: "Reggio Calabria", region: "calabria", localityType: "city", address: "Via Ravagnese Superiore, 89131 Reggio Calabria", lat: 38.0711, lng: 15.6517, platforms: ["Gate 1", "Gate 2", "Gate 3"], isMainHub: false, operatorName: "SACAL S.p.A. / ENAC", operatorFullName: "Aeroporto dello Stretto", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Reggio+Calabria", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=38.0711,15.6517", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=38.0711,15.6517" },
+    { id: "FLIGHT_CRV", name: "Aeroporto di Crotone Sant'Anna - Pitagora (CRV)", code: "CRV", iata: "CRV", area: "Crotone", region: "calabria", localityType: "city", address: "SS 106 Jonica, 88841 Isola di Capo Rizzuto (KR)", lat: 38.9972, lng: 17.0802, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "SACAL S.p.A.", operatorFullName: "Aeroporto di Crotone", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Crotone", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=38.9972,17.0802", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=38.9972,17.0802" },
+
+    // Lazio
+    { id: "FLIGHT_FCO", name: "Aeroporto Internazionale di Roma Fiumicino Leonardo da Vinci (FCO)", code: "FCO", iata: "FCO", area: "Roma", region: "lazio", localityType: "city", address: "Via dell'Aeroporto di Fiumicino, 320, 00054 Fiumicino (RM)", lat: 41.8003, lng: 12.2389, platforms: ["Terminal 1 - Gate A12", "Terminal 1 - Gate A35", "Terminal 3 - Gate E14", "Terminal 3 - Gate E22"], isMainHub: true, operatorName: "ADR - Aeroporti di Roma", operatorFullName: "Aeroporti di Roma S.p.A.", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Roma+Fiumicino", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=41.8003,12.2389", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=41.8003,12.2389" },
+    { id: "FLIGHT_CIA", name: "Aeroporto di Roma Ciampino G.B. Pastine (CIA)", code: "CIA", iata: "CIA", area: "Roma", region: "lazio", localityType: "city", address: "Via Appia Nuova, 1651, 00040 Ciampino (RM)", lat: 41.7994, lng: 12.5949, platforms: ["Gate 1", "Gate 4", "Gate 8"], isMainHub: false, operatorName: "ADR - Aeroporti di Roma", operatorFullName: "Aeroporto di Ciampino", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Roma+Ciampino", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=41.7994,12.5949", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=41.7994,12.5949" },
+
+    // Lombardia
+    { id: "FLIGHT_MXP", name: "Aeroporto di Milano Malpensa (MXP)", code: "MXP", iata: "MXP", area: "Milano", region: "lombardia", localityType: "city", address: "Aeroporto Malpensa, 21010 Ferno (VA)", lat: 45.6306, lng: 8.7281, platforms: ["Terminal 1 - Gate A08", "Terminal 1 - Gate B14", "Terminal 2 - Gate E04"], isMainHub: true, operatorName: "SEA Milan Airports", operatorFullName: "Società Esercizi Aeroportuali S.p.A.", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Milano+Malpensa", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.6306,8.7281", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.6306,8.7281" },
+    { id: "FLIGHT_LIN", name: "Aeroporto di Milano Linate Enrico Forlanini (LIN)", code: "LIN", iata: "LIN", area: "Milano", region: "lombardia", localityType: "city", address: "Viale Enrico Forlanini, 20090 Peschiera Borromeo (MI)", lat: 45.4451, lng: 9.2767, platforms: ["Gate A01", "Gate A05", "Gate B12", "Gate F02"], isMainHub: false, operatorName: "SEA Milan Airports", operatorFullName: "Milano Linate Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Milano+Linate", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.4451,9.2767", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.4451,9.2767" },
+    { id: "FLIGHT_BGY", name: "Aeroporto Internazionale Il Caravaggio / Bergamo Orio al Serio (BGY)", code: "BGY", iata: "BGY", area: "Bergamo", region: "lombardia", localityType: "city", address: "Via Aeroporto, 13, 24050 Orio al Serio (BG)", lat: 45.6739, lng: 9.7042, platforms: ["Gate A02", "Gate A09", "Gate B03", "Gate B16"], isMainHub: false, operatorName: "SACBO S.p.A.", operatorFullName: "Milan Bergamo Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Bergamo+Orio+al+Serio", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.6739,9.7042", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.6739,9.7042" },
+
+    // Piemonte
+    { id: "FLIGHT_TRN", name: "Aeroporto di Torino Caselle Sandro Pertini (TRN)", code: "TRN", iata: "TRN", area: "Torino", region: "piemonte", localityType: "city", address: "Strada San Maurizio, 12, 10072 Caselle Torinese (TO)", lat: 45.2008, lng: 7.6496, platforms: ["Gate 1", "Gate 5", "Gate 11", "Gate 16"], isMainHub: true, operatorName: "SAGAT S.p.A.", operatorFullName: "Torino Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Torino+Caselle", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.2008,7.6496", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.2008,7.6496" },
+    { id: "FLIGHT_CUF", name: "Aeroporto di Cuneo Levaldigi (CUF)", code: "CUF", iata: "CUF", area: "Cuneo", region: "piemonte", localityType: "city", address: "Strada Statale 20, 12040 Levaldigi (CN)", lat: 44.5469, lng: 7.6231, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "GEAC S.p.A.", operatorFullName: "Cuneo Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Cuneo", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=44.5469,7.6231", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=44.5469,7.6231" },
+
+    // Veneto
+    { id: "FLIGHT_VCE", name: "Aeroporto di Venezia Marco Polo (VCE)", code: "VCE", iata: "VCE", area: "Venezia", region: "veneto", localityType: "city", address: "Viale Galileo Galilei, 30, 30173 Tessera (VE)", lat: 45.5053, lng: 12.3519, platforms: ["Gate 3", "Gate 7", "Gate 12", "Gate 21"], isMainHub: true, operatorName: "SAVE S.p.A.", operatorFullName: "Venezia Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Venezia+Marco+Polo", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.5053,12.3519", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.5053,12.3519" },
+    { id: "FLIGHT_VRN", name: "Aeroporto di Verona Valerio Catullo (VRN)", code: "VRN", iata: "VRN", area: "Verona", region: "veneto", localityType: "city", address: "Caselle, 37066 Sommacampagna (VR)", lat: 45.3957, lng: 10.8885, platforms: ["Gate 1", "Gate 5", "Gate 9"], isMainHub: false, operatorName: "Aeroporto Valerio Catullo S.p.A.", operatorFullName: "Verona Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Verona", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.3957,10.8885", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.3957,10.8885" },
+    { id: "FLIGHT_TSF", name: "Aeroporto di Treviso Antonio Canova (TSF)", code: "TSF", iata: "TSF", area: "Treviso", region: "veneto", localityType: "city", address: "Via Noalese, 63E, 31100 Treviso", lat: 45.6484, lng: 12.1944, platforms: ["Gate 1", "Gate 4", "Gate 8"], isMainHub: false, operatorName: "AERTRE S.p.A.", operatorFullName: "Treviso Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Treviso", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.6484,12.1944", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.6484,12.1944" },
+
+    // Campania
+    { id: "FLIGHT_NAP", name: "Aeroporto Internazionale di Napoli Capodichino (NAP)", code: "NAP", iata: "NAP", area: "Napoli", region: "campania", localityType: "city", address: "Viale F. Ruffo di Calabria, 80144 Napoli", lat: 40.8860, lng: 14.2908, platforms: ["Gate A02", "Gate A14", "Gate B06", "Gate C11"], isMainHub: true, operatorName: "GESAC S.p.A.", operatorFullName: "Napoli Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Napoli+Capodichino", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=40.8860,14.2908", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=40.8860,14.2908" },
+    { id: "FLIGHT_QSR", name: "Aeroporto di Salerno Costa d'Amalfi (QSR)", code: "QSR", iata: "QSR", area: "Salerno", region: "campania", localityType: "city", address: "Via Olmo, 84092 Bellizzi (SA)", lat: 40.6203, lng: 14.9122, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "GESAC S.p.A.", operatorFullName: "Salerno Costa d'Amalfi", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Salerno", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=40.6203,14.9122", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=40.6203,14.9122" },
+
+    // Sicilia
+    { id: "FLIGHT_CTA", name: "Aeroporto di Catania Fontanarossa Vincenzo Bellini (CTA)", code: "CTA", iata: "CTA", area: "Catania", region: "sicilia", localityType: "city", address: "Via Fontanarossa, 95121 Catania", lat: 37.4668, lng: 15.0664, platforms: ["Gate 4", "Gate 8", "Gate 12", "Gate 19"], isMainHub: true, operatorName: "SAC S.p.A.", operatorFullName: "Catania Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Catania", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=37.4668,15.0664", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=37.4668,15.0664" },
+    { id: "FLIGHT_PMO", name: "Aeroporto Internazionale Falcone e Borsellino Palermo (PMO)", code: "PMO", iata: "PMO", area: "Palermo", region: "sicilia", localityType: "city", address: "Località Punta Raisi, 90045 Cinisi (PA)", lat: 38.1760, lng: 13.0910, platforms: ["Gate 2", "Gate 6", "Gate 10", "Gate 15"], isMainHub: false, operatorName: "GESAP S.p.A.", operatorFullName: "Palermo Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Palermo", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=38.1760,13.0910", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=38.1760,13.0910" },
+    { id: "FLIGHT_TPS", name: "Aeroporto di Trapani Birgi Vincenzo Florio (TPS)", code: "TPS", iata: "TPS", area: "Trapani", region: "sicilia", localityType: "city", address: "Contrada Birgi, 91020 Misiliscemi (TP)", lat: 37.9126, lng: 12.4881, platforms: ["Gate 1", "Gate 3", "Gate 6"], isMainHub: false, operatorName: "Airgest S.p.A.", operatorFullName: "Trapani Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Trapani", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=37.9126,12.4881", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=37.9126,12.4881" },
+    { id: "FLIGHT_CIY", name: "Aeroporto di Comiso Pio La Torre (CIY)", code: "CIY", iata: "CIY", area: "Ragusa", region: "sicilia", localityType: "city", address: "SP5, 97013 Comiso (RG)", lat: 36.9946, lng: 14.6074, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "SOACO S.p.A.", operatorFullName: "Aeroporto di Comiso", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Comiso", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=36.9946,14.6074", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=36.9946,14.6074" },
+    { id: "FLIGHT_LMP", name: "Aeroporto di Lampedusa (LMP)", code: "LMP", iata: "LMP", area: "Lampedusa", region: "sicilia", localityType: "city", address: "Contrada Cala Francese, 92010 Lampedusa (AG)", lat: 35.4979, lng: 12.6184, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "AST Aeroservizi S.p.A.", operatorFullName: "Aeroporto di Lampedusa", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Lampedusa", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=35.4979,12.6184", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=35.4979,12.6184" },
+    { id: "FLIGHT_PNL", name: "Aeroporto di Pantelleria (PNL)", code: "PNL", iata: "PNL", area: "Pantelleria", region: "sicilia", localityType: "city", address: "Via Salibi, 91017 Pantelleria (TP)", lat: 36.8165, lng: 11.9687, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "GAP S.p.A.", operatorFullName: "Aeroporto di Pantelleria", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Pantelleria", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=36.8165,11.9687", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=36.8165,11.9687" },
+
+    // Puglia
+    { id: "FLIGHT_BRI", name: "Aeroporto Internazionale di Bari Karol Wojtyła (BRI)", code: "BRI", iata: "BRI", area: "Bari", region: "puglia", localityType: "city", address: "Viale Enzo Ferrari, 70128 Palese (BA)", lat: 41.1389, lng: 16.7606, platforms: ["Gate A01", "Gate A06", "Gate B04", "Gate B11"], isMainHub: true, operatorName: "Aeroporti di Puglia S.p.A.", operatorFullName: "Bari Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Bari", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=41.1389,16.7606", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=41.1389,16.7606" },
+    { id: "FLIGHT_BDS", name: "Aeroporto del Salento di Brindisi Papola Casale (BDS)", code: "BDS", iata: "BDS", area: "Brindisi", region: "puglia", localityType: "city", address: "Contrada Baroncino, 72100 Brindisi", lat: 40.6576, lng: 17.9470, platforms: ["Gate 1", "Gate 4", "Gate 7"], isMainHub: false, operatorName: "Aeroporti di Puglia S.p.A.", operatorFullName: "Brindisi Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Brindisi", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=40.6576,17.9470", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=40.6576,17.9470" },
+    { id: "FLIGHT_FOG", name: "Aeroporto di Foggia Gino Lisa (FOG)", code: "FOG", iata: "FOG", area: "Foggia", region: "puglia", localityType: "city", address: "Viale degli Aviatori, 1, 71122 Foggia", lat: 41.4329, lng: 15.5350, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "Aeroporti di Puglia S.p.A.", operatorFullName: "Foggia Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Foggia", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=41.4329,15.5350", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=41.4329,15.5350" },
+
+    // Toscana
+    { id: "FLIGHT_FLR", name: "Aeroporto di Firenze Amerigo Vespucci - Peretola (FLR)", code: "FLR", iata: "FLR", area: "Firenze", region: "toscana", localityType: "city", address: "Via del Termine, 11, 50127 Firenze", lat: 43.8100, lng: 11.2012, platforms: ["Gate 1", "Gate 3", "Gate 7", "Gate 10"], isMainHub: true, operatorName: "Toscana Aeroporti S.p.A.", operatorFullName: "Firenze Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Firenze", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=43.8100,11.2012", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=43.8100,11.2012" },
+    { id: "FLIGHT_PSA", name: "Aeroporto Internazionale di Pisa Galileo Galilei (PSA)", code: "PSA", iata: "PSA", area: "Pisa", region: "toscana", localityType: "city", address: "Piazzale D'Ascanio, 1, 56121 Pisa", lat: 43.6839, lng: 10.3927, platforms: ["Gate 2", "Gate 6", "Gate 11", "Gate 15"], isMainHub: false, operatorName: "Toscana Aeroporti S.p.A.", operatorFullName: "Pisa Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Pisa", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=43.6839,10.3927", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=43.6839,10.3927" },
+    { id: "FLIGHT_EBA", name: "Aeroporto dell'Isola d'Elba Marina di Campo (EBA)", code: "EBA", iata: "EBA", area: "Isola d'Elba", region: "toscana", localityType: "city", address: "Via Aeroporto, 208, 57034 Campo nell'Elba (LI)", lat: 42.7608, lng: 10.2392, platforms: ["Gate 1"], isMainHub: false, operatorName: "Alatoscana S.p.A.", operatorFullName: "Elba Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Isola+Elba", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=42.7608,10.2392", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=42.7608,10.2392" },
+
+    // Emilia-Romagna
+    { id: "FLIGHT_BLQ", name: "Aeroporto Internazionale di Bologna Guglielmo Marconi (BLQ)", code: "BLQ", iata: "BLQ", area: "Bologna", region: "emilia_romagna", localityType: "city", address: "Via del Triumvirato, 84, 40132 Bologna", lat: 44.5354, lng: 11.2887, platforms: ["Gate 2", "Gate 7", "Gate 14", "Gate 22"], isMainHub: true, operatorName: "Aeroporto Guglielmo Marconi di Bologna S.p.A.", operatorFullName: "Bologna Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Bologna", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=44.5354,11.2887", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=44.5354,11.2887" },
+    { id: "FLIGHT_RMI", name: "Aeroporto Internazionale di Rimini Federico Fellini (RMI)", code: "RMI", iata: "RMI", area: "Rimini", region: "emilia_romagna", localityType: "city", address: "Via Flaminia, 409, 47924 Miramare di Rimini (RN)", lat: 44.0203, lng: 12.6117, platforms: ["Gate 1", "Gate 4"], isMainHub: false, operatorName: "AIRiminum 2014 S.p.A.", operatorFullName: "Rimini Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Rimini", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=44.0203,12.6117", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=44.0203,12.6117" },
+    { id: "FLIGHT_FRL", name: "Aeroporto di Forlì Luigi Ridolfi (FRL)", code: "FRL", iata: "FRL", area: "Forlì", region: "emilia_romagna", localityType: "city", address: "Via Carlo Seganti, 103, 47121 Forlì (FC)", lat: 44.1953, lng: 12.0700, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "FA S.r.l.", operatorFullName: "Forlì Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Forli", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=44.1953,12.0700", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=44.1953,12.0700" },
+    { id: "FLIGHT_PMF", name: "Aeroporto di Parma Giuseppe Verdi (PMF)", code: "PMF", iata: "PMF", area: "Parma", region: "emilia_romagna", localityType: "city", address: "Via Fratelli Wright, 61, 43126 Parma", lat: 44.8239, lng: 10.2953, platforms: ["Gate 1", "Gate 2"], isMainHub: false, operatorName: "SoGeAP S.p.A.", operatorFullName: "Parma Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Parma", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=44.8239,10.2953", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=44.8239,10.2953" },
+
+    // Sardegna
+    { id: "FLIGHT_CAG", name: "Aeroporto di Cagliari Elmas Mario Mameli (CAG)", code: "CAG", iata: "CAG", area: "Cagliari", region: "sardegna", localityType: "city", address: "Via dei Trasvolatori, 09030 Elmas (CA)", lat: 39.2515, lng: 9.0553, platforms: ["Gate A02", "Gate A08", "Gate B04", "Gate B12"], isMainHub: true, operatorName: "SOGAER S.p.A.", operatorFullName: "Cagliari Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Cagliari", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=39.2515,9.0553", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=39.2515,9.0553" },
+    { id: "FLIGHT_OLB", name: "Aeroporto di Olbia Costa Smeralda (OLB)", code: "OLB", iata: "OLB", area: "Olbia", region: "sardegna", localityType: "city", address: "Aeroporto Costa Smeralda, 07026 Olbia (SS)", lat: 40.8987, lng: 9.5176, platforms: ["Gate 1", "Gate 5", "Gate 9", "Gate 14"], isMainHub: false, operatorName: "Geasar S.p.A.", operatorFullName: "Olbia Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Olbia", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=40.8987,9.5176", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=40.8987,9.5176" },
+    { id: "FLIGHT_AHO", name: "Aeroporto di Alghero Fertilia Riviera del Corallo (AHO)", code: "AHO", iata: "AHO", area: "Alghero", region: "sardegna", localityType: "city", address: "Regione Nuraghe Biancu, 07041 Alghero (SS)", lat: 40.6321, lng: 8.2908, platforms: ["Gate 1", "Gate 3", "Gate 6"], isMainHub: false, operatorName: "SOGEAAL S.p.A.", operatorFullName: "Alghero Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Alghero", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=40.6321,8.2908", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=40.6321,8.2908" },
+
+    // Liguria
+    { id: "FLIGHT_GOA", name: "Aeroporto di Genova Cristoforo Colombo (GOA)", code: "GOA", iata: "GOA", area: "Genova", region: "liguria", localityType: "city", address: "Via Pionieri ed Aviatori d'Italia, 16154 Genova", lat: 44.4133, lng: 8.8375, platforms: ["Gate 1", "Gate 4", "Gate 8"], isMainHub: true, operatorName: "Aeroporto di Genova S.p.A.", operatorFullName: "Genova Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Genova", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=44.4133,8.8375", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=44.4133,8.8375" },
+
+    // Friuli-Venezia Giulia
+    { id: "FLIGHT_TRS", name: "Trieste Airport Ronchi dei Legionari (TRS)", code: "TRS", iata: "TRS", area: "Trieste", region: "friuli_venezia_giulia", localityType: "city", address: "Via Aquileia, 46, 34077 Ronchi dei Legionari (GO)", lat: 45.8275, lng: 13.4722, platforms: ["Gate 1", "Gate 4", "Gate 7"], isMainHub: true, operatorName: "Aeroporto FVG S.p.A.", operatorFullName: "Trieste Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Trieste", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.8275,13.4722", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.8275,13.4722" },
+
+    // Abruzzo
+    { id: "FLIGHT_PSR", name: "Aeroporto d'Abruzzo Pasquale Liberi (PSR)", code: "PSR", iata: "PSR", area: "Pescara", region: "abruzzo", localityType: "city", address: "Via Tiburtina Valeria, Km 229, 65128 Pescara", lat: 42.4320, lng: 14.1812, platforms: ["Gate 1", "Gate 3", "Gate 6"], isMainHub: true, operatorName: "SAGA S.p.A.", operatorFullName: "Aeroporto d'Abruzzo", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Pescara", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=42.4320,14.1812", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=42.4320,14.1812" },
+
+    // Marche
+    { id: "FLIGHT_AOI", name: "Aeroporto delle Marche Raffaello Sanzio (AOI)", code: "AOI", iata: "AOI", area: "Ancona", region: "marche", localityType: "city", address: "Piazzale S. Sordoni, 60015 Falconara Marittima (AN)", lat: 43.6163, lng: 13.3623, platforms: ["Gate 1", "Gate 3", "Gate 5"], isMainHub: true, operatorName: "Ancona International Airport S.p.A.", operatorFullName: "Aeroporto delle Marche", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Ancona", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=43.6163,13.3623", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=43.6163,13.3623" },
+
+    // Umbria
+    { id: "FLIGHT_PEG", name: "Aeroporto Internazionale dell'Umbria San Francesco d'Assisi (PEG)", code: "PEG", iata: "PEG", area: "Perugia", region: "umbria", localityType: "city", address: "Via dell'Aeroporto, 06134 Sant'Egidio (PG)", lat: 43.0959, lng: 12.5132, platforms: ["Gate 1", "Gate 2", "Gate 4"], isMainHub: true, operatorName: "SASE S.p.A.", operatorFullName: "Umbria International Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Perugia", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=43.0959,12.5132", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=43.0959,12.5132" },
+
+    // Trentino-Alto Adige
+    { id: "FLIGHT_BZO", name: "Aeroporto di Bolzano Dolomiti (BZO)", code: "BZO", iata: "BZO", area: "Bolzano", region: "trentino_alto_adige", localityType: "city", address: "Via Francesco Baracca, 1, 39100 Bolzano", lat: 46.4632, lng: 11.3262, platforms: ["Gate 1", "Gate 2"], isMainHub: true, operatorName: "ABD Airport S.p.A. / SkyAlps", operatorFullName: "Bolzano Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Bolzano", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=46.4632,11.3262", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=46.4632,11.3262" },
+
+    // Valle d'Aosta
+    { id: "FLIGHT_AOT", name: "Aeroporto Regionale Valle d'Aosta Corrado Gex (AOT)", code: "AOT", iata: "AOT", area: "Aosta", region: "valle_daosta", localityType: "city", address: "Località Aeroporto, 11020 Saint-Christophe (AO)", lat: 45.7381, lng: 7.3689, platforms: ["Gate 1"], isMainHub: true, operatorName: "AVDA S.p.A.", operatorFullName: "Aosta Airport", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Aeroporto+Aosta", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=45.7381,7.3689", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=45.7381,7.3689" },
+
+    // Basilicata
+    { id: "FLIGHT_PZM", name: "Aviosuperficie & Hub Aeroportuale Enrico Mattei (PZM)", code: "PZM", iata: "PZM", area: "Matera", region: "basilicata", localityType: "city", address: "Pista Mattei, 75015 Pisticci Scalo (MT)", lat: 40.3853, lng: 16.5519, platforms: ["Gate Navetta Aeroportuale 1"], isMainHub: true, operatorName: "Winfly / Regione Basilicata", operatorFullName: "Aviosuperficie Basilicata", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Pista+Mattei+Pisticci", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=40.3853,16.5519", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=40.3853,16.5519" },
+
+    // Molise
+    { id: "FLIGHT_CBH", name: "Terminal Voli & Eliporto Isole Tremiti (CBH)", code: "CBH", iata: "CBH", area: "Campobasso", region: "molise", localityType: "city", address: "Molo Sud Porto di Termoli, 86039 Termoli (CB)", lat: 42.0039, lng: 14.9961, platforms: ["Elinavetta Gate 1"], isMainHub: true, operatorName: "Alidaunia / Autorità Portuale", operatorFullName: "Eliporto Molise", gmapsUrl: "https://www.google.com/maps/search/?api=1&query=Porto+Termoli", gmapsDirUrl: "https://www.google.com/maps/dir/?api=1&destination=42.0039,14.9961", streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=42.0039,14.9961" }
+  ];
+
+  const flightLines = [
+    // Lamezia Terme (SUF)
+    { id: "FL_SUF_FCO_1", region: "calabria", code: "AZ 1170", shortName: "AZ 1170", flightNumber: "AZ 1170", name: "Lamezia Terme (SUF) ➔ Roma Fiumicino (FCO)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A320neo", busModel: "Airbus A320neo", terminal: "T1", gate: "Gate 2", color: "#0284c7", duration: 70, priceBase: 49.0, stopsIds: ["FLIGHT_SUF", "FLIGHT_FCO"], stops: ["FLIGHT_SUF", "FLIGHT_FCO"], schedule: { weekday: ["06:40", "09:50", "13:15", "16:40", "19:25", "22:00"], saturday: ["06:40", "10:15", "14:20", "19:25"], sunday: ["07:30", "11:20", "15:45", "19:50"] } },
+    { id: "FL_SUF_MXP_1", region: "calabria", code: "FR 8842", shortName: "FR 8842", flightNumber: "FR 8842", name: "Lamezia Terme (SUF) ➔ Milano Malpensa (MXP)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 4", color: "#0ea5e9", duration: 105, priceBase: 29.90, stopsIds: ["FLIGHT_SUF", "FLIGHT_MXP"], stops: ["FLIGHT_SUF", "FLIGHT_MXP"], schedule: { weekday: ["07:15", "11:30", "15:45", "20:10"], saturday: ["07:15", "12:00", "18:30"], sunday: ["08:00", "13:45", "21:00"] } },
+    { id: "FL_SUF_BGY_1", region: "calabria", code: "FR 5204", shortName: "FR 5204", flightNumber: "FR 5204", name: "Lamezia Terme (SUF) ➔ Milano Bergamo (BGY)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737 MAX", busModel: "Boeing 737 MAX", terminal: "T1", gate: "Gate 3", color: "#0ea5e9", duration: 100, priceBase: 27.50, stopsIds: ["FLIGHT_SUF", "FLIGHT_BGY"], stops: ["FLIGHT_SUF", "FLIGHT_BGY"], schedule: { weekday: ["06:20", "10:40", "14:50", "19:15"], saturday: ["06:20", "14:50"], sunday: ["10:40", "19:15"] } },
+    { id: "FL_SUF_BLQ_1", region: "calabria", code: "FR 3118", shortName: "FR 3118", flightNumber: "FR 3118", name: "Lamezia Terme (SUF) ➔ Bologna Marconi (BLQ)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 1", color: "#0ea5e9", duration: 85, priceBase: 31.0, stopsIds: ["FLIGHT_SUF", "FLIGHT_BLQ"], stops: ["FLIGHT_SUF", "FLIGHT_BLQ"], schedule: { weekday: ["08:20", "13:00", "18:40"], saturday: ["08:20", "18:40"], sunday: ["13:00", "20:30"] } },
+    { id: "FL_SUF_TRN_1", region: "calabria", code: "W6 6820", shortName: "W6 6820", flightNumber: "W6 6820", name: "Lamezia Terme (SUF) ➔ Torino Caselle (TRN)", airline: "Wizz Air", operator: "Wizz Air", type: "national", aircraft: "Airbus A321neo", busModel: "Airbus A321neo", terminal: "T1", gate: "Gate 5", color: "#6366f1", duration: 110, priceBase: 34.0, stopsIds: ["FLIGHT_SUF", "FLIGHT_TRN"], stops: ["FLIGHT_SUF", "FLIGHT_TRN"], schedule: { weekday: ["09:10", "17:30"], saturday: ["09:10"], sunday: ["17:30"] } },
+    { id: "FL_SUF_VCE_1", region: "calabria", code: "V7 1540", shortName: "V7 1540", flightNumber: "V7 1540", name: "Lamezia Terme (SUF) ➔ Venezia Marco Polo (VCE)", airline: "Volotea", operator: "Volotea", type: "national", aircraft: "Airbus A320", busModel: "Airbus A320", terminal: "T1", gate: "Gate 6", color: "#f43f5e", duration: 95, priceBase: 36.0, stopsIds: ["FLIGHT_SUF", "FLIGHT_VCE"], stops: ["FLIGHT_SUF", "FLIGHT_VCE"], schedule: { weekday: ["10:30", "19:00"], saturday: ["10:30"], sunday: ["19:00"] } },
+
+    // Reggio Calabria (REG)
+    { id: "FL_REG_FCO_1", region: "calabria", code: "AZ 1198", shortName: "AZ 1198", flightNumber: "AZ 1198", name: "Reggio Calabria (REG) ➔ Roma Fiumicino (FCO)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300", terminal: "T1", gate: "Gate 1", color: "#0284c7", duration: 75, priceBase: 52.0, stopsIds: ["FLIGHT_REG", "FLIGHT_FCO"], stops: ["FLIGHT_REG", "FLIGHT_FCO"], schedule: { weekday: ["06:55", "11:45", "15:20", "19:40"], saturday: ["06:55", "15:20"], sunday: ["11:45", "19:40"] } },
+    { id: "FL_REG_BGY_1", region: "calabria", code: "FR 4422", shortName: "FR 4422", flightNumber: "FR 4422", name: "Reggio Calabria (REG) ➔ Milano Bergamo (BGY)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 2", color: "#0ea5e9", duration: 110, priceBase: 33.0, stopsIds: ["FLIGHT_REG", "FLIGHT_BGY"], stops: ["FLIGHT_REG", "FLIGHT_BGY"], schedule: { weekday: ["08:15", "14:30", "20:00"], saturday: ["08:15", "16:40"], sunday: ["14:30", "20:00"] } },
+    { id: "FL_REG_BLQ_1", region: "calabria", code: "FR 4430", shortName: "FR 4430", flightNumber: "FR 4430", name: "Reggio Calabria (REG) ➔ Bologna Marconi (BLQ)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 3", color: "#0ea5e9", duration: 90, priceBase: 35.0, stopsIds: ["FLIGHT_REG", "FLIGHT_BLQ"], stops: ["FLIGHT_REG", "FLIGHT_BLQ"], schedule: { weekday: ["10:00", "18:15"], saturday: ["10:00"], sunday: ["18:15"] } },
+
+    // Crotone (CRV)
+    { id: "FL_CRV_BGY_1", region: "calabria", code: "FR 5140", shortName: "FR 5140", flightNumber: "FR 5140", name: "Crotone (CRV) ➔ Milano Bergamo (BGY)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 1", color: "#0ea5e9", duration: 105, priceBase: 28.90, stopsIds: ["FLIGHT_CRV", "FLIGHT_BGY"], stops: ["FLIGHT_CRV", "FLIGHT_BGY"], schedule: { weekday: ["07:45", "16:20"], saturday: ["07:45"], sunday: ["16:20"] } },
+    { id: "FL_CRV_BLQ_1", region: "calabria", code: "FR 5144", shortName: "FR 5144", flightNumber: "FR 5144", name: "Crotone (CRV) ➔ Bologna Marconi (BLQ)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 2", color: "#0ea5e9", duration: 85, priceBase: 32.0, stopsIds: ["FLIGHT_CRV", "FLIGHT_BLQ"], stops: ["FLIGHT_CRV", "FLIGHT_BLQ"], schedule: { weekday: ["11:15", "19:00"], saturday: ["11:15"], sunday: ["19:00"] } },
+    { id: "FL_CRV_FCO_1", region: "calabria", code: "BQ 1922", shortName: "BQ 1922", flightNumber: "BQ 1922", name: "Crotone (CRV) ➔ Roma Fiumicino (FCO)", airline: "SkyAlps", operator: "SkyAlps", type: "national", aircraft: "Dash 8 Q400", busModel: "Dash 8 Q400", terminal: "T1", gate: "Gate 1", color: "#0284c7", duration: 75, priceBase: 49.0, stopsIds: ["FLIGHT_CRV", "FLIGHT_FCO"], stops: ["FLIGHT_CRV", "FLIGHT_FCO"], schedule: { weekday: ["07:00", "18:00"], saturday: ["07:00"], sunday: ["18:00"] } },
+
+    // Roma Fiumicino (FCO) - Hub Nazionale
+    { id: "FL_FCO_LIN_1", region: "lazio", code: "AZ 2012", shortName: "AZ 2012", flightNumber: "AZ 2012", name: "Roma Fiumicino (FCO) ➔ Milano Linate (LIN)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300 Navetta Italia", terminal: "T1", gate: "Gate A12", color: "#0284c7", duration: 70, priceBase: 65.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_LIN"], stops: ["FLIGHT_FCO", "FLIGHT_LIN"], schedule: { weekday: ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"], saturday: ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00"], sunday: ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "21:30"] } },
+    { id: "FL_FCO_SUF_1", region: "lazio", code: "AZ 1171", shortName: "AZ 1171", flightNumber: "AZ 1171", name: "Roma Fiumicino (FCO) ➔ Lamezia Terme (SUF)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A320neo", busModel: "Airbus A320neo", terminal: "T1", gate: "Gate A35", color: "#0284c7", duration: 70, priceBase: 49.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_SUF"], stops: ["FLIGHT_FCO", "FLIGHT_SUF"], schedule: { weekday: ["08:15", "11:30", "14:50", "18:15", "21:35"], saturday: ["08:15", "12:30", "17:00", "21:35"], sunday: ["09:15", "13:30", "18:15", "22:00"] } },
+    { id: "FL_FCO_CTA_1", region: "lazio", code: "AZ 1720", shortName: "AZ 1720", flightNumber: "AZ 1720", name: "Roma Fiumicino (FCO) ➔ Catania Fontanarossa (CTA)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A320neo", busModel: "Airbus A320neo", terminal: "T1", gate: "Gate A22", color: "#0284c7", duration: 80, priceBase: 42.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_CTA"], stops: ["FLIGHT_FCO", "FLIGHT_CTA"], schedule: { weekday: ["06:30", "08:45", "11:15", "13:45", "16:15", "18:45", "21:15"], saturday: ["06:30", "10:00", "14:00", "18:00", "21:15"], sunday: ["07:30", "11:15", "15:30", "19:00", "22:00"] } },
+    { id: "FL_FCO_PMO_1", region: "lazio", code: "AZ 1784", shortName: "AZ 1784", flightNumber: "AZ 1784", name: "Roma Fiumicino (FCO) ➔ Palermo Punta Raisi (PMO)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A320neo", busModel: "Airbus A320neo", terminal: "T1", gate: "Gate A18", color: "#0284c7", duration: 75, priceBase: 45.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_PMO"], stops: ["FLIGHT_FCO", "FLIGHT_PMO"], schedule: { weekday: ["07:15", "09:30", "12:00", "14:30", "17:00", "19:30", "21:45"], saturday: ["07:15", "11:00", "15:00", "19:30"], sunday: ["08:15", "12:00", "16:30", "20:45"] } },
+    { id: "FL_FCO_CAG_1", region: "lazio", code: "AZ 1592", shortName: "AZ 1592", flightNumber: "AZ 1592", name: "Roma Fiumicino (FCO) ➔ Cagliari Elmas (CAG)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300", terminal: "T1", gate: "Gate A08", color: "#0284c7", duration: 65, priceBase: 42.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_CAG"], stops: ["FLIGHT_FCO", "FLIGHT_CAG"], schedule: { weekday: ["07:30", "10:15", "13:30", "16:45", "20:10"], saturday: ["07:30", "13:30", "18:45"], sunday: ["09:00", "14:15", "20:30"] } },
+    { id: "FL_FCO_BRI_1", region: "lazio", code: "AZ 1612", shortName: "AZ 1612", flightNumber: "AZ 1612", name: "Roma Fiumicino (FCO) ➔ Bari Karol Wojtyła (BRI)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300", terminal: "T1", gate: "Gate A05", color: "#0284c7", duration: 65, priceBase: 39.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_BRI"], stops: ["FLIGHT_FCO", "FLIGHT_BRI"], schedule: { weekday: ["08:00", "12:15", "16:30", "20:45"], saturday: ["08:00", "14:30"], sunday: ["10:15", "18:45"] } },
+    { id: "FL_FCO_TRN_1", region: "lazio", code: "AZ 1420", shortName: "AZ 1420", flightNumber: "AZ 1420", name: "Roma Fiumicino (FCO) ➔ Torino Caselle (TRN)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300", terminal: "T1", gate: "Gate A14", color: "#0284c7", duration: 70, priceBase: 48.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_TRN"], stops: ["FLIGHT_FCO", "FLIGHT_TRN"], schedule: { weekday: ["07:45", "11:20", "15:10", "18:40", "21:25"], saturday: ["07:45", "15:10"], sunday: ["11:20", "19:30"] } },
+    { id: "FL_FCO_VCE_1", region: "lazio", code: "AZ 1460", shortName: "AZ 1460", flightNumber: "AZ 1460", name: "Roma Fiumicino (FCO) ➔ Venezia Marco Polo (VCE)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A320neo", busModel: "Airbus A320neo", terminal: "T1", gate: "Gate A16", color: "#0284c7", duration: 65, priceBase: 55.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_VCE"], stops: ["FLIGHT_FCO", "FLIGHT_VCE"], schedule: { weekday: ["08:30", "12:45", "17:15", "21:00"], saturday: ["08:30", "17:15"], sunday: ["10:45", "19:00"] } },
+    { id: "FL_FCO_TRS_1", region: "lazio", code: "AZ 1358", shortName: "AZ 1358", flightNumber: "AZ 1358", name: "Roma Fiumicino (FCO) ➔ Trieste Airport (TRS)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300", terminal: "T1", gate: "Gate A03", color: "#0284c7", duration: 70, priceBase: 50.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_TRS"], stops: ["FLIGHT_FCO", "FLIGHT_TRS"], schedule: { weekday: ["09:00", "14:20", "19:50"], saturday: ["09:00"], sunday: ["14:20", "19:50"] } },
+    { id: "FL_FCO_GOA_1", region: "lazio", code: "AZ 1380", shortName: "AZ 1380", flightNumber: "AZ 1380", name: "Roma Fiumicino (FCO) ➔ Genova Cristoforo Colombo (GOA)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300", terminal: "T1", gate: "Gate A06", color: "#0284c7", duration: 60, priceBase: 46.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_GOA"], stops: ["FLIGHT_FCO", "FLIGHT_GOA"], schedule: { weekday: ["08:45", "13:30", "18:15", "21:40"], saturday: ["08:45", "16:00"], sunday: ["11:30", "19:40"] } },
+    { id: "FL_FCO_CDG_1", region: "lazio", code: "AZ 318", shortName: "AZ 318", flightNumber: "AZ 318", name: "Roma Fiumicino (FCO) ➔ Parigi Charles de Gaulle (CDG)", airline: "ITA Airways", operator: "ITA Airways", type: "international", aircraft: "Airbus A320neo", busModel: "Airbus A320neo", terminal: "T3", gate: "Gate E14", color: "#0284c7", duration: 130, priceBase: 79.0, stopsIds: ["FLIGHT_FCO", "FLIGHT_LIN"], stops: ["FLIGHT_FCO", "FLIGHT_LIN"], schedule: { weekday: ["06:50", "10:15", "15:00", "19:45"], saturday: ["06:50", "15:00"], sunday: ["10:15", "19:45"] } },
+
+    // Milano Malpensa & Linate & Bergamo
+    { id: "FL_LIN_FCO_1", region: "lombardia", code: "AZ 2015", shortName: "AZ 2015", flightNumber: "AZ 2015", name: "Milano Linate (LIN) ➔ Roma Fiumicino (FCO)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300 Navetta Italia", terminal: "T1", gate: "Gate A01", color: "#0284c7", duration: 70, priceBase: 65.0, stopsIds: ["FLIGHT_LIN", "FLIGHT_FCO"], stops: ["FLIGHT_LIN", "FLIGHT_FCO"], schedule: { weekday: ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00"], saturday: ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00"], sunday: ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "21:30"] } },
+    { id: "FL_MXP_SUF_1", region: "lombardia", code: "FR 8843", shortName: "FR 8843", flightNumber: "FR 8843", name: "Milano Malpensa (MXP) ➔ Lamezia Terme (SUF)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate A08", color: "#0ea5e9", duration: 105, priceBase: 29.90, stopsIds: ["FLIGHT_MXP", "FLIGHT_SUF"], stops: ["FLIGHT_MXP", "FLIGHT_SUF"], schedule: { weekday: ["06:45", "11:00", "15:15", "19:40"], saturday: ["06:45", "12:15", "18:00"], sunday: ["07:30", "13:00", "20:15"] } },
+    { id: "FL_MXP_NAP_1", region: "lombardia", code: "U2 2840", shortName: "U2 2840", flightNumber: "U2 2840", name: "Milano Malpensa (MXP) ➔ Napoli Capodichino (NAP)", airline: "EasyJet", operator: "EasyJet", type: "national", aircraft: "Airbus A320", busModel: "Airbus A320", terminal: "T2", gate: "Gate E04", color: "#ea580c", duration: 85, priceBase: 35.0, stopsIds: ["FLIGHT_MXP", "FLIGHT_NAP"], stops: ["FLIGHT_MXP", "FLIGHT_NAP"], schedule: { weekday: ["07:10", "10:45", "14:20", "18:00", "21:15"], saturday: ["07:10", "13:30", "19:00"], sunday: ["08:30", "14:45", "20:30"] } },
+    { id: "FL_MXP_CTA_1", region: "lombardia", code: "W6 5508", shortName: "W6 5508", flightNumber: "W6 5508", name: "Milano Malpensa (MXP) ➔ Catania Fontanarossa (CTA)", airline: "Wizz Air", operator: "Wizz Air", type: "national", aircraft: "Airbus A321neo", busModel: "Airbus A321neo", terminal: "T1", gate: "Gate B14", color: "#6366f1", duration: 115, priceBase: 32.0, stopsIds: ["FLIGHT_MXP", "FLIGHT_CTA"], stops: ["FLIGHT_MXP", "FLIGHT_CTA"], schedule: { weekday: ["06:15", "09:40", "13:20", "17:10", "20:45"], saturday: ["06:15", "12:00", "18:30"], sunday: ["07:45", "14:10", "21:00"] } },
+    { id: "FL_MXP_PMO_1", region: "lombardia", code: "U2 2814", shortName: "U2 2814", flightNumber: "U2 2814", name: "Milano Malpensa (MXP) ➔ Palermo Punta Raisi (PMO)", airline: "EasyJet", operator: "EasyJet", type: "national", aircraft: "Airbus A320", busModel: "Airbus A320", terminal: "T2", gate: "Gate E04", color: "#ea580c", duration: 100, priceBase: 34.0, stopsIds: ["FLIGHT_MXP", "FLIGHT_PMO"], stops: ["FLIGHT_MXP", "FLIGHT_PMO"], schedule: { weekday: ["07:00", "11:15", "15:30", "19:50"], saturday: ["07:00", "14:00"], sunday: ["08:30", "16:00", "21:15"] } },
+    { id: "FL_MXP_BRI_1", region: "lombardia", code: "FR 6712", shortName: "FR 6712", flightNumber: "FR 6712", name: "Milano Malpensa (MXP) ➔ Bari Karol Wojtyła (BRI)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate A08", color: "#0ea5e9", duration: 90, priceBase: 28.0, stopsIds: ["FLIGHT_MXP", "FLIGHT_BRI"], stops: ["FLIGHT_MXP", "FLIGHT_BRI"], schedule: { weekday: ["06:30", "10:50", "15:10", "19:35"], saturday: ["06:30", "13:15", "18:40"], sunday: ["07:45", "14:20", "20:50"] } },
+    { id: "FL_MXP_CAG_1", region: "lombardia", code: "U2 2870", shortName: "U2 2870", flightNumber: "U2 2870", name: "Milano Malpensa (MXP) ➔ Cagliari Elmas (CAG)", airline: "EasyJet", operator: "EasyJet", type: "national", aircraft: "Airbus A320", busModel: "Airbus A320", terminal: "T2", gate: "Gate E04", color: "#ea580c", duration: 85, priceBase: 36.0, stopsIds: ["FLIGHT_MXP", "FLIGHT_CAG"], stops: ["FLIGHT_MXP", "FLIGHT_CAG"], schedule: { weekday: ["07:20", "12:00", "16:40", "21:10"], saturday: ["07:20", "14:30"], sunday: ["09:00", "17:00", "21:30"] } },
+
+    // Napoli, Bari, Bologna, Torino, Venezia, Catania, Palermo
+    { id: "FL_NAP_TRN_1", region: "campania", code: "V7 1410", shortName: "V7 1410", flightNumber: "V7 1410", name: "Napoli Capodichino (NAP) ➔ Torino Caselle (TRN)", airline: "Volotea", operator: "Volotea", type: "national", aircraft: "Airbus A319", busModel: "Airbus A319", terminal: "T1", gate: "Gate A02", color: "#f43f5e", duration: 90, priceBase: 38.0, stopsIds: ["FLIGHT_NAP", "FLIGHT_TRN"], stops: ["FLIGHT_NAP", "FLIGHT_TRN"], schedule: { weekday: ["07:50", "13:15", "18:45"], saturday: ["07:50", "16:00"], sunday: ["11:30", "19:15"] } },
+    { id: "FL_NAP_VCE_1", region: "campania", code: "U2 2912", shortName: "U2 2912", flightNumber: "U2 2912", name: "Napoli Capodichino (NAP) ➔ Venezia Marco Polo (VCE)", airline: "EasyJet", operator: "EasyJet", type: "national", aircraft: "Airbus A320", busModel: "Airbus A320", terminal: "T1", gate: "Gate B06", color: "#ea580c", duration: 75, priceBase: 34.0, stopsIds: ["FLIGHT_NAP", "FLIGHT_VCE"], stops: ["FLIGHT_NAP", "FLIGHT_VCE"], schedule: { weekday: ["08:20", "14:00", "19:30"], saturday: ["08:20"], sunday: ["14:00", "20:15"] } },
+    { id: "FL_BLQ_BDS_1", region: "emilia_romagna", code: "FR 3310", shortName: "FR 3310", flightNumber: "FR 3310", name: "Bologna Marconi (BLQ) ➔ Brindisi Papola Casale (BDS)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 7", color: "#0ea5e9", duration: 85, priceBase: 31.0, stopsIds: ["FLIGHT_BLQ", "FLIGHT_BDS"], stops: ["FLIGHT_BLQ", "FLIGHT_BDS"], schedule: { weekday: ["07:30", "12:45", "18:10"], saturday: ["07:30", "15:20"], sunday: ["11:00", "19:40"] } },
+    { id: "FL_BLQ_CAG_1", region: "emilia_romagna", code: "FR 3328", shortName: "FR 3328", flightNumber: "FR 3328", name: "Bologna Marconi (BLQ) ➔ Cagliari Elmas (CAG)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 14", color: "#0ea5e9", duration: 80, priceBase: 29.50, stopsIds: ["FLIGHT_BLQ", "FLIGHT_CAG"], stops: ["FLIGHT_BLQ", "FLIGHT_CAG"], schedule: { weekday: ["08:15", "14:20", "20:00"], saturday: ["08:15", "17:00"], sunday: ["12:30", "20:30"] } },
+    { id: "FL_TRN_CTA_1", region: "piemonte", code: "FR 6410", shortName: "FR 6410", flightNumber: "FR 6410", name: "Torino Caselle (TRN) ➔ Catania Fontanarossa (CTA)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737 MAX", busModel: "Boeing 737 MAX", terminal: "T1", gate: "Gate 5", color: "#0ea5e9", duration: 115, priceBase: 36.0, stopsIds: ["FLIGHT_TRN", "FLIGHT_CTA"], stops: ["FLIGHT_TRN", "FLIGHT_CTA"], schedule: { weekday: ["06:40", "12:15", "17:50"], saturday: ["06:40", "14:30"], sunday: ["10:15", "19:00"] } },
+    { id: "FL_VCE_CTA_1", region: "veneto", code: "W6 5580", shortName: "W6 5580", flightNumber: "W6 5580", name: "Venezia Marco Polo (VCE) ➔ Catania Fontanarossa (CTA)", airline: "Wizz Air", operator: "Wizz Air", type: "national", aircraft: "Airbus A321neo", busModel: "Airbus A321neo", terminal: "T1", gate: "Gate 12", color: "#6366f1", duration: 105, priceBase: 31.0, stopsIds: ["FLIGHT_VCE", "FLIGHT_CTA"], stops: ["FLIGHT_VCE", "FLIGHT_CTA"], schedule: { weekday: ["07:15", "13:00", "18:40"], saturday: ["07:15"], sunday: ["13:00", "20:10"] } },
+    { id: "FL_FLR_FCO_1", region: "toscana", code: "AZ 1672", shortName: "AZ 1672", flightNumber: "AZ 1672", name: "Firenze Peretola (FLR) ➔ Roma Fiumicino (FCO)", airline: "ITA Airways", operator: "ITA Airways", type: "national", aircraft: "Airbus A220-300", busModel: "Airbus A220-300", terminal: "T1", gate: "Gate 3", color: "#0284c7", duration: 55, priceBase: 58.0, stopsIds: ["FLIGHT_FLR", "FLIGHT_FCO"], stops: ["FLIGHT_FLR", "FLIGHT_FCO"], schedule: { weekday: ["06:30", "11:00", "15:30", "19:15"], saturday: ["06:30", "14:00"], sunday: ["11:00", "19:15"] } },
+    { id: "FL_PSA_CTA_1", region: "toscana", code: "FR 4880", shortName: "FR 4880", flightNumber: "FR 4880", name: "Pisa Galilei (PSA) ➔ Catania Fontanarossa (CTA)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 6", color: "#0ea5e9", duration: 95, priceBase: 29.0, stopsIds: ["FLIGHT_PSA", "FLIGHT_CTA"], stops: ["FLIGHT_PSA", "FLIGHT_CTA"], schedule: { weekday: ["07:00", "13:30", "19:15"], saturday: ["07:00", "15:45"], sunday: ["10:30", "19:15"] } },
+    { id: "FL_PSR_BGY_1", region: "abruzzo", code: "FR 4018", shortName: "FR 4018", flightNumber: "FR 4018", name: "Pescara d'Abruzzo (PSR) ➔ Milano Bergamo (BGY)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 3", color: "#0ea5e9", duration: 70, priceBase: 24.90, stopsIds: ["FLIGHT_PSR", "FLIGHT_BGY"], stops: ["FLIGHT_PSR", "FLIGHT_BGY"], schedule: { weekday: ["08:00", "14:15", "20:30"], saturday: ["08:00"], sunday: ["14:15", "20:30"] } },
+    { id: "FL_AOI_FCO_1", region: "marche", code: "BQ 1910", shortName: "BQ 1910", flightNumber: "BQ 1910", name: "Ancona Falconara (AOI) ➔ Roma Fiumicino (FCO)", airline: "SkyAlps", operator: "SkyAlps", type: "national", aircraft: "Dash 8 Q400", busModel: "Dash 8 Q400", terminal: "T1", gate: "Gate 1", color: "#0284c7", duration: 55, priceBase: 49.0, stopsIds: ["FLIGHT_AOI", "FLIGHT_FCO"], stops: ["FLIGHT_AOI", "FLIGHT_FCO"], schedule: { weekday: ["07:15", "13:45", "18:50"], saturday: ["07:15"], sunday: ["18:50"] } },
+    { id: "FL_PEG_BGY_1", region: "umbria", code: "FR 4120", shortName: "FR 4120", flightNumber: "FR 4120", name: "Perugia S. Francesco (PEG) ➔ Milano Bergamo (BGY)", airline: "Ryanair", operator: "Ryanair", type: "national", aircraft: "Boeing 737-800", busModel: "Boeing 737-800", terminal: "T1", gate: "Gate 2", color: "#0ea5e9", duration: 60, priceBase: 26.0, stopsIds: ["FLIGHT_PEG", "FLIGHT_BGY"], stops: ["FLIGHT_PEG", "FLIGHT_BGY"], schedule: { weekday: ["08:30", "17:15"], saturday: ["08:30"], sunday: ["17:15"] } },
+    { id: "FL_BZO_FCO_1", region: "trentino_alto_adige", code: "BQ 1900", shortName: "BQ 1900", flightNumber: "BQ 1900", name: "Bolzano Dolomiti (BZO) ➔ Roma Fiumicino (FCO)", airline: "SkyAlps", operator: "SkyAlps", type: "national", aircraft: "Dash 8 Q400", busModel: "Dash 8 Q400", terminal: "T1", gate: "Gate 1", color: "#0284c7", duration: 75, priceBase: 79.0, stopsIds: ["FLIGHT_BZO", "FLIGHT_FCO"], stops: ["FLIGHT_BZO", "FLIGHT_FCO"], schedule: { weekday: ["07:00", "12:30", "18:00"], saturday: ["07:00"], sunday: ["12:30", "18:00"] } },
+    { id: "FL_AOT_FCO_1", region: "valle_daosta", code: "AV 102", shortName: "AV 102", flightNumber: "AV 102", name: "Aosta Corrado Gex (AOT) ➔ Roma Fiumicino (FCO)", airline: "AirVallee Express", operator: "AirVallee", type: "national", aircraft: "ATR 72-600", busModel: "ATR 72-600", terminal: "T1", gate: "Gate 1", color: "#0284c7", duration: 80, priceBase: 69.0, stopsIds: ["FLIGHT_AOT", "FLIGHT_FCO"], stops: ["FLIGHT_AOT", "FLIGHT_FCO"], schedule: { weekday: ["07:30", "16:45"], saturday: ["07:30"], sunday: ["16:45"] } },
+    { id: "FL_PZM_FCO_1", region: "basilicata", code: "MT 110", shortName: "MT 110", flightNumber: "MT 110", name: "Matera / Pisticci (PZM) ➔ Roma Fiumicino (FCO)", airline: "Basilicata Air Link", operator: "Winfly", type: "national", aircraft: "ATR 72-600", busModel: "ATR 72-600", terminal: "T1", gate: "Gate Navetta 1", color: "#0284c7", duration: 65, priceBase: 55.0, stopsIds: ["FLIGHT_PZM", "FLIGHT_FCO"], stops: ["FLIGHT_PZM", "FLIGHT_FCO"], schedule: { weekday: ["07:15", "15:30"], saturday: ["07:15"], sunday: ["15:30"] } },
+    { id: "FL_CBH_FOG_1", region: "molise", code: "AD 104", shortName: "AD 104", flightNumber: "AD 104", name: "Termoli / Isole Tremiti (CBH) ➔ Foggia Gino Lisa (FOG)", airline: "Alidaunia Heli-Air", operator: "Alidaunia", type: "national", aircraft: "AgustaWestland AW139", busModel: "Elicottero AW139 VIP", terminal: "T1", gate: "Elinavetta Gate 1", color: "#0284c7", duration: 30, priceBase: 45.0, stopsIds: ["FLIGHT_CBH", "FLIGHT_FOG"], stops: ["FLIGHT_CBH", "FLIGHT_FOG"], schedule: { weekday: ["08:00", "12:00", "16:30"], saturday: ["08:00", "16:30"], sunday: ["09:30", "17:00"] } }
+  ];
+
+  _RAW_METADATA.modes.flight = {
+    id: "flight",
+    name: "Aerei & Voli",
+    brandTitle: "Italia<span>Flight</span>",
+    subtitle: "Rete Aeroportuale & Voli Nazionali e Internazionali",
+    icon: "fa-plane-departure",
+    accentColor: "#0284c7",
+    stops: flightStops,
+    lines: flightLines,
+    fleet: [
+      {
+        model: "Airbus A320neo",
+        carrier: "ITA Airways / Rete Aerea Nazionale",
+        imageBadge: "Airbus Next-Gen",
+        seats: "180 Passeggeri (Configurazione 3-3)",
+        length: "Autonomia 6.300 km / Lungh. 37.57 m",
+        engine: "Pratt & Whitney GTF / LEAP-1A (-20% Carburante)",
+        co2Reduction: "-50% Impronta Acustica & SAF Ready",
+        comfort: [
+          "Wi-Fi Satellitare ad Alta Velocità a bordo",
+          "Prese USB-A e USB-C su ogni sedile",
+          "Cappelliere SpaceFlex XL per trolley cabina",
+          "Illuminazione d'ambiente Full-LED antiradiazioni"
+        ]
+      },
+      {
+        model: "Airbus A350-900",
+        carrier: "Lungo Raggio & Hub Intercontinentale",
+        imageBadge: "Wide-Body Flagship",
+        seats: "334 Passeggeri (3 Classi: Business, Premium, Eco)",
+        length: "Autonomia 15.000 km / Lungh. 66.80 m",
+        engine: "Rolls-Royce Trent XWB-84 Ultra-Efficienza",
+        co2Reduction: "-25% Emissioni CO2 / Fusoliera in Carbonio",
+        comfort: [
+          "Poltrone Business Class Lie-Flat 180° con accesso diretto al corridoio",
+          "Schermi Touch 4K UHD 17 pollici con oltre 300 film",
+          "Cabina Airspace silenziosa pressurizzata a 6.000 ft",
+          "Connettività Gate-to-Gate e Live TV"
+        ]
+      },
+      {
+        model: "Boeing 737-800 MAX",
+        carrier: "Ryanair / Low-Cost Europa",
+        imageBadge: "Efficienza & Alta Frequenza",
+        seats: "189 Passeggeri (Configurazione Sky Interior)",
+        length: "Autonomia 5.765 km / Lungh. 39.52 m",
+        engine: "CFM International LEAP-1B",
+        co2Reduction: "-16% Consumo Carburante & -40% Rumore",
+        comfort: [
+          "Boeing Sky Interior con pareti sagomate e luci dinamiche",
+          "Sedili ergonomici slimline in ecopelle",
+          "Winglet Advanced Technology per massima stabilità",
+          "Spazio cappelliere ottimizzato per bagaglio rapido"
+        ]
+      },
+      {
+        model: "Airbus A220-300",
+        carrier: "Navetta Nazionale & Rotte Regionali",
+        imageBadge: "Massimo Comfort Cabina",
+        seats: "145 Passeggeri (Configurazione 2-3)",
+        length: "Autonomia 6.297 km / Lungh. 38.70 m",
+        engine: "Pratt & Whitney PurePower PW1500G",
+        co2Reduction: "-25% CO2 & -50% Rumore Urbano",
+        comfort: [
+          "Finestrini panoramici extra-large (i più grandi della categoria)",
+          "Sedili più larghi (48 cm) e solo 1 sedile centrale per fila",
+          "Corridoio centrale extra-largo per imbarco immediato",
+          "Cabina ultra-silenziosa con cappelliere capienti"
+        ]
+      }
+    ],
+    tariffs: [
+      {
+        name: "Tariffa Light Economy",
+        type: "Low Cost & Viaggi Rapidi",
+        price: 29.90,
+        validity: "Volo Singolo / A/R",
+        description: "Ideale per viaggi brevi di lavoro o weekend. Include 1 borsa/zaino personale (40x30x20 cm) da posizionare sotto il sedile anteriore e check-in online gratuito 24h prima della partenza."
+      },
+      {
+        name: "Tariffa Classic Flex",
+        type: "La Scelta Più Richiesta",
+        price: 59.00,
+        validity: "Flessibile & Completa",
+        description: "Include 1 trolley da cabina (10 kg, 55x40x20 cm) + borsa personale, scelta del posto standard a bordo e possibilità di cambio data volo gratuito fino a 2 ore prima della partenza."
+      },
+      {
+        name: "Tariffa Superior Plus",
+        type: "Zero Pensieri con Bagaglio",
+        price: 99.00,
+        validity: "Bagaglio in Stiva Incluso",
+        description: "Include 1 bagaglio da stiva da 23 kg + trolley da cabina 10 kg + borsa personale, imbarco prioritario Fast Track ai controlli di sicurezza e selezione posti anteriori premium."
+      },
+      {
+        name: "Tariffa Business & Executive Lounge",
+        type: "Massimo Comfort & Priorità",
+        price: 189.00,
+        validity: "VIP & Flessibilità 100%",
+        description: "Accesso alle VIP Lounge aeroportuali con buffet e area relax, corsia preferenziale Fast Track, 2 bagagli da stiva da 23 kg, sedile centrale libero garantito, catering caldo a bordo e rimborso totale in caso di cancellazione."
+      }
+    ]
+  };
+
+  // ========================================================
+  // 6. MODALITÀ TRENI (ITALIARAIL)
+  // ========================================================
+  const trainStops = [
+    { id: "TRAIN_ROMA_TERM", name: "Roma Termini (Stazione Centrale FS)", code: "ROMA_TERM", area: "Roma", region: "lazio", localityType: "city", address: "Piazza dei Cinquecento, 00185 Roma", lat: 41.9014, lng: 12.5015, platforms: ["Binario 1", "Binario 4", "Binario 8", "Binario 12", "Binario 24"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_MILANO_CENT", name: "Milano Centrale FS", code: "MILANO_CENT", area: "Milano", region: "lombardia", localityType: "city", address: "Piazza Duca d'Aosta, 1, 20124 Milano", lat: 45.4854, lng: 9.2045, platforms: ["Binario 3", "Binario 7", "Binario 14", "Binario 21"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_NAPOLI_CENT", name: "Napoli Centrale FS & Garibaldi", code: "NAPOLI_CENT", area: "Napoli", region: "campania", localityType: "city", address: "Piazza Giuseppe Garibaldi, 80142 Napoli", lat: 40.8529, lng: 14.2722, platforms: ["Binario 2", "Binario 6", "Binario 11", "Binario 18"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_TORINO_PN", name: "Torino Porta Nuova FS", code: "TORINO_PN", area: "Torino", region: "piemonte", localityType: "city", address: "Corso Vittorio Emanuele II, 58, 10121 Torino", lat: 45.0620, lng: 7.6784, platforms: ["Binario 1", "Binario 5", "Binario 12", "Binario 17"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_BOLOGNA_CENT", name: "Bologna Centrale FS (AV & Sup.)", code: "BOLOGNA_CENT", area: "Bologna", region: "emilia_romagna", localityType: "city", address: "Piazza delle Medaglie d'Oro, 40121 Bologna", lat: 44.5058, lng: 11.3418, platforms: ["Binario 1", "Binario 6", "Binario AV 16", "Binario AV 19"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_FIRENZE_SMN", name: "Firenze Santa Maria Novella FS", code: "FIRENZE_SMN", area: "Firenze", region: "toscana", localityType: "city", address: "Piazza della Stazione, 50123 Firenze", lat: 43.7765, lng: 11.2480, platforms: ["Binario 4", "Binario 8", "Binario 11", "Binario 15"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_VENEZIA_SL", name: "Venezia Santa Lucia FS", code: "VENEZIA_SL", area: "Venezia", region: "veneto", localityType: "city", address: "Fondamenta Santa Lucia, 30121 Venezia", lat: 45.4411, lng: 12.3211, platforms: ["Binario 1", "Binario 4", "Binario 8", "Binario 14"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_REGGIO_CAL_C", name: "Reggio Calabria Centrale FS", code: "REGGIO_CAL_C", area: "Reggio Calabria", region: "calabria", localityType: "city", address: "Piazza Garibaldi, 89127 Reggio Calabria", lat: 38.1039, lng: 15.6425, platforms: ["Binario 1", "Binario 2", "Binario 3", "Binario 5"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_LAMEZIA_TC", name: "Lamezia Terme Centrale FS", code: "LAMEZIA_TC", area: "Lamezia Terme", region: "calabria", localityType: "city", address: "Piazza Lamezia, 88046 Lamezia Terme (CZ)", lat: 38.9205, lng: 16.2514, platforms: ["Binario 1", "Binario 2", "Binario 3", "Binario 4"], isMainHub: false, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_COSENZA", name: "Cosenza Stazione FS Vagliolise", code: "COSENZA", area: "Cosenza", region: "calabria", localityType: "city", address: "Via Popilia, 87100 Cosenza", lat: 39.3175, lng: 16.2570, platforms: ["Binario 1", "Binario 2", "Binario 3"], isMainHub: false, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_BARI_CENT", name: "Bari Centrale FS", code: "BARI_CENT", area: "Bari", region: "puglia", localityType: "city", address: "Piazza Aldo Moro, 70122 Bari", lat: 41.1182, lng: 16.8698, platforms: ["Binario 1", "Binario 3", "Binario 5", "Binario 10"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_PALERMO_CENT", name: "Palermo Centrale FS", code: "PALERMO_CENT", area: "Palermo", region: "sicilia", localityType: "city", address: "Piazza Giulio Cesare, 90127 Palermo", lat: 38.1102, lng: 13.3670, platforms: ["Binario 1", "Binario 3", "Binario 6", "Binario 9"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_CATANIA_CENT", name: "Catania Centrale FS", code: "CATANIA_CENT", area: "Catania", region: "sicilia", localityType: "city", address: "Piazza Papa Giovanni XXIII, 95129 Catania", lat: 37.5074, lng: 15.0989, platforms: ["Binario 1", "Binario 2", "Binario 4"], isMainHub: false, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_GENOVA_PP", name: "Genova Piazza Principe FS", code: "GENOVA_PP", area: "Genova", region: "liguria", localityType: "city", address: "Piazza Acquaverde, 16126 Genova", lat: 44.4172, lng: 8.9218, platforms: ["Binario 1", "Binario 4", "Binario 11"], isMainHub: true, operatorName: "RFI / Trenitalia / Italo", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_TRIESTE_CENT", name: "Trieste Centrale FS", code: "TRIESTE_CENT", area: "Trieste", region: "friuli_venezia_giulia", localityType: "city", address: "Piazza della Libertà, 8, 34135 Trieste", lat: 45.6575, lng: 13.7712, platforms: ["Binario 1", "Binario 3", "Binario 7"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_PESCARA_CENT", name: "Pescara Centrale FS", code: "PESCARA_CENT", area: "Pescara", region: "abruzzo", localityType: "city", address: "Piazzale della Repubblica, 65124 Pescara", lat: 42.4688, lng: 14.2057, platforms: ["Binario 1", "Binario 3", "Binario 5"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_ANCONA", name: "Ancona Centrale FS", code: "ANCONA", area: "Ancona", region: "marche", localityType: "city", address: "Piazza Fratelli Rosselli, 60126 Ancona", lat: 43.6067, lng: 13.4984, platforms: ["Binario 1", "Binario 2", "Binario 4"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_PERUGIA", name: "Perugia Fontivegge FS", code: "PERUGIA", area: "Perugia", region: "umbria", localityType: "city", address: "Piazza Vittorio Veneto, 06124 Perugia", lat: 43.1042, lng: 12.3752, platforms: ["Binario 1", "Binario 2", "Binario 3"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_BOLZANO", name: "Bolzano Bozen FS", code: "BOLZANO", area: "Bolzano", region: "trentino_alto_adige", localityType: "city", address: "Piazza della Stazione, 1, 39100 Bolzano", lat: 46.4966, lng: 11.3582, platforms: ["Binario 1", "Binario 3", "Binario 5"], isMainHub: true, operatorName: "RFI / Trenitalia / OBB", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_AOSTA", name: "Aosta FS", code: "AOSTA", area: "Aosta", region: "valle_daosta", localityType: "city", address: "Piazza Manzetti, 11100 Aosta", lat: 45.7344, lng: 7.3232, platforms: ["Binario 1", "Binario 2"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_POTENZA_CENT", name: "Potenza Centrale FS", code: "POTENZA_CENT", area: "Potenza", region: "basilicata", localityType: "city", address: "Piazza Guglielmo Marconi, 85100 Potenza", lat: 40.6358, lng: 15.8041, platforms: ["Binario 1", "Binario 2", "Binario 3"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_CAMPOBASSO", name: "Campobasso Centrale FS", code: "CAMPOBASSO", area: "Campobasso", region: "molise", localityType: "city", address: "Piazza Vittorio Emanuele II, 86100 Campobasso", lat: 41.5601, lng: 14.6644, platforms: ["Binario 1", "Binario 2"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" },
+    { id: "TRAIN_CAGLIARI_CENT", name: "Cagliari Centrale FS", code: "CAGLIARI_CENT", area: "Cagliari", region: "sardegna", localityType: "city", address: "Piazza Giacomo Matteotti, 09123 Cagliari", lat: 39.2155, lng: 9.1102, platforms: ["Binario 1", "Binario 3", "Binario 6"], isMainHub: true, operatorName: "RFI / Trenitalia", operatorFullName: "Rete Ferroviaria Italiana" }
+  ];
+
+  const trainLines = [
+    { id: "TR_FR_9600", region: "lazio", code: "FR 9600", shortName: "FR 9600", name: "Frecciarossa 1000: Roma Termini ➔ Milano Centrale", operator: "Trenitalia Frecciarossa", type: "high_speed", busModel: "ETR 1000 Frecciarossa AV (300 km/h)", color: "#dc2626", duration: 175, priceBase: 49.90, stopsIds: ["TRAIN_ROMA_TERM", "TRAIN_FIRENZE_SMN", "TRAIN_BOLOGNA_CENT", "TRAIN_MILANO_CENT"], schedule: { weekday: ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"], saturday: ["06:00", "08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00"], sunday: ["07:00", "09:00", "11:00", "13:00", "15:00", "17:00", "19:00", "21:00"] } },
+    { id: "TR_FR_9583", region: "calabria", code: "FR 9583", shortName: "FR 9583", name: "Frecciarossa AV: Reggio Calabria ➔ Roma ➔ Milano", operator: "Trenitalia Frecciarossa", type: "high_speed", busModel: "ETR 500 Frecciarossa AV", color: "#dc2626", duration: 490, priceBase: 69.00, stopsIds: ["TRAIN_REGGIO_CAL_C", "TRAIN_LAMEZIA_TC", "TRAIN_NAPOLI_CENT", "TRAIN_ROMA_TERM", "TRAIN_MILANO_CENT"], schedule: { weekday: ["06:48", "11:10", "15:30"], saturday: ["06:48", "15:30"], sunday: ["08:20", "16:15"] } },
+    { id: "TR_IT_9980", region: "lombardia", code: "IT 9980", shortName: "IT 9980", name: "Italo AV: Milano Centrale ➔ Roma Termini ➔ Napoli", operator: "Italo NTV", type: "high_speed", busModel: "Italo EVO Alstom AGV", color: "#991b1b", duration: 250, priceBase: 44.90, stopsIds: ["TRAIN_MILANO_CENT", "TRAIN_BOLOGNA_CENT", "TRAIN_FIRENZE_SMN", "TRAIN_ROMA_TERM", "TRAIN_NAPOLI_CENT"], schedule: { weekday: ["06:35", "08:35", "10:35", "12:35", "14:35", "16:35", "18:35", "20:35"], saturday: ["07:35", "11:35", "15:35", "19:35"], sunday: ["08:35", "12:35", "16:35", "20:35"] } }
+  ];
+
+  _RAW_METADATA.modes.train = {
+    id: "train",
+    name: "Treni & Alta Velocità",
+    brandTitle: "Italia<span>Rail</span>",
+    subtitle: "Rete Ferroviaria Italiana FS, Italo & Trenord",
+    icon: "fa-train",
+    accentColor: "#dc2626",
+    stops: trainStops,
+    lines: trainLines,
+    fleet: [
+      {
+        model: "Frecciarossa 1000 (ETR 400)",
+        carrier: "Trenitalia Alta Velocità",
+        imageBadge: "300+ km/h",
+        seats: "457 Posti (Executive, Business, Premium, Standard)",
+        length: "Lunghezza 202 m / 8 Carrozze",
+        engine: "Trazione Elettrica 25 kV AC (Potenza 9.800 kW)",
+        co2Reduction: "-85% CO2 rispetto all'auto privata",
+        comfort: ["Portale Frecce Wi-Fi & Cinema", "Silenzio assoluto Area Silenzio", "Prese di corrente su ogni posto", "Ristorazione al posto EasyBistrò"]
+      },
+      {
+        model: "Italo EVO (Alstom ETR 675)",
+        carrier: "Italo - Nuovo Trasporto Viaggiatori",
+        imageBadge: "Design Eco",
+        seats: "472 Posti (Club Executive, Prima, Smart)",
+        length: "Lunghezza 187 m / Muso Aerodinamico",
+        engine: "Trazione Elettrica Eco (95% Materiali Riciclabili)",
+        co2Reduction: "Alta Efficienza Energetica",
+        comfort: ["Poltrone in pelle Poltrona Frau", "Wi-Fi gratis e Carrozza Cinema", "Snack bar e distributori touch", "Vetri panoramici antiriflesso"]
+      }
+    ],
+    tariffs: [
+      { name: "Tariffa Super Economy", type: "Offerta Web Non Rimborsabile", price: 19.90, validity: "Treno e Data Selezionati", description: "Il prezzo più conveniente per viaggiare in treno su tutta la rete AV e Intercity prenotando in anticipo." },
+      { name: "Tariffa Economy", type: "Cambio Data Gratuito 1 Volta", price: 34.90, validity: "Flessibilità Media", description: "Consente il cambio di orario e data di partenza prima della partenza del treno." },
+      { name: "Tariffa Base Flessibile", type: "Massima Libertà di Viaggio", price: 59.00, validity: "Cambi Illimitati & Rimborso", description: "Cambio orario e treno gratuito illimitato prima della partenza e rimborso con trattenuta 20%." }
+    ]
+  };
+
+  // ========================================================
+  // 7. MODALITÀ TRAM (ITALIATRAM)
+  // ========================================================
+  _RAW_METADATA.modes.tram = {
+    id: "tram",
+    name: "Tram & Metropolitane",
+    brandTitle: "Italia<span>Tram</span>",
+    subtitle: "Reti Tramviarie & Metropolitane Urbane",
+    icon: "fa-train-tram",
+    accentColor: "#16a34a",
+    stops: [
+      { id: "TRAM_MI_DUOMO", name: "Milano Piazza Duomo / Cordusio (Rete Tram)", code: "TRAM-MI-01", area: "Milano", region: "lombardia", localityType: "city", address: "Piazza del Duomo, 20121 Milano", lat: 45.4642, lng: 9.1900, platforms: ["Banchina 1", "Banchina 2"], isMainHub: true, operatorName: "ATM Milano", operatorFullName: "Azienda Trasporti Milanesi S.p.A." },
+      { id: "TRAM_RM_VENEZIA", name: "Roma Piazza Venezia / Argentina (Linea 8)", code: "TRAM-RM-01", area: "Roma", region: "lazio", localityType: "city", address: "Piazza Venezia, 00186 Roma", lat: 41.8955, lng: 12.4823, platforms: ["Banchina 1", "Banchina 2"], isMainHub: true, operatorName: "ATAC Roma", operatorFullName: "ATAC S.p.A. Sosta e Mobilità" },
+      { id: "TRAM_TO_CASTELLO", name: "Torino Piazza Castello / Po (Rete GTT)", code: "TRAM-TO-01", area: "Torino", region: "piemonte", localityType: "city", address: "Piazza Castello, 10124 Torino", lat: 45.0708, lng: 7.6845, platforms: ["Banchina A", "Banchina B"], isMainHub: true, operatorName: "GTT Torino", operatorFullName: "Gruppo Torinese Trasporti" },
+      { id: "TRAM_FI_STAZIONE", name: "Firenze SMN Alamanni (Tramvia T1 / T2)", code: "TRAM-FI-01", area: "Firenze", region: "toscana", localityType: "city", address: "Via Luigi Alamanni, 50123 Firenze", lat: 43.7760, lng: 11.2468, platforms: ["Binario T1", "Binario T2"], isMainHub: true, operatorName: "GEST Firenze / RATP", operatorFullName: "Gestione Servizio Tramviario" }
+    ],
+    lines: [
+      { id: "LINE_TRAM_MI_1", region: "lombardia", code: "Tram 1", shortName: "Tram 1", name: "Tram 1: Greco Rovereto ➔ Roserio Ospedale Sacco", operator: "ATM Milano", type: "urban", busModel: "Tram Serie 1500 'Ventotto' / Sirio", color: "#16a34a", duration: 45, priceBase: 2.20, stopsIds: ["TRAM_MI_DUOMO"], schedule: { weekday: ["06:05", "06:15", "06:25", "06:35", "06:45", "07:00", "07:10", "07:20", "07:30", "07:40", "07:50", "08:00"], saturday: ["06:10", "06:30", "07:00", "07:30"], sunday: ["07:00", "07:30", "08:00"] } }
+    ],
+    fleet: [
+      { model: "Hitachi Rail Sirio Low-Floor", carrier: "ATM Milano & Rete Tram", imageBadge: "100% Ribassato", seats: "56 Seduti + 140 In Piedi", length: "Lunghezza 35 m a 7 Casse", engine: "Motori Elettrici Asincroni Trifase 600V DC", co2Reduction: "Zero Emissioni Urbane", comfort: ["Pianale ribassato a filo marciapiede", "Climatizzazione integrale caldo/freddo", "Annunci TFT Next-Stop in cabina", "Telecamere interne di sicurezza"] }
+    ],
+    tariffs: [
+      { name: "Biglietto Urbano Tram 90 min", type: "Corsa Singola con Trasbordo", price: 2.20, validity: "90 Minuti Rete Urbana", description: "Valido per 90 minuti su tutta la rete tram, metropolitana e bus della zona tariffaria urbana." }
+    ]
+  };
+
+  // ========================================================
+  // 8. MODALITÀ TAXI (ITALIATAXI)
+  // ========================================================
+  _RAW_METADATA.modes.taxi = {
+    id: "taxi",
+    name: "Taxi & Radiotaxi",
+    brandTitle: "Italia<span>Taxi</span>",
+    subtitle: "Posteggi Ufficiali, Radiotaxi H24 & Preventivi",
+    icon: "fa-taxi",
+    accentColor: "#d97706",
+    stops: [
+      { id: "TAXI_CS_SCALO", name: "Posteggio Taxi Corigliano Scalo FS (Piazza Salvo D'Acquisto)", code: "TAXI-CS-01", area: "Corigliano-Rossano", region: "calabria", localityType: "city", address: "Piazza Salvo D'Acquisto, 87064 Corigliano Scalo (CS)", lat: 39.5960, lng: 16.5180, platforms: ["Stallo 1", "Stallo 2", "Stallo 3"], isMainHub: true, phone: "+390983512222", phoneDisplay: "0983 512222", whatsapp: "+393471234567", radiotaxiName: "Consorzio Radiotaxi Corigliano-Rossano H24" },
+      { id: "TAXI_CUORGNE", name: "Posteggio Taxi Cuorgnè Centro (Piazza Martiri)", code: "TAXI-CU-01", area: "Cuorgnè", region: "piemonte", localityType: "city", address: "Piazza Martiri della Libertà, 10082 Cuorgnè (TO)", lat: 45.3905, lng: 7.6498, platforms: ["Stallo 1", "Stallo 2"], isMainHub: true, phone: "+393426625254", phoneDisplay: "342 662 5254", whatsapp: "+393426625254", radiotaxiName: "Radiotaxi Canavese & Ivrea" },
+      { id: "TAXI_ROMA_TERM", name: "Posteggio Taxi Roma Termini Centrale (Piazza Cinquecento)", code: "TAXI-RM-01", area: "Roma", region: "lazio", localityType: "city", address: "Piazza dei Cinquecento, 00185 Roma", lat: 41.9010, lng: 12.5005, platforms: ["Stallo 1", "Stallo 2", "Stallo 3", "Stallo 4", "Stallo 5"], isMainHub: true, phone: "+39063570", phoneDisplay: "06 3570", whatsapp: "+393471234567", radiotaxiName: "Radiotaxi 3570 Roma Capitale" },
+      { id: "TAXI_MI_CENTRALE", name: "Posteggio Taxi Milano Centrale (Piazza Duca d'Aosta)", code: "TAXI-MI-01", area: "Milano", region: "lombardia", localityType: "city", address: "Piazza Duca d'Aosta, 20124 Milano", lat: 45.4850, lng: 9.2040, platforms: ["Stallo 1", "Stallo 2", "Stallo 3", "Stallo 4"], isMainHub: true, phone: "+39024040", phoneDisplay: "02 4040", whatsapp: "+393471234567", radiotaxiName: "Taxiblu 02.4040 Milano" }
+    ],
+    lines: [],
+    fleet: [
+      { model: "Toyota Prius / Corolla Hybrid Euro 6D", carrier: "Servizio Radiotaxi Cittadino", imageBadge: "Ibrido Green", seats: "4 Passeggeri + Bagagli", length: "Berlina Compatta 4.65 m", engine: "Full Hybrid Benzina / Elettrico", co2Reduction: "-30% Consumi & Stop Start", comfort: ["Pagamento POS / Carta di credito a bordo", "Aria condizionata automatica", "Spazio bagagli per 2 trolley grandi", "Ricevuta fiscale digitale"] },
+      { model: "Mercedes-Benz Classe V / Vito 7 Posti", carrier: "NCC & Taxi Navetta Aeroporto", imageBadge: "Van Spazioso", seats: "7-8 Passeggeri + Grandi Bagagli", length: "Monovolume Lungo 5.14 m", engine: "Turbodiesel Euro 6D Temp Clean", co2Reduction: "Comfort Gruppi & Famiglie", comfort: ["Spazio per oltre 6 valigie grandi", "Sedili in pelle modulari", "Wi-Fi e prese USB", "Ideale per transfer sciistici ed estivi"] }
+    ],
+    tariffs: [
+      { name: "Scatto Iniziale Feriale Diurno", type: "Partenza Tassametro (06:00 - 22:00)", price: 3.50, validity: "Scatto Inizio Corsa", description: "Tariffa base fissa di partenza feriale diurna approvata dalla commissione comunale trasporti." },
+      { name: "Tariffa Chilometrica Urbana", type: "Costo per Km Percorso", price: 1.30, validity: "Al Chilometro", description: "Tariffa urbana a tassametro calcolata per ogni chilometro percorso entro i limiti dell'area urbana." },
+      { name: "Tariffa Fissa Aeroporto - Centro", type: "Forfait All-Inclusive", price: 50.00, validity: "Tariffa Unica Fissa", description: "Tariffa predeterminata senza supplementi per i tragitti tra l'aeroporto principale e il centro città." }
+    ]
+  };
+
   window.TRANSIT_DATA = _RAW_METADATA;
 
   try {

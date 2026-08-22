@@ -108,12 +108,17 @@
   border-color: #fde047 !important;
 }
 
+.marker-flight {
+  background: #0284c7 !important;
+  border-color: #7dd3fc !important;
+}
+
 .custom-stop-marker:hover {
   transform: scale(1.25);
   z-index: 1000;
 }
 
-/* Custom Bus / Train / Tram / Taxi Moving Markers */
+/* Custom Bus / Train / Tram / Taxi / Flight Moving Markers */
 .custom-bus-marker {
   width: 36px;
   height: 36px;
@@ -146,6 +151,13 @@
   border-radius: 50% !important;
   background: #d97706 !important;
   border-color: #ffffff !important;
+}
+
+.custom-flight-marker {
+  border-radius: 50% !important;
+  background: #0284c7 !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.6) !important;
 }
 
 .bus-badge-num {

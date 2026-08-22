@@ -155,7 +155,7 @@ class AppController {
     const modeData = window.TRANSIT_DATA.modes[mode] || window.TRANSIT_DATA.modes.pullman;
 
     // Aggiorna classi del body
-    document.body.classList.remove("mode-pullman", "mode-train", "mode-tram", "mode-taxi");
+    document.body.classList.remove("mode-pullman", "mode-train", "mode-tram", "mode-taxi", "mode-flight");
     document.body.classList.add(`mode-${mode}`);
 
     // Aggiorna bottoni attivi
@@ -204,6 +204,22 @@ class AppController {
         searchBtn: '<i class="fa-solid fa-magnifying-glass"></i> Cerca Corse Pullman',
         gpsBtn: '<i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia il Percorso alla Fermata',
         checkDeparturesBtn: '<i class="fa-solid fa-location-crosshairs"></i> Controlla Partenze dalla Mia Posizione'
+      },
+      flight: {
+        navLive: '<i class="fa-solid fa-plane-departure"></i> Tabellone Voli Live',
+        navSearch: '<i class="fa-solid fa-ticket"></i> Cerca & Prenota Voli',
+        navMap: '<i class="fa-solid fa-map-location-dot"></i> Radar Aeroporti GPS',
+        navFleet: '<i class="fa-solid fa-plane-up"></i> Flotta Aeromobili',
+        navTariffs: '<i class="fa-solid fa-tags"></i> Tariffe & Bagagli',
+        navStrikes: '<i class="fa-solid fa-triangle-exclamation"></i> Scioperi Voli <span class="nav-badge-pill nav-badge-strike">LIVE</span>',
+        stopLabel: '<i class="fa-solid fa-plane-departure"></i> Aeroporto / Hub:',
+        liveBoardHeading: 'Tabellone Partenze & Arrivi Voli Live (ENAC / IATA)',
+        liveBoardSub: 'Voli in tempo reale, Gate di imbarco, Terminal, stato decolli/atterraggi e tracking radar',
+        searchHeading: 'Cerca Voli Nazionali & Internazionali',
+        searchSub: 'Confronta rotte aeree, orari, compagnie di linea e low-cost su tutti gli aeroporti italiani',
+        searchBtn: '<i class="fa-solid fa-plane"></i> Cerca & Compara Voli',
+        gpsBtn: '<i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia Percorso all\'Aeroporto',
+        checkDeparturesBtn: '<i class="fa-solid fa-location-crosshairs"></i> Controlla Voli dall\'Aeroporto Più Vicino'
       },
       train: {
         navLive: '<i class="fa-solid fa-clock"></i> Tabellone Stazione FS',

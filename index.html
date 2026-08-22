@@ -166,6 +166,16 @@
           <span class="mode-tagline">Posteggi & Preventivi</span>
         </div>
       </button>
+
+      <button class="btn-mode-card" data-mode="flight" title="Aerei & Voli Nazionali e Internazionali">
+        <div class="mode-icon-box mode-icon-flight">
+          <i class="fa-solid fa-plane-departure"></i>
+        </div>
+        <div class="mode-info-box">
+          <strong class="mode-name">Aerei</strong>
+          <span class="mode-tagline">Voli & Aeroporti</span>
+        </div>
+      </button>
     </div>
 
     <div class="mode-dock-footer">
@@ -179,7 +189,7 @@
   <header class="app-header">
     <div class="container header-inner">
       <div style="display: flex; align-items: center; gap: 12px;">
-        <button class="btn-open-modes" id="openModeSidebarBtn" title="Seleziona Mezzo di Trasporto (Pullman, Treni, Tram, Taxi)">
+        <button class="btn-open-modes" id="openModeSidebarBtn" title="Seleziona Mezzo di Trasporto (Pullman, Treni, Tram, Taxi, Aerei)">
           <i class="fa-solid fa-bars-staggered"></i>
           <span class="btn-open-modes-text">Mezzi</span>
         </button>
@@ -254,6 +264,7 @@
         <button class="drawer-mode-chip" data-mode="train"><i class="fa-solid fa-train"></i> Treni</button>
         <button class="drawer-mode-chip" data-mode="tram"><i class="fa-solid fa-train-tram"></i> Tram</button>
         <button class="drawer-mode-chip" data-mode="taxi"><i class="fa-solid fa-taxi"></i> Taxi</button>
+        <button class="drawer-mode-chip" data-mode="flight"><i class="fa-solid fa-plane-departure"></i> Aerei</button>
       </div>
     </div>
 
@@ -388,6 +399,9 @@
       </button>
       <button class="mobile-mode-pill" data-mode="taxi" title="Taxi & NCC">
         <i class="fa-solid fa-taxi"></i> <span>Taxi</span>
+      </button>
+      <button class="mobile-mode-pill" data-mode="flight" title="Aerei & Voli">
+        <i class="fa-solid fa-plane-departure"></i> <span>Aerei</span>
       </button>
     </div>
   </div>
