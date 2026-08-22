@@ -497,6 +497,15 @@ class GeoLocatorEngine {
 
       // Renderizza il pannello con i dati del viaggio
       this.renderSmartRoutePanel(routeInfo, refLatLng);
+
+      // Invia notifica di sistema
+      if (window.notificationManager) {
+        window.notificationManager.send(
+          `Fermata Trovata: ${routeInfo.departureStop.name} 🚏`,
+          `Punto di salita ottimale per raggiungere ${dest.name}. Linee attive e orari disponibili.`,
+          { type: "success", icon: "fa-person-walking-arrow-right", tabTarget: "map", showToast: true, sendNative: false }
+        );
+      }
     };
 
     if (typeof window.withAppLoader === 'function') {

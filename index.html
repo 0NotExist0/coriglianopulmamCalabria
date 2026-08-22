@@ -270,6 +270,58 @@
 
       <!-- Header Actions -->
       <div class="header-actions">
+        <!-- Notification Dropdown Wrapper -->
+        <div class="notification-dropdown-wrapper">
+          <button class="btn-notification-toggle" id="notificationToggleBtn" title="Notifiche & Avvisi Live" aria-label="Centro Notifiche">
+            <i class="fa-solid fa-bell"></i>
+            <span class="notification-badge-dot" id="notifBadgeDot"></span>
+            <span class="notification-badge-count" id="notifBadgeCount">3</span>
+          </button>
+
+          <div class="notification-dropdown" id="notificationDropdown">
+            <div class="notif-dropdown-header">
+              <div class="notif-title-row">
+                <i class="fa-solid fa-bell text-primary"></i>
+                <h4>Centro Notifiche</h4>
+                <span class="notif-unread-tag" id="notifUnreadTag">3 nuove</span>
+              </div>
+              <div class="notif-header-actions">
+                <button class="btn-notif-action" id="btnMarkAllNotifsRead" title="Segna tutte come lette">
+                  <i class="fa-solid fa-check-double"></i>
+                </button>
+                <button class="btn-notif-action" id="btnClearAllNotifs" title="Cancella tutte">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Browser Push Permission Box -->
+            <div class="notif-push-banner" id="notifPushBanner">
+              <div class="push-banner-icon"><i class="fa-solid fa-tower-broadcast"></i></div>
+              <div class="push-banner-text">
+                <strong>Attiva Notifiche Push</strong>
+                <p>Ricevi avvisi istantanei su scioperi, ritardi e partenze anche a schermo spento.</p>
+              </div>
+              <button class="btn btn-xs btn-primary" id="btnEnablePushNotif">Attiva</button>
+            </div>
+
+            <!-- Notifiche Quick Actions / Test -->
+            <div class="notif-quick-bar">
+              <button class="btn-notif-quick" id="btnTestNotif"><i class="fa-solid fa-paper-plane"></i> Invia Prova</button>
+              <button class="btn-notif-quick" id="btnReminderNotif"><i class="fa-solid fa-stopwatch"></i> Promemoria Corsa</button>
+            </div>
+
+            <!-- Lista Notifiche -->
+            <div class="notif-list-container" id="notifListContainer">
+              <!-- Popolato dinamicamente da notifications.js -->
+            </div>
+
+            <div class="notif-dropdown-footer">
+              <small><i class="fa-solid fa-shield-halved"></i> Notifiche istantanee Web Push & Realtime</small>
+            </div>
+          </div>
+        </div>
+
         <button class="btn-customizer" id="customizerToggleBtn" title="Personalizza colori e stile">
           <i class="fa-solid fa-palette"></i>
         </button>
@@ -1236,11 +1288,17 @@
   </nav>
 
   <!-- ==========================================
+       TOAST NOTIFICATIONS FLOTTANTI SU SCHERMO
+       ========================================== -->
+  <div class="toast-notifications-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- ==========================================
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="js/data.js?v=5.0"></script>
   <script src="js/realtime-engine.js?v=5.0"></script>
+  <script src="js/notifications.js?v=5.0"></script>
   <script src="js/live-board.js?v=5.0"></script>
   <script src="js/search.js?v=5.0"></script>
   <script src="js/booking.js?v=5.0"></script>

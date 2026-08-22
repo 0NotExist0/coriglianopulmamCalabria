@@ -625,6 +625,15 @@ class BookingEngine {
       tickets.unshift(ticket);
       localStorage.setItem("italiabus_tickets", JSON.stringify(tickets));
       this.updateWalletBadge();
+
+      if (window.notificationManager) {
+        window.notificationManager.notifyBooking({
+          pnr: ticket.pnr,
+          origin: ticket.trip?.originName,
+          destination: ticket.trip?.destName,
+          date: ticket.trip?.date
+        });
+      }
     } catch (e) {
       console.error("Storage error:", e);
     }
