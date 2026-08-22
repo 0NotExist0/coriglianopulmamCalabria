@@ -330,92 +330,138 @@ img, svg, video, .leaflet-map-canvas {
 
   /* --- Card Partenze Mobile Touch-Ergonomiche --- */
   .dep-card {
-    padding: 12px 14px;
+    padding: 14px 16px;
     border-radius: var(--radius-md);
     margin-bottom: 12px;
     border-left-width: 5px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .dep-card-header {
     display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 10px;
+    width: 100%;
+  }
+
+  .dep-header-top-row {
+    display: flex;
     flex-direction: row;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
-    margin-bottom: 8px;
+    width: 100%;
   }
 
   .dep-line-tag {
     font-size: 0.88rem;
-    padding: 4px 9px;
+    padding: 5px 10px;
     border-radius: var(--radius-sm);
     flex-shrink: 0;
   }
 
   .dep-route-info {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
+    min-width: 100%;
+    display: block;
   }
 
   .dep-destination {
-    font-size: 1.05rem;
+    font-size: 1.12rem;
+    font-weight: 800;
     white-space: normal;
-    word-break: break-word;
-    line-height: 1.25;
-    margin-bottom: 2px;
+    word-break: normal;
+    overflow-wrap: break-word;
+    line-height: 1.3;
+    margin-bottom: 3px;
+    color: var(--text-primary);
+    width: 100%;
   }
 
   .dep-via {
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     white-space: normal;
-    line-height: 1.25;
+    word-break: normal;
+    overflow-wrap: break-word;
+    line-height: 1.35;
     color: var(--text-muted);
+    width: 100%;
   }
 
   .dep-timer-box {
     text-align: right;
-    min-width: auto;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
     padding-top: 0;
     border: none;
   }
 
+  .timer-label {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
   .timer-clock {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
     font-weight: 800;
     line-height: 1.1;
+    white-space: nowrap;
   }
 
   .dep-card-meta {
-    gap: 6px 12px;
-    font-size: 0.76rem;
-    padding: 6px 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    font-size: 0.8rem;
+    padding: 8px 0;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .dep-card-footer {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding-top: 10px;
+  }
+
+  .dep-price-tag {
+    display: flex;
+    flex-direction: row;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding-top: 8px;
+    align-items: baseline;
+    width: 100%;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--border-color);
   }
 
   .dep-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 6px;
-    flex-wrap: wrap;
     width: 100%;
-    justify-content: flex-end;
   }
 
   .dep-actions .btn {
-    flex: 1 1 auto;
+    width: 100%;
     min-height: 38px;
     text-align: center;
     justify-content: center;
     font-size: 0.78rem;
-    padding: 6px 12px;
+    padding: 8px 6px;
+    white-space: nowrap;
   }
 
   /* --- Cerca Corse & Trip Planner Mobile --- */
