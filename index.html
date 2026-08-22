@@ -728,12 +728,44 @@
         </div>
 
         <div class="transit-map-wrapper">
-          <!-- Geolocalizzazione: traccia il percorso fino alla fermata più vicina -->
-          <div class="geo-locate-bar">
-            <button class="btn-geo-locate" id="btnLocateRoute">
-              <i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia il Percorso alla Fermata
+          <!-- Ricerca Destinazione Intelligente & Localizzazione Fermata Più Vicina Utile -->
+          <div class="map-destination-hub-bar" id="mapDestinationHubBar">
+            <div class="map-dest-input-container">
+              <div class="map-dest-input-group">
+                <i class="fa-solid fa-location-dot map-dest-field-icon"></i>
+                <input 
+                  type="text" 
+                  id="mapDestinationInput" 
+                  class="map-dest-input" 
+                  placeholder="Dove vuoi arrivare? Scegli la destinazione per trovare la fermata giusta..." 
+                  autocomplete="off"
+                  aria-label="Cerca destinazione desiderata"
+                />
+                <button type="button" class="btn-clear-dest" id="btnClearMapDest" title="Cancella destinazione" style="display: none;">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+                <button type="button" class="btn-toggle-dest-dropdown" id="btnToggleDestDropdown" title="Apri elenco destinazioni">
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+              </div>
+
+              <!-- Menu a comparsa con destinazioni disponibili per il servizio attivo -->
+              <div class="map-dest-dropdown" id="mapDestDropdown">
+                <div class="dest-dropdown-header">
+                  <span><i class="fa-solid fa-route text-primary"></i> <strong id="destDropdownTitle">Destinazioni Servite</strong></span>
+                  <span class="dest-dropdown-badge" id="destDropdownModeBadge">Pullman</span>
+                </div>
+                <div class="dest-dropdown-list" id="mapDestDropdownList">
+                  <!-- Popolato dinamicamente per tutte le modalità -->
+                </div>
+              </div>
+            </div>
+
+            <button class="btn-geo-locate" id="btnLocateRoute" title="Localizzami e trova la fermata utile per la destinazione">
+              <i class="fa-solid fa-location-crosshairs"></i> <span>Trova Fermata per Destinazione</span>
             </button>
           </div>
+
           <div class="geo-route-panel" id="geoRoutePanel"></div>
 
           <div class="map-control-panel">

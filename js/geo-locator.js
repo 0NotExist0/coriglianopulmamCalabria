@@ -1,7 +1,9 @@
 /**
- * ITALIABUS - GEOLOCALIZZAZIONE & PERCORSO ALLA FERMATA
- * Individua la posizione dell'utente, centra e zumma la mappa GPS ad alta precisione,
- * individua la fermata più vicina, sincronizza il Tabellone Live e traccia il percorso a piedi in tempo reale.
+ * ITALIABUS - SMART DESTINATION & GEOLOCATION ROUTING ENGINE
+ * 
+ * Permette all'utente di cercare o selezionare qualsiasi destinazione (Pullman, Treni, Tram, Taxi, Aerei).
+ * Invece di indicare una fermata a caso, individua matematicamente la fermata di partenza PIÙ VICINA
+ * che effettivamente serve e conduce alla destinazione desiderata, tracciando il percorso completo sulla mappa.
  *
  * Firmato 0Not_Exist0 — Not Exist Web Services
  */
@@ -10,10 +12,22 @@ class GeoLocatorEngine {
   constructor() {
     this.btn = document.getElementById("btnLocateRoute");
     this.panel = document.getElementById("geoRoutePanel");
+    
+    // Controlli Input & Dropdown Destinazione
+    this.destInput = document.getElementById("mapDestinationInput");
+    this.destDropdown = document.getElementById("mapDestDropdown");
+    this.destDropdownList = document.getElementById("mapDestDropdownList");
+    this.destDropdownTitle = document.getElementById("destDropdownTitle");
+    this.destDropdownBadge = document.getElementById("destDropdownModeBadge");
+    this.btnClearDest = document.getElementById("btnClearMapDest");
+    this.btnToggleDropdown = document.getElementById("btnToggleDestDropdown");
+
     this.map = null;
     this.geoLayer = null;
     this.userLatLng = null;
     this.nearestStop = null;
+    this.selectedDestination = null;
+    this.activeRouteInfo = null;
     this.walkSeconds = null;
     this.countdownTimer = null;
 
@@ -24,6 +38,22 @@ class GeoLocatorEngine {
     if (this.btn) {
       this.btn.addEventListener("click", () => this.locateAndRoute());
     }
+
+    this.bindDestinationControls();
+
+    // Aggiornamento reattivo al cambio modalità di trasporto
+    document.addEventListener("transportModeChanged", (e) => {
+      this.updateModeUI(e.detail?.mode);
+      if (this.selectedDestination) {
+        // Ricalcola con la nuova modalità se possibile
+        this.routeToDestination(this.selectedDestination);
+      }
+    });
+
+    // Aggiornamento reattivo al cambio regione
+    document.addEventListener("regionChanged", () => {
+      this.populateDestDropdown();
+    });
   }
 
   ensureMap() {
@@ -37,7 +67,657 @@ class GeoLocatorEngine {
     return this.map;
   }
 
-  /* ============ Avvio geolocalizzazione ============ */
+  /* ==========================================================================
+     GESTIONE INPUT & DROPDOWN DESTINAZIONI
+     ========================================================================== */
+
+  bindDestinationControls() {
+    if (!this.destInput) return;
+
+    // Focus -> apre il menu e popola le destinazioni
+    this.destInput.addEventListener("focus", () => {
+      this.populateDestDropdown(this.destInput.value.trim());
+      this.openDropdown();
+    });
+
+    // Digitazione -> filtra in tempo reale
+    this.destInput.addEventListener("input", () => {
+      const q = this.destInput.value.trim();
+      if (this.btnClearDest) {
+        this.btnClearDest.style.display = q ? "flex" : "none";
+      }
+      this.populateDestDropdown(q);
+      this.openDropdown();
+    });
+
+    // Tasto Invio -> seleziona il primo risultato filtrato
+    this.destInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const firstItem = this.destDropdownList?.querySelector(".dest-dropdown-item");
+        if (firstItem && firstItem._destData) {
+          this.selectDestination(firstItem._destData);
+        }
+      } else if (e.key === "Escape") {
+        this.closeDropdown();
+      }
+    });
+
+    // Tasto toggle dropdown
+    if (this.btnToggleDropdown) {
+      this.btnToggleDropdown.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (this.destDropdown?.classList.contains("open")) {
+          this.closeDropdown();
+        } else {
+          this.populateDestDropdown(this.destInput.value.trim());
+          this.openDropdown();
+          this.destInput.focus();
+        }
+      });
+    }
+
+    // Tasto cancella destinazione
+    if (this.btnClearDest) {
+      this.btnClearDest.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.clearDestination();
+      });
+    }
+
+    // Chiusura al click esterno
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest("#mapDestinationHubBar")) {
+        this.closeDropdown();
+      }
+    });
+
+    this.updateModeUI();
+  }
+
+  openDropdown() {
+    if (this.destDropdown) {
+      this.destDropdown.classList.add("open");
+    }
+  }
+
+  closeDropdown() {
+    if (this.destDropdown) {
+      this.destDropdown.classList.remove("open");
+    }
+  }
+
+  clearDestination() {
+    this.selectedDestination = null;
+    this.activeRouteInfo = null;
+    if (this.destInput) this.destInput.value = "";
+    if (this.btnClearDest) this.btnClearDest.style.display = "none";
+    this.closeDropdown();
+    if (this.geoLayer) this.geoLayer.clearLayers();
+    if (this.panel) this.panel.classList.remove("open");
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+  }
+
+  updateModeUI(mode = null) {
+    const currentMode = mode || (typeof getActiveMode === 'function' ? getActiveMode() : 'pullman');
+    const modeData = window.TRANSIT_DATA?.modes?.[currentMode] || { name: 'Pullman', icon: 'fa-bus' };
+
+    if (this.destDropdownBadge) {
+      this.destDropdownBadge.textContent = modeData.name || 'Pullman';
+    }
+    if (this.destDropdownTitle) {
+      this.destDropdownTitle.textContent = `Destinazioni Rete ${modeData.name || 'Trasporti'}`;
+    }
+    if (this.destInput) {
+      const PLACEHOLDERS = {
+        pullman: "Dove vuoi andare in Pullman? Es. Roma, Cosenza, Aeroporto, Ospedale...",
+        train: "Quale stazione devi raggiungere? Es. Milano Centrale, Roma Termini, Paola...",
+        tram: "Dove vuoi andare in Tram? Es. Capolinea, Piazza Duomo, Università...",
+        taxi: "Quale indirizzo o posteggio vuoi raggiungere in Taxi? Es. Centro, Stazione...",
+        flight: "Quale aeroporto o città vuoi raggiungere in Volo? Es. Roma Fiumicino, Milano..."
+      };
+      this.destInput.placeholder = PLACEHOLDERS[currentMode] || "Inserisci la tua destinazione...";
+    }
+  }
+
+  /* ==========================================================================
+     RACCOLTA ED ESTRAZIONE DESTINAZIONI PER OGNI MODALITÀ
+     ========================================================================== */
+
+  getAllDestinationsForActiveMode() {
+    const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const modeData = window.TRANSIT_DATA?.modes?.[mode] || window.TRANSIT_DATA?.modes?.pullman;
+    const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+
+    const results = [];
+    const seenKeys = new Set();
+
+    const stops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
+    const lines = (modeData?.lines && modeData.lines.length > 0) ? modeData.lines : [];
+
+    // 1. Fermate, stazioni, aeroporti registrati
+    stops.forEach(s => {
+      if (!s || !s.id) return;
+      const key = `stop_${s.id}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        let cat = 'Fermata';
+        let icon = 'fa-location-dot';
+
+        if (mode === 'flight') {
+          cat = 'Aeroporto';
+          icon = 'fa-plane-departure';
+        } else if (mode === 'train') {
+          cat = s.isMainHub ? 'Stazione AV / Principale' : 'Stazione';
+          icon = 'fa-train';
+        } else if (mode === 'tram') {
+          cat = 'Fermata Tranviaria';
+          icon = 'fa-train-tram';
+        } else if (mode === 'taxi') {
+          cat = 'Posteggio / Punto di Raccolta';
+          icon = 'fa-taxi';
+        } else {
+          cat = s.isMainHub ? 'Autostazione / Hub' : 'Fermata Pullman';
+          icon = s.isMainHub ? 'fa-bus-simple' : 'fa-location-dot';
+        }
+
+        results.push({
+          id: s.id,
+          uniqueKey: key,
+          name: s.name,
+          area: s.area || s.name.split(' - ')[0],
+          region: s.region || currentRegion,
+          localityType: s.localityType || (s.isMainHub ? 'hub' : 'fermata'),
+          lat: s.lat,
+          lng: s.lng,
+          stop: s,
+          type: 'stop',
+          isMainHub: !!s.isMainHub,
+          category: cat,
+          icon: icon
+        });
+      }
+    });
+
+    // 2. Destinazioni indicate nei nomi delle Linee / Tratte
+    lines.forEach(l => {
+      if (!l || !l.name) return;
+      const parts = l.name.split(' - ');
+      parts.forEach(p => {
+        const cleanName = p.trim().split(' (')[0];
+        if (cleanName.length >= 3) {
+          const key = `line_dest_${cleanName.toLowerCase()}`;
+          if (!seenKeys.has(key)) {
+            // Cerca se esiste una fermata associata
+            const matchStop = stops.find(s => 
+              (s.area && s.area.toLowerCase() === cleanName.toLowerCase()) ||
+              s.name.toLowerCase().includes(cleanName.toLowerCase())
+            );
+
+            if (matchStop) {
+              seenKeys.add(key);
+              results.push({
+                id: matchStop.id,
+                uniqueKey: key,
+                name: cleanName,
+                area: matchStop.area || cleanName,
+                region: matchStop.region || currentRegion,
+                localityType: 'citta',
+                lat: matchStop.lat,
+                lng: matchStop.lng,
+                stop: matchStop,
+                type: 'city',
+                isMainHub: true,
+                category: mode === 'flight' ? 'Rotta Aerea Diretta' : (mode === 'train' ? 'Destinazione Ferroviaria' : 'Destinazione Linea'),
+                icon: mode === 'flight' ? 'fa-plane' : (mode === 'train' ? 'fa-train-subway' : 'fa-route')
+              });
+            }
+          }
+        }
+      });
+    });
+
+    // Ordina: prima gli Hub/Città principali, poi in ordine alfabetico
+    return results.sort((a, b) => {
+      if (a.isMainHub && !b.isMainHub) return -1;
+      if (!a.isMainHub && b.isMainHub) return 1;
+      return a.name.localeCompare(b.name, 'it');
+    });
+  }
+
+  /* ==========================================================================
+     POPOLAMENTO DROPDOWN DESTINAZIONI
+     ========================================================================== */
+
+  populateDestDropdown(filterQuery = "") {
+    if (!this.destDropdownList) return;
+
+    const allDests = this.getAllDestinationsForActiveMode();
+    const query = filterQuery.toLowerCase().trim();
+
+    let filtered = allDests;
+    if (query) {
+      filtered = allDests.filter(d => 
+        d.name.toLowerCase().includes(query) ||
+        (d.area && d.area.toLowerCase().includes(query)) ||
+        (d.category && d.category.toLowerCase().includes(query))
+      );
+    }
+
+    if (filtered.length === 0) {
+      this.destDropdownList.innerHTML = `
+        <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+          <i class="fa-solid fa-circle-question" style="font-size: 1.5rem; margin-bottom: 6px; display: block; opacity: 0.6;"></i>
+          Nessuna destinazione trovata per "<strong>${filterQuery}</strong>".<br>
+          <small>Prova a cercare una città, stazione o hub principale.</small>
+        </div>
+      `;
+      return;
+    }
+
+    // Raggruppa per categoria
+    const groups = {};
+    filtered.forEach(item => {
+      const cat = item.category || 'Altre Destinazioni';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+
+    let html = "";
+    for (const [catName, items] of Object.entries(groups)) {
+      html += `<div class="dest-dropdown-group-title">${catName} (${items.length})</div>`;
+      items.forEach(dest => {
+        const isSel = this.selectedDestination && this.selectedDestination.id === dest.id;
+        html += `
+          <div class="dest-dropdown-item ${isSel ? 'active' : ''}" data-dest-key="${dest.uniqueKey}">
+            <div class="dest-item-main">
+              <div class="dest-item-icon"><i class="fa-solid ${dest.icon || 'fa-location-dot'}"></i></div>
+              <div class="dest-item-text">
+                <span class="dest-item-name">${dest.name}</span>
+                <span class="dest-item-meta">${dest.area || dest.region || 'Rete Nazionale'}</span>
+              </div>
+            </div>
+            <span class="dest-item-tag">${dest.isMainHub ? 'Hub Diretto' : 'Servito'}</span>
+          </div>
+        `;
+      });
+    }
+
+    this.destDropdownList.innerHTML = html;
+
+    // Associa i dati agli elementi per il click rapido
+    this.destDropdownList.querySelectorAll(".dest-dropdown-item").forEach(el => {
+      const key = el.dataset.destKey;
+      const found = filtered.find(x => x.uniqueKey === key);
+      el._destData = found;
+      el.addEventListener("click", () => {
+        if (found) this.selectDestination(found);
+      });
+    });
+  }
+
+  selectDestination(dest) {
+    if (!dest) return;
+    this.selectedDestination = dest;
+    if (this.destInput) this.destInput.value = dest.name;
+    if (this.btnClearDest) this.btnClearDest.style.display = "flex";
+    this.closeDropdown();
+
+    // Esegui il calcolo della fermata utile più vicina per raggiungere questa destinazione
+    this.routeToDestination(dest);
+  }
+
+  /* ==========================================================================
+     CALCOLO FERMATA DI PARTENZA UTILE PIÙ VICINA ALLA DESTINAZIONE
+     ========================================================================== */
+
+  findServingDepartureStop(targetDest, referenceLatLng) {
+    const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const modeData = window.TRANSIT_DATA?.modes?.[mode] || window.TRANSIT_DATA?.modes?.pullman;
+    const allStops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
+    const allLines = (modeData?.lines && modeData.lines.length > 0) ? modeData.lines : [];
+
+    if (mode === 'taxi') {
+      const bestStop = this.findNearestStop(referenceLatLng) || allStops[0];
+      return {
+        departureStop: bestStop,
+        destinationStop: targetDest.stop || { id: 'taxi_dest', name: targetDest.name, lat: targetDest.lat, lng: targetDest.lng },
+        servingLines: [{ code: 'TAXI-DIRECT', name: 'Corsa Taxi Diretta H24', color: '#10b981', frequencyMinutes: 5 }],
+        distanceToDestKm: this.haversine(referenceLatLng, [targetDest.lat, targetDest.lng]) / 1000
+      };
+    }
+
+    const targetStopId = targetDest.id || targetDest.stop?.id;
+
+    // 1. Trova tutte le linee che includono la destinazione
+    const servingLines = allLines.filter(l => {
+      const stopsArr = l.stopsIds || l.stops || [];
+      if (stopsArr.includes(targetStopId)) return true;
+      if (l.name && l.name.toLowerCase().includes(targetDest.name.toLowerCase())) return true;
+      return false;
+    });
+
+    let candidateDepartureStops = [];
+
+    if (servingLines.length > 0) {
+      const candidateStopIds = new Set();
+      servingLines.forEach(l => {
+        const stopsArr = l.stopsIds || l.stops || [];
+        stopsArr.forEach(sId => {
+          if (sId !== targetStopId) {
+            candidateStopIds.add(sId);
+          }
+        });
+      });
+
+      candidateDepartureStops = Array.from(candidateStopIds).map(id => allStops.find(s => s.id === id)).filter(Boolean);
+    }
+
+    // Fallback: se nessuna linea specifica è stata trovata, considera tutte le fermate
+    if (candidateDepartureStops.length === 0) {
+      candidateDepartureStops = allStops.filter(s => s.id !== targetStopId);
+    }
+    if (candidateDepartureStops.length === 0) {
+      candidateDepartureStops = allStops;
+    }
+
+    // 2. Tra tutte le fermate che servono la destinazione, trova la PIÙ VICINA alla posizione di riferimento
+    let bestDeparture = null;
+    let minDistance = Infinity;
+
+    candidateDepartureStops.forEach(stop => {
+      const dist = this.haversine(referenceLatLng, [stop.lat, stop.lng]);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestDeparture = stop;
+      }
+    });
+
+    if (!bestDeparture) bestDeparture = candidateDepartureStops[0] || allStops[0];
+
+    // Trova le linee che collegano la fermata di partenza alla destinazione
+    let directConnectingLines = servingLines.filter(l => {
+      const arr = l.stopsIds || l.stops || [];
+      return arr.includes(bestDeparture.id) && arr.includes(targetStopId);
+    });
+
+    if (directConnectingLines.length === 0) {
+      directConnectingLines = servingLines.length > 0 ? servingLines : (allLines.slice(0, 2));
+    }
+
+    const targetStopObj = allStops.find(s => s.id === targetStopId) || targetDest.stop || {
+      id: targetStopId,
+      name: targetDest.name,
+      lat: targetDest.lat,
+      lng: targetDest.lng
+    };
+
+    return {
+      departureStop: bestDeparture,
+      destinationStop: targetStopObj,
+      servingLines: directConnectingLines,
+      distanceToDestKm: this.haversine([bestDeparture.lat, bestDeparture.lng], [targetStopObj.lat, targetStopObj.lng]) / 1000
+    };
+  }
+
+  /* ==========================================================================
+     AVVIO ITINERARIO INTELLIGENTE VERSO LA DESTINAZIONE
+     ========================================================================== */
+
+  async routeToDestination(dest) {
+    const map = this.ensureMap();
+    if (!map) return;
+
+    // Switch alla tab mappa
+    if (window.app && typeof window.app.switchTab === 'function') {
+      window.app.switchTab('map');
+    }
+
+    // Posizione di partenza di riferimento: GPS utente oppure centro della mappa/hub regionale
+    let refLatLng = this.userLatLng;
+    if (!refLatLng) {
+      const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+      const hub = typeof getMainHubForRegion === 'function' ? getMainHubForRegion(currentRegion) : null;
+      if (hub) {
+        refLatLng = [hub.lat, hub.lng];
+      } else {
+        const c = map.getCenter();
+        refLatLng = [c.lat, c.lng];
+      }
+    }
+
+    const routeInfo = this.findServingDepartureStop(dest, refLatLng);
+    if (!routeInfo || !routeInfo.departureStop) {
+      this.showError("Nessuna fermata di partenza trovata per raggiungere questa destinazione.");
+      return;
+    }
+
+    this.activeRouteInfo = routeInfo;
+    this.nearestStop = routeInfo.departureStop;
+
+    // Sincronizza Tabellone Live con la fermata di partenza calcolata
+    if (window.liveBoard) {
+      window.liveBoard.activeStopId = routeInfo.departureStop.id;
+      if (window.liveBoard.filterHubSelect) {
+        window.liveBoard.filterHubSelect.value = routeInfo.departureStop.id;
+      }
+      window.liveBoard.generateInitialDepartures();
+      window.liveBoard.render();
+    }
+
+    // Disegna il percorso visivo sulla mappa
+    await this.drawSmartRouteOnMap(routeInfo, refLatLng);
+
+    // Renderizza il pannello con i dati del viaggio
+    this.renderSmartRoutePanel(routeInfo, refLatLng);
+  }
+
+  /* ==========================================================================
+     DISEGNO VETTORIALE SULLA MAPPA LEAFLET
+     ========================================================================== */
+
+  async drawSmartRouteOnMap(routeInfo, refLatLng) {
+    const map = this.ensureMap();
+    if (!map || !this.geoLayer) return;
+
+    this.geoLayer.clearLayers();
+
+    const dep = routeInfo.departureStop;
+    const dest = routeInfo.destinationStop;
+    const depLatLng = [dep.lat, dep.lng];
+    const destLatLng = [dest.lat, dest.lng];
+
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const isFlight = currentMode === 'flight';
+    const isTrain = currentMode === 'train';
+    const isTaxi = currentMode === 'taxi';
+
+    const primaryColor = isFlight ? '#0284c7' : (isTrain ? '#dc2626' : (isTaxi ? '#10b981' : '#0284c7'));
+
+    // 1. Marker Posizione Utente (se GPS presente)
+    if (this.userLatLng) {
+      const userIcon = L.divIcon({
+        html: `<div class="user-gps-pulse-pin"><span class="gps-core-dot"></span></div>`,
+        className: "user-gps-pin-wrapper",
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+      L.marker(this.userLatLng, { icon: userIcon, zIndexOffset: 2000 })
+        .bindPopup(`<strong>📍 La tua Posizione</strong><br><small>GPS rilevato</small>`)
+        .addTo(this.geoLayer);
+
+      // Percorso a piedi fino alla fermata di partenza
+      const walkMeters = this.haversine(this.userLatLng, depLatLng);
+      let walkCoords = [this.userLatLng, depLatLng];
+      if (walkMeters < 50000) {
+        try {
+          const r = await this.fetchWalkingRoute(this.userLatLng, depLatLng);
+          if (r && r.coords && r.coords.length > 1) {
+            walkCoords = r.coords;
+            this.walkSeconds = r.duration;
+          }
+        } catch (e) {
+          console.warn("Walking route fetch error:", e);
+        }
+      }
+      if (!this.walkSeconds) this.walkSeconds = Math.round(walkMeters / 1.35);
+
+      L.polyline(walkCoords, {
+        color: "#64748b",
+        weight: 5,
+        opacity: 0.85,
+        dashArray: "6, 8"
+      }).bindTooltip("🚶 Tragitto a piedi verso la fermata di partenza", { sticky: true }).addTo(this.geoLayer);
+    } else {
+      this.walkSeconds = Math.round(this.haversine(refLatLng, depLatLng) / 1.35);
+    }
+
+    // 2. Marker Fermata di Partenza Consigliata
+    const depIcon = L.divIcon({
+      html: `<div class="serving-departure-pin" style="background:#16a34a; color:#fff; border:2px solid #ffffff; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(22,163,74,0.6); font-size:1.1rem;"><i class="fa-solid fa-person-walking-arrow-right"></i></div>`,
+      className: "serving-dep-pin-wrapper",
+      iconSize: [38, 38],
+      iconAnchor: [19, 38]
+    });
+
+    L.marker(depLatLng, { icon: depIcon, zIndexOffset: 1500 })
+      .bindPopup(`
+        <div style="min-width: 220px; padding: 4px;">
+          <span style="background:#16a34a; color:#fff; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.75rem;">PARTENZA CONSIGLIATA</span>
+          <h4 style="margin:6px 0 2px 0; font-size:1.05rem;">${dep.name}</h4>
+          <p style="margin:0 0 6px 0; font-size:0.8rem; color:#64748b;">${dep.address || dep.area || ''}</p>
+          <small style="color:#0284c7; font-weight:700;">Da qui partono i mezzi per ${dest.name}</small>
+        </div>
+      `)
+      .addTo(this.geoLayer)
+      .openPopup();
+
+    // 3. Marker Destinazione Finale
+    const destIcon = L.divIcon({
+      html: `<div class="target-dest-checkered-pin" style="background:${primaryColor}; color:#ffffff; border:2px solid #ffffff; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(2,132,199,0.6); font-size:1.15rem;"><i class="fa-solid fa-flag-checkered"></i></div>`,
+      className: "target-dest-pin-wrapper",
+      iconSize: [38, 38],
+      iconAnchor: [19, 38]
+    });
+
+    L.marker(destLatLng, { icon: destIcon, zIndexOffset: 1600 })
+      .bindPopup(`
+        <div style="min-width: 220px; padding: 4px;">
+          <span style="background:${primaryColor}; color:#fff; padding:2px 8px; border-radius:4px; font-weight:800; font-size:0.75rem;">DESTINAZIONE</span>
+          <h4 style="margin:6px 0 2px 0; font-size:1.05rem;">${dest.name}</h4>
+          <p style="margin:0; font-size:0.8rem; color:#64748b;">Arrivo previsto alla destinazione selezionata</p>
+        </div>
+      `)
+      .addTo(this.geoLayer);
+
+    // 4. Polilinea di connessione Diretta Partenza -> Destinazione
+    const transitCoords = [depLatLng, destLatLng];
+    L.polyline(transitCoords, {
+      color: primaryColor,
+      weight: 6,
+      opacity: 0.9,
+      dashArray: isFlight ? "8, 12" : (isTrain ? "10, 6" : null)
+    }).bindTooltip(`<strong>Tratta Diretta</strong>: ${dep.name} &rarr; ${dest.name}`, { sticky: true }).addTo(this.geoLayer);
+
+    // Inquadra la mappa sull'intero itinerario
+    map.invalidateSize();
+    const bounds = L.latLngBounds([depLatLng, destLatLng]);
+    if (this.userLatLng) bounds.extend(this.userLatLng);
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+  }
+
+  /* ==========================================================================
+     RENDERING DEL PANNELLO INFORMATIVO SMART ROUTE
+     ========================================================================== */
+
+  renderSmartRoutePanel(routeInfo, refLatLng) {
+    if (!this.panel) return;
+
+    const dep = routeInfo.departureStop;
+    const dest = routeInfo.destinationStop;
+    const lines = routeInfo.servingLines || [];
+    const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const isTrain = mode === 'train';
+    const isFlight = mode === 'flight';
+    const isTaxi = mode === 'taxi';
+
+    const distFromUserMeters = this.haversine(refLatLng, [dep.lat, dep.lng]);
+    const distTxt = distFromUserMeters >= 1000 
+      ? (distFromUserMeters / 1000).toFixed(2) + " km" 
+      : Math.round(distFromUserMeters) + " m";
+    const walkMin = Math.max(1, Math.round(distFromUserMeters / 80));
+
+    const lineBadgesHtml = lines.slice(0, 3).map(l => `
+      <span style="background:${l.color || '#0284c7'}; color:#fff; padding:3px 9px; border-radius:6px; font-weight:800; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px;">
+        <i class="fa-solid ${isFlight ? 'fa-plane' : (isTrain ? 'fa-train' : 'fa-bus')}"></i> ${l.code || l.name}
+      </span>
+    `).join(" ");
+
+    this.panel.innerHTML = `
+      <div class="geo-route-head" style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+        <div>
+          <span style="background:rgba(22,163,74,0.15); color:#16a34a; border:1px solid #16a34a; font-weight:800; font-size:0.75rem; padding:3px 8px; border-radius:6px;">
+            <i class="fa-solid fa-circle-check"></i> FERMATA CORRETTA PER LA TUA DESTINAZIONE
+          </span>
+          <h3 style="margin:6px 0 2px 0; font-size:1.2rem; color:var(--text-primary);">
+            Per arrivare a <strong>${dest.name}</strong>
+          </h3>
+          <small class="text-muted">Itinerario calcolato in tempo reale con orari di partenza e linee dirette</small>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()">
+          <i class="fa-solid fa-table-list"></i> Tabellone Orari Completo
+        </button>
+      </div>
+
+      <div class="geo-stats-grid">
+        <div class="geo-stat-card" style="border-left:4px solid #16a34a;">
+          <span class="geo-stat-label"><i class="fa-solid fa-person-walking-arrow-right text-success"></i> Fermata di Partenza Consigliata</span>
+          <strong class="geo-stat-val text-success">${dep.name}</strong>
+          <small class="text-muted">${dep.address || dep.area || 'Punto di salita utile'}</small>
+        </div>
+        <div class="geo-stat-card">
+          <span class="geo-stat-label"><i class="fa-solid fa-flag-checkered text-primary"></i> Destinazione Selezionata</span>
+          <strong class="geo-stat-val text-primary">${dest.name}</strong>
+          <small class="text-muted">Distanza in linea d'aria: ~${Math.round(routeInfo.distanceToDestKm || 1)} km</small>
+        </div>
+        <div class="geo-stat-card">
+          <span class="geo-stat-label"><i class="fa-solid fa-person-walking"></i> Distanza da Te alla Fermata</span>
+          <strong class="geo-stat-val">${distTxt}</strong>
+          <small class="text-muted">~${walkMin} min a piedi</small>
+        </div>
+        <div class="geo-stat-card">
+          <span class="geo-stat-label"><i class="fa-solid fa-route"></i> Linee / Mezzi da Prendere</span>
+          <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">${lineBadgesHtml}</div>
+          <small class="text-muted" style="margin-top:4px;">${lines[0]?.name || 'Collegamento Diretto'}</small>
+        </div>
+      </div>
+
+      <div class="geo-departures-wrapper" style="margin-top:14px;">
+        <div class="geo-departures-title" style="font-weight:800; font-size:0.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${dep.name}</strong> verso <strong>${dest.name}</strong>
+        </div>
+        <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
+        <div id="geoVerdict" class="geo-verdict-box" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="geo-footer-actions" style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()" style="flex:1;">
+          <i class="fa-solid fa-ticket"></i> Visualizza Tabellone Partenze di ${dep.name}
+        </button>
+        <button class="btn btn-outline" onclick="window.geoLocator.locateAndRoute()">
+          <i class="fa-solid fa-location-crosshairs"></i> Rilocalizza GPS
+        </button>
+      </div>
+    `;
+
+    this.panel.classList.add("open");
+    this.startCountdown();
+  }
+
+  /* ==========================================================================
+     GEOLOCALIZZAZIONE NATIVA & TROVA FERMATA
+     ========================================================================== */
+
   locateAndRoute() {
     if (!navigator.geolocation) {
       this.showError("Geolocalizzazione non supportata da questo dispositivo o browser.");
@@ -46,7 +726,6 @@ class GeoLocatorEngine {
 
     this.setLoading(true);
 
-    // Switch to Map tab first if not already visible
     if (window.app && typeof window.app.switchTab === 'function') {
       window.app.switchTab('map');
     }
@@ -63,13 +742,13 @@ class GeoLocatorEngine {
     this.btn.disabled = on;
     this.btn.innerHTML = on
       ? `<i class="fa-solid fa-spinner fa-spin"></i> Individuo la tua posizione GPS...`
-      : `<i class="fa-solid fa-location-crosshairs"></i> Localizzami & Traccia il Percorso alla Fermata`;
+      : `<i class="fa-solid fa-location-crosshairs"></i> <span>Trova Fermata per Destinazione</span>`;
   }
 
   onGeoError(err) {
     this.setLoading(false);
     let msg = "Impossibile ottenere la posizione GPS.";
-    if (err.code === 1) msg = "Permesso di geolocalizzazione negato. Abilitalo nelle impostazioni del browser/dispositivo per individuare le fermate.";
+    if (err.code === 1) msg = "Permesso di geolocalizzazione negato. Abilitalo nelle impostazioni per trovare la fermata più vicina.";
     else if (err.code === 2) msg = "Posizione GPS non disponibile. Assicurati che la localizzazione sia attiva e riprova.";
     else if (err.code === 3) msg = "Tempo scaduto nel recupero del segnale GPS. Riprova all'aperto.";
     this.showError(msg);
@@ -78,219 +757,29 @@ class GeoLocatorEngine {
   async onPosition(pos) {
     this.setLoading(false);
     const map = this.ensureMap();
-    if (!map) {
-      this.showError("Mappa in fase di caricamento. Riprova tra un istante.");
-      return;
-    }
+    if (!map) return;
 
     this.userLatLng = [pos.coords.latitude, pos.coords.longitude];
-    const accuracy = pos.coords.accuracy || 25;
 
-    // 1. Zoom immediato e fluido sulla posizione dell'utente (Livello 16)
-    map.invalidateSize();
-    map.flyTo(this.userLatLng, 16, { animate: true, duration: 1.5 });
-
-    // 2. Pulisci layer precedente
-    this.geoLayer.clearLayers();
-
-    // 3. Cerchio di precisione GPS
-    L.circle(this.userLatLng, {
-      radius: Math.max(accuracy, 20),
-      color: "#0284c7",
-      fillColor: "#38bdf8",
-      fillOpacity: 0.18,
-      weight: 1.5,
-      dashArray: "4, 4"
-    }).addTo(this.geoLayer);
-
-    // 4. Marker pulsante "Tu sei qui"
-    const userIcon = L.divIcon({
-      html: `<div class="user-gps-pulse-pin"><span class="gps-core-dot"></span></div>`,
-      className: "user-gps-pin-wrapper",
-      iconSize: [28, 28],
-      iconAnchor: [14, 14]
-    });
-
-    const userMarker = L.marker(this.userLatLng, { icon: userIcon, zIndexOffset: 2000 })
-      .bindPopup(`
-        <div class="user-location-popup">
-          <h4><i class="fa-solid fa-location-crosshairs text-primary"></i> La tua Posizione</h4>
-          <p>Precisione segnale GPS: ±${Math.round(accuracy)} metri</p>
-          <small>${this.userLatLng[0].toFixed(5)}, ${this.userLatLng[1].toFixed(5)}</small>
-        </div>
-      `)
-      .addTo(this.geoLayer);
-
-    userMarker.openPopup();
-
-    // 5. Cerca la fermata o tassista più vicino
-    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
-    const isTaxi = currentMode === 'taxi';
-
-    this.nearestStop = this.findNearestStop(this.userLatLng);
-
-    if (isTaxi) {
-      const activeRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
-      const activeCity = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_city", "all") : "all");
-      const discovery = (typeof window.findTaxiNearCityOrLocation === 'function')
-        ? window.findTaxiNearCityOrLocation(activeCity !== 'all' ? activeCity : '', activeRegion, { lat: this.userLatLng[0], lng: this.userLatLng[1] })
-        : null;
-
-      if (discovery && discovery.businesses && discovery.businesses.length > 0) {
-        this.nearestTaxiDriver = discovery.businesses[0];
-      } else {
-        this.nearestTaxiDriver = {
-          name: "Radiotaxi Locale Servizio H24",
-          phone: "+39063570",
-          phoneDisplay: "06 3570",
-          address: "Posteggio Taxi Principale",
-          rating: "4.8",
-          reviewsCount: 35,
-          category: "Servizio taxi & NCC"
-        };
-      }
+    if (this.selectedDestination) {
+      // Se c'è già una destinazione scelta, calcola direttamente la fermata giusta
+      await this.routeToDestination(this.selectedDestination);
     } else {
-      this.nearestTaxiDriver = null;
-    }
-
-    if (!this.nearestStop) {
-      this.showError("Posizione individuata. Nessun punto presente nel database.");
-      return;
-    }
-
-    // Auto-aggiorna regione attiva se diverso
-    if (this.nearestStop.region && window.app && window.app.currentRegion !== this.nearestStop.region) {
-      const regSelect = document.getElementById("globalRegionSelect");
-      if (regSelect) {
-        regSelect.value = this.nearestStop.region;
-        regSelect.dispatchEvent(new Event("change"));
+      // Se non è ancora stata scelta una destinazione, trova la fermata più vicina generica
+      const defaultStop = this.findNearestStop(this.userLatLng);
+      if (defaultStop) {
+        this.routeToDestination({
+          id: defaultStop.id,
+          name: defaultStop.name,
+          lat: defaultStop.lat,
+          lng: defaultStop.lng,
+          stop: defaultStop,
+          category: 'Fermata più vicina'
+        });
       }
     }
-
-    // SINCRONIZZA AUTOMATICAMENTE IL TABELLONE LIVE
-    if (typeof safeStorageSet === 'function') {
-      safeStorageSet("italiabus_stop", this.nearestStop.id);
-      if (this.nearestStop.region) safeStorageSet("italiabus_region", this.nearestStop.region);
-    }
-    if (window.liveBoard) {
-      window.liveBoard.activeStopId = this.nearestStop.id;
-      window.liveBoard.gpsNearestInfo = {
-        stop: this.nearestStop,
-        driver: this.nearestTaxiDriver,
-        distanceMeters: this.haversine(this.userLatLng, [this.nearestStop.lat, this.nearestStop.lng]),
-        walkTimeMin: Math.max(1, Math.round(this.haversine(this.userLatLng, [this.nearestStop.lat, this.nearestStop.lng]) / 80)),
-        timestamp: new Date()
-      };
-      window.liveBoard.populateStopSelect();
-      if (window.liveBoard.filterHubSelect) window.liveBoard.filterHubSelect.value = this.nearestStop.id;
-      window.liveBoard.generateInitialDepartures();
-      window.liveBoard.render();
-    }
-
-    const stopLatLng = [this.nearestStop.lat, this.nearestStop.lng];
-    const directDistanceMeters = this.haversine(this.userLatLng, stopLatLng);
-
-    // 6. Routing (OSRM pubblico o calcolo vettoriale)
-    let routeCoords = null;
-    let routeMeters = directDistanceMeters;
-    let routeSeconds = Math.round(directDistanceMeters / 1.35); // ~4.9 km/h a piedi
-
-    try {
-      if (directDistanceMeters < 50000) { // entro 50km
-        const r = await this.fetchWalkingRoute(this.userLatLng, stopLatLng);
-        if (r && r.coords && r.coords.length > 1) {
-          routeCoords = r.coords;
-          routeMeters = r.distance;
-          routeSeconds = r.duration;
-        }
-      }
-    } catch (e) {
-      console.warn("OSRM walking route error, using direct vector:", e);
-    }
-
-    if (!routeCoords) {
-      routeCoords = [this.userLatLng, stopLatLng];
-    }
-
-    this.walkSeconds = routeSeconds;
-
-    // Disegna la polilinea pedonale tratteggiata
-    L.polyline(routeCoords, {
-      color: isTaxi ? "#f59e0b" : "#0284c7",
-      weight: 6,
-      opacity: 0.9,
-      lineJoin: "round",
-      dashArray: "6, 10"
-    }).addTo(this.geoLayer);
-
-    // Evidenzia destinazione o tassista più vicino
-    const destIcon = isTaxi ? L.divIcon({
-      html: `<div class="target-nearest-taxi-pin" style="background:#f59e0b; color:#0f172a; border:2px solid #ffffff; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 14px rgba(245,158,11,0.6); font-size:1.15rem;"><i class="fa-solid fa-taxi"></i></div>`,
-      className: "target-taxi-pin-wrapper",
-      iconSize: [38, 38],
-      iconAnchor: [19, 38]
-    }) : L.divIcon({
-      html: `<div class="target-nearest-stop-pin"><i class="fa-solid fa-flag-checkered"></i></div>`,
-      className: "target-stop-pin-wrapper",
-      iconSize: [32, 32],
-      iconAnchor: [16, 32]
-    });
-
-    const destPopupHtml = isTaxi && this.nearestTaxiDriver ? `
-      <div class="target-taxi-popup" style="min-width: 250px; padding: 4px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px;">
-          <span style="background:#f59e0b; color:#0f172a; padding:3px 8px; border-radius:6px; font-weight:800; font-size:0.75rem;"><i class="fa-solid fa-taxi"></i> Tassista Più Vicino</span>
-          <span style="font-weight:700; color:#fbbf24; font-size:0.85rem;">★ ${this.nearestTaxiDriver.rating || '5.0'}</span>
-        </div>
-        <h4 style="margin:0 0 4px 0; font-size:1.15rem; color:#fff;">${this.nearestTaxiDriver.name}</h4>
-        <p style="margin:0 0 8px 0; font-size:0.8rem; color:#cbd5e1;"><i class="fa-solid fa-map-pin text-warning"></i> ${this.nearestTaxiDriver.address}</p>
-        <div style="background:#0f172a; border:1px solid rgba(255,255,255,0.1); padding:6px 10px; border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8;">
-          <span>Distanza: <strong style="color:#fff;">${routeMeters >= 1000 ? (routeMeters / 1000).toFixed(1) + ' km' : Math.round(routeMeters) + ' m'}</strong></span>
-          <span>Arrivo taxi: <strong style="color:#4ade80;">~${Math.max(1, Math.round(routeSeconds / 160))} min</strong></span>
-        </div>
-        <div style="display:flex; flex-direction:column; gap:6px;">
-          <a href="tel:${this.nearestTaxiDriver.phone}" class="btn btn-sm btn-success w-100" style="background:#16a34a; color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; padding:8px; border-radius:6px;">
-            <i class="fa-solid fa-phone-volume"></i> Chiama Tassista: ${this.nearestTaxiDriver.phoneDisplay}
-          </a>
-          <a href="https://wa.me/${(this.nearestTaxiDriver.whatsapp || this.nearestTaxiDriver.phone).replace(/[^0-9]/g, '')}?text=Salve,%20ho%20bisogno%20di%20un%20taxi%20alla%20mia%20posizione%20GPS" target="_blank" class="btn btn-sm btn-success w-100" style="background:#25d366; color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; text-decoration:none; padding:7px; border-radius:6px;">
-            <i class="fa-brands fa-whatsapp"></i> Invia Posizione WhatsApp
-          </a>
-        </div>
-      </div>
-    ` : `
-      <div class="target-stop-popup">
-        <h4><i class="fa-solid fa-bus text-primary"></i> ${this.nearestStop.name}</h4>
-        <p>${this.nearestStop.address || ''}</p>
-        <div class="walk-meta-badge">
-          <span><i class="fa-solid fa-person-walking"></i> ${routeMeters >= 1000 ? (routeMeters / 1000).toFixed(1) + ' km' : Math.round(routeMeters) + ' m'}</span>
-          <span><i class="fa-solid fa-clock"></i> ~${Math.max(1, Math.round(routeSeconds / 60))} min</span>
-        </div>
-        <div style="margin-top: 8px;">
-          <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()" style="width:100%; padding:4px 8px; font-size:0.75rem;">
-            <i class="fa-solid fa-table-list"></i> Controlla Orari Tabellone
-          </button>
-        </div>
-      </div>
-    `;
-
-    L.marker(stopLatLng, { icon: destIcon, zIndexOffset: 1500 })
-      .bindPopup(destPopupHtml)
-      .addTo(this.geoLayer);
-
-    // Se la fermata è a meno di 15km, inquadra entrambi
-    if (directDistanceMeters < 15000) {
-      setTimeout(() => {
-        map.invalidateSize();
-        map.fitBounds(L.latLngBounds(routeCoords), { padding: [80, 80], maxZoom: 16 });
-      }, 500);
-    }
-
-    // 7. Render pannello informazioni e partenze
-    this.renderPanel(routeMeters, routeSeconds);
-    this.startCountdown();
   }
 
-  /* ============ Calcoli geografici ============ */
   haversine(a, b) {
     const R = 6371000;
     const toRad = (d) => d * Math.PI / 180;
@@ -304,20 +793,19 @@ class GeoLocatorEngine {
 
   findNearestStop(latlng) {
     let best = null, bestD = Infinity;
-    const stops = typeof getStopsByRegion === 'function' ? getStopsByRegion('all') : [];
+    const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const modeData = window.TRANSIT_DATA?.modes?.[mode] || window.TRANSIT_DATA?.modes?.pullman;
+    const stops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
     if (!stops || stops.length === 0) return null;
 
     for (let i = 0; i < stops.length; i++) {
       const stop = stops[i];
-      const sLat = stop.lat;
-      const sLng = stop.lng;
-      const d = this.haversine(latlng, [sLat, sLng]);
+      const d = this.haversine(latlng, [stop.lat, stop.lng]);
       if (d < bestD) {
         bestD = d;
         best = stop;
       }
     }
-    if (best) best._distance = bestD;
     return best;
   }
 
@@ -340,7 +828,10 @@ class GeoLocatorEngine {
     }
   }
 
-  /* ============ Prossime partenze con destinazioni reali ============ */
+  /* ==========================================================================
+     PROSSIME PARTENZE CON DESTINAZIONI REALI E COUNTDOWN
+     ========================================================================== */
+
   linesServingStop(stopId) {
     if (typeof getLinesByStop === 'function') {
       const lines = getLinesByStop(stopId);
@@ -352,39 +843,34 @@ class GeoLocatorEngine {
 
   getUpcomingDepartures(stopId, now, limit = 4) {
     const lines = this.linesServingStop(stopId);
-    const currentRegion = this.nearestStop?.region || 'calabria';
+    const destName = this.selectedDestination?.name || this.nearestStop?.area || 'Capolinea';
 
-    // Se non ci sono linee specifiche, genera da quelle regionali
     if (!lines || lines.length === 0) {
       return [{
-        line: { code: 'L-DIRECT', name: 'Autolinea Diretta Regionale', color: '#0284c7', frequencyMinutes: 20 },
-        destination: this.nearestStop?.area || 'Capolinea Centrale',
-        time: new Date(now.getTime() + 8 * 60 * 1000)
+        line: { code: 'DIRECT', name: 'Corsa Diretta', color: '#0284c7', frequencyMinutes: 15 },
+        destination: destName,
+        time: new Date(now.getTime() + 6 * 60 * 1000)
       }];
     }
 
     const list = lines.slice(0, 6).map((line, idx) => {
       const freq = line.frequencyMinutes || 20;
-      const offsetMin = (idx * 6 + 3) % 25;
+      const offsetMin = (idx * 5 + 3) % 25;
       
-      // Estrai destinazione reale
-      let destination = "Capolinea Centrale";
+      let targetDest = destName;
       if (line.name && line.name.includes(" - ")) {
-        destination = line.name.split(" - ").pop().split(" (")[0];
-      } else if (line.stopsIds && line.stopsIds.length > 0) {
-        const lastStop = typeof getStopById === 'function' ? getStopById(line.stopsIds[line.stopsIds.length - 1]) : null;
-        if (lastStop) destination = lastStop.name.split(' - ')[0];
+        targetDest = line.name.split(" - ").pop().split(" (")[0];
       }
 
       return {
         line: {
           id: line.id,
           code: line.code || line.shortName || `L-${idx + 1}`,
-          name: line.name || 'Autolinea Trasporto Pubblico',
+          name: line.name || 'Servizio di Trasporto',
           color: line.color || '#0284c7',
           frequencyMinutes: freq
         },
-        destination: destination,
+        destination: targetDest,
         time: new Date(now.getTime() + (offsetMin + 2) * 60 * 1000)
       };
     });
@@ -393,7 +879,6 @@ class GeoLocatorEngine {
     return list.slice(0, limit);
   }
 
-  /* ============ Navigazione rapida al Tabellone Live ============ */
   goToLiveBoardTimetable(lineCode = null) {
     if (window.liveBoard && this.nearestStop) {
       window.liveBoard.switchToStop(this.nearestStop.id);
@@ -412,137 +897,6 @@ class GeoLocatorEngine {
     }
   }
 
-  /* ============ Rendering pannello ============ */
-  renderPanel(meters, seconds) {
-    if (!this.panel) return;
-    const distTxt = meters >= 1000
-      ? (meters / 1000).toFixed(2) + " km"
-      : Math.round(meters) + " m";
-    const walkMin = Math.max(1, Math.round(seconds / 60));
-    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
-    const isTrain = currentMode === 'train';
-    const isTaxi = currentMode === 'taxi';
-    const isTram = currentMode === 'tram';
-
-    let headerTitle = 'Percorso alla Fermata Più Vicina';
-    let headerSub = 'Tracciato pedonale con stima tempi di arrivo e countdown live';
-    let stopLabel = 'Fermata Rilevata';
-    let iconHeader = 'fa-route';
-
-    if (isTrain) {
-      headerTitle = 'Percorso alla Stazione Ferroviaria Più Vicina';
-      headerSub = 'Tracciato pedonale verso la stazione con orari ViaggiaTreno e countdown';
-      stopLabel = 'Stazione Rilevata';
-      iconHeader = 'fa-train';
-    } else if (isTaxi) {
-      headerTitle = 'Tassista Più Vicino Rilevato dal GPS';
-      headerSub = 'Ditta e autista locale pronti per raggiungerti immediatamente alla tua posizione';
-      stopLabel = 'Tassista / Ditta Locale';
-      iconHeader = 'fa-taxi';
-    } else if (isTram) {
-      headerTitle = 'Percorso alla Fermata Tram Più Vicina';
-      headerSub = 'Tracciato pedonale verso la banchina della rete tranviaria';
-      stopLabel = 'Fermata Tram Rilevata';
-      iconHeader = 'fa-train-tram';
-    }
-
-    const driverObj = this.nearestTaxiDriver || {
-      name: this.nearestStop.radiotaxiName || "Servizio Taxi & NCC Locale",
-      phone: this.nearestStop.phone || "+39063570",
-      phoneDisplay: this.nearestStop.phoneDisplay || "06 3570",
-      whatsapp: this.nearestStop.whatsapp || "+393471234567",
-      address: this.nearestStop.address || this.nearestStop.area,
-      rating: "5.0",
-      reviewsCount: 30
-    };
-
-    this.panel.innerHTML = `
-      <div class="geo-route-head">
-        <div>
-          <h3 style="margin:0; font-size:1.15rem; color:var(--brand-primary);">
-            <i class="fa-solid ${iconHeader}"></i> ${headerTitle}
-          </h3>
-          <small class="text-muted">${headerSub}</small>
-        </div>
-        <div>
-          <button class="btn btn-sm btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()">
-            <i class="fa-solid fa-table-list"></i> ${isTaxi ? 'Tutti i Taxi in Zona' : 'Controlla Orari Tabellone'}
-          </button>
-        </div>
-      </div>
-
-      <div class="geo-stats-grid">
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid ${iconHeader}"></i> ${stopLabel}</span>
-          <strong class="geo-stat-val">${isTaxi ? driverObj.name : this.nearestStop.name}</strong>
-          <small class="text-muted">${isTaxi ? (driverObj.address + ' &bull; ★ ' + driverObj.rating) : (this.nearestStop.address || this.nearestStop.area)}</small>
-        </div>
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-location-arrow"></i> Distanza</span>
-          <strong class="geo-stat-val text-primary">${distTxt}</strong>
-          <small class="text-muted">Dalla tua posizione GPS</small>
-        </div>
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid ${isTaxi ? 'fa-car-side' : 'fa-clock'}"></i> ${isTaxi ? 'Tempo Arrivo Taxi' : 'Tempo a Piedi'}</span>
-          <strong class="geo-stat-val text-success">~${isTaxi ? Math.max(1, Math.round(seconds / 160)) : walkMin} min</strong>
-          <small class="text-muted">${isTaxi ? 'In arrivo alla tua via' : 'Passo normale (4.9 km/h)'}</small>
-        </div>
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-hourglass-half"></i> ${isTaxi ? 'Disponibilità' : 'Arrivo Previsto'}</span>
-          <strong class="geo-stat-val ${isTaxi ? 'text-success' : ''}" id="geoEtaArrival">${isTaxi ? 'Attivo H24' : '--:--'}</strong>
-          <small class="text-muted" id="geoEtaStatus">${isTaxi ? 'Chiamata prioritaria' : 'Calcolo in corso...'}</small>
-        </div>
-      </div>
-
-      ${isTaxi ? `
-        <div class="taxi-call-geo-box" style="background:#0f172a; border:2px solid #f59e0b; border-radius:14px; padding:18px; margin:16px 0; color:#fff; box-shadow:0 8px 24px rgba(245,158,11,0.15);">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-            <div>
-              <div style="font-size:0.75rem; font-weight:800; color:#f59e0b; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;"><i class="fa-solid fa-taxi"></i> Tassista Pronto a Raggiungerti</div>
-              <strong style="font-size:1.2rem; color:#ffffff;">${driverObj.name}</strong>
-              <div style="font-size:0.85rem; color:#cbd5e1; margin-top:2px;">
-                <i class="fa-solid fa-map-pin text-warning"></i> ${driverObj.address} &bull; <span style="color:#fbbf24; font-weight:700;">★ ${driverObj.rating} (${driverObj.reviewsCount || '30'} recensioni)</span>
-              </div>
-            </div>
-            <span class="live-sat-chip" style="background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid #16a34a; font-weight:700; padding:5px 12px; border-radius:8px;"><i class="fa-solid fa-phone"></i> Chiamata Diretta</span>
-          </div>
-
-          <div style="background:rgba(255,255,255,0.05); padding:10px 14px; border-radius:10px; margin-bottom:14px; display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; font-size:0.85rem;">
-            <div>Distanza stimata: <strong style="color:#fff; display:block; font-size:1.05rem;">${distTxt}</strong></div>
-            <div>Arrivo previsto: <strong style="color:#4ade80; display:block; font-size:1.05rem;">~${Math.max(1, Math.round(seconds / 160))} min</strong></div>
-            <div>Tariffa stimata: <strong style="color:#f59e0b; display:block; font-size:1.05rem;">A tassametro</strong></div>
-          </div>
-
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <a href="tel:${driverObj.phone}" class="btn btn-success" style="flex:1; min-width:200px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:800; font-size:1rem; padding:12px 18px; border-radius:10px; text-decoration:none; color:#fff; background:#16a34a; box-shadow:0 4px 14px rgba(22,163,74,0.4);">
-              <i class="fa-solid fa-phone-volume"></i> Chiama Tassista: ${driverObj.phoneDisplay}
-            </a>
-            <a href="https://wa.me/${(driverObj.whatsapp || driverObj.phone).replace(/[^0-9]/g, '')}?text=Salve,%20ho%20bisogno%20di%20un%20taxi%20subito%20alla%20mia%20posizione%20GPS" target="_blank" class="btn btn-success" style="flex:1; min-width:200px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-weight:700; font-size:0.95rem; padding:12px 18px; border-radius:10px; text-decoration:none; color:#fff; background:#25d366;">
-              <i class="fa-brands fa-whatsapp"></i> Invia Posizione WhatsApp
-            </a>
-          </div>
-        </div>
-      ` : `
-        <div class="geo-departures-wrapper">
-          <div class="geo-departures-title"><i class="fa-solid ${isTrain ? 'fa-train-subway' : (isTram ? 'fa-train-tram' : 'fa-bus')}"></i> ${isTrain ? 'Prossimi treni in partenza da questa stazione' : (isTram ? 'Prossimi tram alla banchina' : 'Prossime corse in partenza da questa fermata')}</div>
-          <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
-          <div id="geoVerdict" class="geo-verdict-box"></div>
-        </div>
-      `}
-
-      <div class="geo-footer-actions" style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
-        <button class="btn btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()" style="flex: 1;">
-          <i class="fa-solid fa-table-list"></i> ${isTaxi ? 'Controlla Posteggio su Tabellone' : 'Controlla Tutti gli Orari su Tabellone Live'}
-        </button>
-        <button class="btn btn-outline" onclick="window.geoLocator.locateAndRoute()">
-          <i class="fa-solid fa-rotate"></i> Aggiorna GPS
-        </button>
-      </div>
-    `;
-
-    this.panel.classList.add("open");
-  }
-
   startCountdown() {
     if (this.countdownTimer) clearInterval(this.countdownTimer);
     const update = () => this.updateCountdown();
@@ -554,8 +908,6 @@ class GeoLocatorEngine {
     if (!this.nearestStop) return;
     const listEl = document.getElementById("geoDeparturesList");
     const verdictEl = document.getElementById("geoVerdict");
-    const arrivalEl = document.getElementById("geoEtaArrival");
-    const etaStatusEl = document.getElementById("geoEtaStatus");
 
     if (!listEl) {
       clearInterval(this.countdownTimer);
@@ -563,16 +915,7 @@ class GeoLocatorEngine {
     }
 
     const now = new Date();
-    const walkMin = this.walkSeconds / 60;
-
-    if (arrivalEl) {
-      const arr = new Date(now.getTime() + this.walkSeconds * 1000);
-      arrivalEl.textContent = this.fmt(arr);
-    }
-    if (etaStatusEl) {
-      etaStatusEl.textContent = "Orario calcolato al secondo";
-    }
-
+    const walkMin = (this.walkSeconds || 180) / 60;
     const deps = this.getUpcomingDepartures(this.nearestStop.id, now, 4);
 
     listEl.innerHTML = deps.map(d => {
@@ -581,22 +924,16 @@ class GeoLocatorEngine {
       const ss = String(secLeft % 60).padStart(2, "0");
       const countTxt = mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
       return `
-        <div class="geo-dep-row-card">
-          <div class="geo-line-badge" style="background:${d.line.color || '#0284c7'}">${d.line.code}</div>
-          <div class="geo-dep-info">
-            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-              <strong>Per ${d.destination}</strong>
+        <div class="geo-dep-row-card" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; background:var(--bg-subtle, #f8fafc); border-radius:8px; border:1px solid var(--border-color, #e2e8f0); margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="geo-line-badge" style="background:${d.line.color || '#0284c7'}; color:#fff; padding:4px 8px; border-radius:6px; font-weight:800; font-size:0.8rem;">${d.line.code}</div>
+            <div>
+              <strong style="display:block; font-size:0.9rem;">Per ${d.destination}</strong>
+              <small class="text-muted">${d.line.name} &bull; Partenza <strong>${this.fmt(d.time)}</strong></small>
             </div>
-            <small class="text-muted">${d.line.name} &bull; Prevista alle <strong>${this.fmt(d.time)}</strong> &bull; ogni ${d.line.frequencyMinutes} min</small>
           </div>
-          <div class="geo-dep-actions-box" style="display: flex; align-items: center; gap: 8px;">
-            <div class="geo-dep-countdown">
-              <span class="countdown-badge">${countTxt}</span>
-              <small>alla partenza</small>
-            </div>
-            <button class="btn btn-sm btn-outline btn-timetable-quick" onclick="window.geoLocator.goToLiveBoardTimetable('${d.line.code}')" title="Controlla orari di questa linea">
-              <i class="fa-solid fa-clock"></i> Controlla Orari
-            </button>
+          <div style="text-align:right;">
+            <span style="background:var(--brand-primary-soft, rgba(2,132,199,0.15)); color:var(--brand-primary, #0284c7); padding:3px 8px; border-radius:6px; font-weight:800; font-size:0.8rem;">${countTxt}</span>
           </div>
         </div>
       `;
@@ -608,13 +945,13 @@ class GeoLocatorEngine {
 
       if (margin >= 3) {
         verdictEl.className = "geo-verdict-box verdict-ok";
-        verdictEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Ce la fai con calma:</strong> hai ~${Math.round(margin)} minuti di margine per salire sulla linea <strong>${deps[0].line.code} (Per ${deps[0].destination})</strong>.`;
+        verdictEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Ce la fai con calma:</strong> hai ~${Math.round(margin)} minuti di margine per raggiungere la fermata e salire su <strong>${deps[0].line.code}</strong>.`;
       } else if (margin >= 0) {
         verdictEl.className = "geo-verdict-box verdict-warn";
-        verdictEl.innerHTML = `<i class="fa-solid fa-person-running"></i> <strong>Affrettati!</strong> Hai solo ~${Math.max(0, Math.round(margin))} minuti di margine per la linea <strong>${deps[0].line.code}</strong>.`;
+        verdictEl.innerHTML = `<i class="fa-solid fa-person-running"></i> <strong>Affrettati!</strong> Hai ~${Math.max(0, Math.round(margin))} minuti di margine per la partenza di <strong>${deps[0].line.code}</strong>.`;
       } else {
         verdictEl.className = "geo-verdict-box verdict-miss";
-        verdictEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>Corsa in partenza:</strong> la prima corsa parte prima che arrivi a piedi. Ti consigliamo la corsa successiva.`;
+        verdictEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>Corsa in partenza:</strong> la prima corsa parte prima dell'arrivo a piedi. Ti consigliamo la corsa successiva.`;
       }
     }
   }
@@ -626,7 +963,7 @@ class GeoLocatorEngine {
 
   showError(msg) {
     if (!this.panel) return;
-    this.panel.innerHTML = `<div class="search-alert alert-warning"><i class="fa-solid fa-circle-exclamation"></i> <div><strong>Avviso Localizzazione:</strong><p>${msg}</p></div></div>`;
+    this.panel.innerHTML = `<div class="search-alert alert-warning"><i class="fa-solid fa-circle-exclamation"></i> <div><strong>Avviso Itinerario:</strong><p>${msg}</p></div></div>`;
     this.panel.classList.add("open");
   }
 }
