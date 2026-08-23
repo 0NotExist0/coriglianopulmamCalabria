@@ -1,16 +1,20 @@
 """
 ItaliaBus - Vista Cerca Corse & Pianificatore Tratte
-Ricerca itinerari tra fermata di partenza e destinazione con prezzi, orari e dettagli.
+Ricerca itinerari tra fermata di partenza e destinazione con prenotazione diretta e salvataggio nel database locale.
 """
+from datetime import datetime
 import flet as ft
 from ...core.transit_data import REAL_PULLMAN_STOPS, get_stop_by_id
 from ...core.search_engine import search_trips
+from ...services.storage_service import storage_service
+from ...services.notification_service import notification_service
 from ..theme import PRIMARY_COLOR, CARD_COLOR, TEXT_COLOR, TEXT_MUTED, BORDER_COLOR, SUCCESS_COLOR
 
 class SearchView(ft.Container):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, on_ticket_booked=None):
         super().__init__(expand=True)
         self.page = page
+        self.on_ticket_booked = on_ticket_booked
         self.origin_id = REAL_PULLMAN_STOPS[0].id
         self.dest_id = REAL_PULLMAN_STOPS[4].id  # Rossano Scalo
         self.init_ui()
@@ -108,9 +112,7 @@ class SearchView(ft.Container):
         dest_id = self.dest_select.value
         
         if orig_id == dest_id:
-            self.page.snack_bar = ft.SnackBar(ft.Text("Origine e destinazione non possono coincidere!"), bgcolor=ft.Colors.RED)
-            self.page.snack_bar.open = True
-            self.page.update()
+            notification_service.show_toast("Origine e destinazione non possono coincidere!", is_success=False)
             return
             
         results = search_trips(orig_id, dest_id)
@@ -125,7 +127,7 @@ class SearchView(ft.Container):
                         spacing=8,
                         controls=[
                             ft.Icon(ft.Icons.BUS_ALERT_ROUNDED, color=TEXT_MUTED, size=48),
-                            ft.Text("Nessuna corsa diretta trovata per questa combinazione.", size=14, color=TEXT_MUTED, text_align=ft.TextAlign.CENTER)
+                            ft.Text("Nessuna corsa diretta trovata per questa tratta.", size=14, color=TEXT_MUTED, text_align=ft.TextAlign.CENTER)
                         ]
                     )
                 )
@@ -133,6 +135,9 @@ class SearchView(ft.Container):
         else:
             for r in results:
                 line = r["line"]
+                orig_stop = r["origin"]
+                dest_stop = r["destination"]
+                
                 self.results_list.controls.append(
                     ft.Container(
                         bgcolor=CARD_COLOR,
@@ -167,7 +172,7 @@ class SearchView(ft.Container):
                                     icon=ft.Icons.CONFIRMATION_NUMBER_ROUNDED,
                                     bgcolor=SUCCESS_COLOR,
                                     color=ft.Colors.WHITE,
-                                    on_click=lambda e, l=line: self.book_ticket(l)
+                                    on_click=lambda e, l=line, o=orig_stop, d=dest_stop: self.book_ticket(l, o, d)
                                 )
                             ]
                         )
@@ -175,7 +180,22 @@ class SearchView(ft.Container):
                 )
         self.page.update()
 
-    def book_ticket(self, line):
-        self.page.snack_bar = ft.SnackBar(ft.Text(f"Biglietto virtuale confermato per {line.code}!"), bgcolor=SUCCESS_COLOR)
-        self.page.snack_bar.open = True
-        self.page.update()
+    def book_ticket(self, line, origin, dest):
+        ticket_id = f"TKT-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        new_ticket = {
+            "id": ticket_id,
+            "line_code": line.code,
+            "line_name": line.name,
+            "origin_name": origin.name,
+            "dest_name": dest.name,
+            "price": line.price_base,
+            "booking_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "qr_token": f"QR_{ticket_id}_{line.code}",
+            "status": "VALIDO"
+        }
+        
+        success = storage_service.add_ticket(new_ticket)
+        if success:
+            notification_service.show_toast(f"✅ Biglietto confermato per {line.code}! Aggiunto al tuo portafoglio.", is_success=True)
+            if self.on_ticket_booked:
+                self.on_ticket_booked()
