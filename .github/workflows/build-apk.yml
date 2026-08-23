@@ -11,6 +11,9 @@ jobs:
   build-apk:
     name: Compila APK Android con Flet & Python
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
 
     steps:
       - name: 📥 Checkout Repository
@@ -48,3 +51,25 @@ jobs:
           name: ItaliaBus-Mobile-APK
           path: app_android_python/build/apk/*.apk
           if-no-files-found: warn
+
+      - name: 🏷️ Crea Release con APK per Download Diretto
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0-apk
+          name: "📱 ItaliaBus Mobile v1.0.0 (Android APK)"
+          body: |
+            ## 📱 ItaliaBus Android App (Python + Flet Engine)
+            
+            Scarica e installa il file `.apk` direttamente sul tuo smartphone Android!
+            
+            ### ✨ Funzionalità:
+            - 📍 **Navigatore Fermata Più Vicina**: calcolo geodesico della fermata fisica più vicina al GPS.
+            - 🕒 **Tabellone Partenze Live**: orari in tempo reale e countdown al secondo.
+            - 🔍 **Cerca Corse & Pianificatore Itinerari**: tratte con prezzi e durate.
+            - 🎫 **Biglietti Virtuali**: con QR Code scansionabile.
+            - 💾 **Modalità Offline**: database locale SQLite.
+          files: app_android_python/build/apk/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
