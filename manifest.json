@@ -1,7 +1,7 @@
 {
-  "name": "ItaliaBus & Mobilità Italia",
-  "short_name": "ItaliaBus",
-  "description": "Orari pullman in tempo reale, tabellone con timer e biglietti digitali per tutte le regioni d'Italia",
+  "name": "ItaliaRun & Mobilità Italia",
+  "short_name": "ItaliaRun",
+  "description": "Orari, percorsi e trasporti in tempo reale con navigatore per tutte le regioni d'Italia",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0f172a",

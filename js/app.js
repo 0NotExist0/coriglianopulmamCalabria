@@ -441,10 +441,10 @@ class AppController {
     if (activeLabel) activeLabel.textContent = modeData.name;
 
     const brandTitle = document.getElementById("headerBrandTitle");
-    if (brandTitle) brandTitle.innerHTML = modeData.brandTitle;
+    if (brandTitle) brandTitle.innerHTML = 'Italia<span>Run</span>';
 
     const mobileBrand = document.getElementById("mobileDrawerBrandTitle");
-    if (mobileBrand) mobileBrand.innerHTML = modeData.brandTitle;
+    if (mobileBrand) mobileBrand.innerHTML = 'Italia<span>Run</span>';
 
     const brandSubtitle = document.getElementById("headerBrandSubtitle");
     if (brandSubtitle) brandSubtitle.textContent = modeData.subtitle;
