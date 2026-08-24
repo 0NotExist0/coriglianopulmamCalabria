@@ -167,11 +167,15 @@ class TransitMapEngine {
     });
     this.map.addControl(new LocateControl());
 
-    // Aggiorna le fermate visibili quando l'utente si sposta o zumma,
-    // ma NON durante le animazioni di navigazione (flyTo/flyToBounds del geoLocator)
-    // né quando si apre un popup di una fermata
+    // Aggiorna le fermate visibili SOLO quando serve davvero (cambio zoom o
+    // spostamento oltre l'area gia' caricata). NON ricostruire i marker ad ogni
+    // micro-movimento/tocco: farlo faceva "saltare" i marker e impediva al tap
+    // di aprire il popup della fermata.
     this._moveEndTimer = null;
     this._skipMoveEnd = false;
+    this._renderedZoom = null;
+    this._renderedBounds = null;
+    this._dragging = false;
 
     this.map.on('popupopen', () => {
       this._skipMoveEnd = true;
@@ -182,15 +186,29 @@ class TransitMapEngine {
       }, 400);
     });
 
+    // Non ricostruire mentre l'utente sta trascinando la mappa
+    this.map.on('dragstart', () => { this._dragging = true; });
+    this.map.on('dragend', () => { this._dragging = false; });
+
     this.map.on('moveend', () => {
       if (!this.map || this._skipMoveEnd) return;
       clearTimeout(this._moveEndTimer);
       this._moveEndTimer = setTimeout(() => {
-        if (!this._skipMoveEnd) {
+        if (this._skipMoveEnd || this._dragging) return;
+        if (this._shouldReplaceStops()) {
           this.placeStopMarkers();
         }
-      }, 300);
+      }, 350);
     });
+  }
+
+  // Decide se le fermate vanno ridisegnate: solo se e' cambiato lo zoom oppure
+  // la vista e' uscita dall'area (con margine) gia' renderizzata.
+  _shouldReplaceStops() {
+    if (!this.map) return false;
+    if (this._renderedZoom == null || !this._renderedBounds) return true;
+    if (this.map.getZoom() !== this._renderedZoom) return true;
+    return !this._renderedBounds.contains(this.map.getBounds());
   }
 
   locateUser() {
@@ -298,7 +316,9 @@ class TransitMapEngine {
       displayStops = allStops;
     } else {
       const zoom = this.map.getZoom();
-      const bounds = this.map.getBounds();
+      // Carica un'area piu' ampia di quella visibile (margine 40%): cosi' i
+      // piccoli spostamenti e i tocchi non richiedono un ridisegno dei marker.
+      const bounds = this.map.getBounds().pad(0.4);
       const regionStops = (typeof getStopsByRegion === 'function') ? getStopsByRegion(currentRegion) : allStops;
       const searchPool = (regionStops && regionStops.length > 0) ? regionStops : allStops;
 
@@ -423,6 +443,12 @@ class TransitMapEngine {
 
       this.stopMarkersLayer.addLayer(marker);
     });
+
+    // Memorizza lo stato di rendering per evitare ricostruzioni inutili (vedi _shouldReplaceStops)
+    if (this.map) {
+      this._renderedZoom = this.map.getZoom();
+      this._renderedBounds = this.map.getBounds().pad(0.4);
+    }
   }
 
   buildStopPopupHtml(stop, currentMode, isTemp, isTempActive, isTempInactive) {

@@ -3,3 +3,6 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# Metadati di import Unity (non servono nel repo web)
+*.meta

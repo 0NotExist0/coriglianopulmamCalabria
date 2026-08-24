@@ -356,10 +356,90 @@
   color: var(--text-muted);
   padding-top: 14px;
   border-top: 1px dashed var(--border-color);
+  user-select: none;
 }
 .cz-signature strong {
   color: var(--brand-primary);
 }
+
+/* Campo codice sblocco riservato (nascosto finche' non rivelato) */
+.cz-unlock-row {
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-subtle);
+}
+.cz-unlock-input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.cz-unlock-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  outline: none;
+}
+.cz-unlock-input:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px var(--brand-glow, rgba(2,132,199,0.2));
+}
+.cz-unlock-msg {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-height: 1em;
+}
+.cz-unlock-msg.ok { color: #16a34a; }
+.cz-unlock-msg.err { color: #dc2626; }
+
+/* Modale pubblicita' web (Google AdSense, versione fuori dall'app) */
+.web-ad-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+  background: rgba(2, 6, 23, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.web-ad-box {
+  width: 100%;
+  max-width: 460px;
+  background: var(--bg-card, #fff);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.web-ad-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+}
+.web-ad-close {
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-subtle, #f1f5f9);
+  color: var(--text-primary, #0f172a);
+  font-weight: 800;
+  font-size: 0.82rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.web-ad-close:disabled { opacity: 0.6; cursor: default; }
+.web-ad-ins { min-height: 250px; margin: 8px; }
 
 /* ==========================================================================
    8. PANNELLO GEOLOCALIZZAZIONE & PERCORSO (nella mappa)

@@ -152,13 +152,24 @@ img, svg, video, .leaflet-map-canvas {
   /* --- Drawer Mobile Laterale --- */
   .mobile-drawer {
     width: min(320px, 86vw);
-    right: calc(-1 * min(320px, 86vw) - 10px);
+    right: 0;
+    /* Chiuso: fuori schermo via transform + non interattivo (evita il blocco
+       dello scroll della pagina causato da un pannello fisso sopra il viewport) */
+    transform: translateX(110%);
+    pointer-events: none;
     height: 100vh;
     height: 100dvh;
     padding-top: max(16px, env(safe-area-inset-top));
     padding-bottom: max(80px, env(safe-area-inset-bottom));
     padding-right: max(20px, env(safe-area-inset-right));
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .mobile-drawer.open {
+    transform: translateX(0);
+    pointer-events: auto;
   }
 
   /* --- Hero Banner Mobile Salva-Spazio --- */

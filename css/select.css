@@ -1,0 +1,229 @@
+/* ==========================================================================
+   ITALIABUS - CUSTOM SELECT (popover desktop / bottom-sheet mobile)
+   Tendine a tema, dark-mode aware, con scorrimento fluido su mobile.
+   ========================================================================== */
+
+/* Nasconde il <select> nativo mantenendolo funzionale (valore + eventi) */
+select.cs-native-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* --- Trigger (campo cliccabile a tema) --- */
+.cs-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  line-height: 1.2;
+}
+.cs-trigger .cs-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cs-trigger .cs-trigger-caret {
+  flex: 0 0 auto;
+  font-size: 0.75em;
+  opacity: 0.65;
+  transition: transform 0.2s ease;
+  color: var(--brand-primary, #0284c7);
+}
+.cs-trigger.cs-open .cs-trigger-caret { transform: rotate(180deg); }
+.cs-trigger:focus-visible {
+  outline: none;
+  border-color: var(--brand-primary, #0284c7);
+  box-shadow: 0 0 0 3px var(--brand-glow, rgba(2,132,199,0.25));
+}
+.cs-trigger.cs-placeholder .cs-trigger-label { color: var(--text-muted, #64748b); font-weight: 500; }
+.cs-trigger:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* --- Backdrop --- */
+.cs-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  background: transparent;
+}
+.cs-backdrop.cs-backdrop-sheet {
+  background: rgba(2, 6, 23, 0.55);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.cs-backdrop.cs-backdrop-sheet.cs-visible { opacity: 1; }
+
+/* --- Contenitore comune lista --- */
+.cs-popover, .cs-sheet {
+  z-index: 5001;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #0f172a);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- Popover desktop --- */
+.cs-popover {
+  position: fixed;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(2, 6, 23, 0.22);
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: top center;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  max-height: 360px;
+}
+.cs-popover.cs-visible { opacity: 1; transform: translateY(0) scale(1); }
+
+/* --- Bottom sheet mobile --- */
+.cs-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: 0 -8px 40px rgba(2, 6, 23, 0.35);
+  max-height: min(82vh, 82dvh);
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cs-sheet.cs-visible { transform: translateY(0); }
+
+.cs-sheet-handle {
+  width: 42px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-color, #cbd5e1);
+  margin: 10px auto 6px;
+  flex: 0 0 auto;
+}
+.cs-sheet-title {
+  font-weight: 800;
+  font-size: 1rem;
+  text-align: center;
+  padding: 2px 16px 10px;
+  color: var(--text-primary, #0f172a);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  flex: 0 0 auto;
+}
+
+/* --- Ricerca --- */
+.cs-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  flex: 0 0 auto;
+}
+.cs-search i {
+  position: absolute;
+  left: 22px;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.cs-search-input {
+  width: 100%;
+  padding: 9px 12px 9px 34px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  background: var(--bg-subtle, #f8fafc);
+  color: var(--text-primary, #0f172a);
+  font-size: 0.9rem;
+  outline: none;
+}
+.cs-search-input:focus {
+  border-color: var(--brand-primary, #0284c7);
+  box-shadow: 0 0 0 3px var(--brand-glow, rgba(2,132,199,0.2));
+}
+
+/* --- Lista scorrevole --- */
+.cs-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.cs-list::-webkit-scrollbar { width: 10px; }
+.cs-list::-webkit-scrollbar-thumb {
+  background: var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+.cs-list::-webkit-scrollbar-thumb:hover { background: var(--text-muted, #94a3b8); background-clip: padding-box; }
+
+.cs-group {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted, #64748b);
+  padding: 10px 12px 4px;
+}
+
+.cs-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  transition: background 0.12s ease;
+}
+.cs-item:hover { background: var(--bg-subtle, #f1f5f9); }
+.cs-item:active { background: var(--brand-glow, rgba(2,132,199,0.15)); }
+.cs-item .cs-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-item .cs-item-check { color: var(--brand-primary, #0284c7); flex: 0 0 auto; }
+.cs-item.cs-selected {
+  background: var(--brand-glow, rgba(2,132,199,0.14));
+  color: var(--brand-primary, #0284c7);
+  font-weight: 800;
+}
+.cs-item.cs-disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Aree tattili piu' grandi su mobile per uno scorrimento/selezione comodi */
+@media (max-width: 768px) {
+  .cs-item { padding: 15px 14px; font-size: 1rem; }
+}
+
+.cs-empty {
+  padding: 22px 12px;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  font-size: 0.9rem;
+}
+
+/* Riduzione movimenti se richiesto dall'utente */
+@media (prefers-reduced-motion: reduce) {
+  .cs-popover, .cs-sheet, .cs-backdrop.cs-backdrop-sheet { transition: none; }
+}

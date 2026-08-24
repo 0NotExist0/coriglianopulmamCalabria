@@ -106,11 +106,12 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=5.0">
-  <link rel="stylesheet" href="css/tickets.css?v=5.0">
-  <link rel="stylesheet" href="css/map.css?v=5.0">
-  <link rel="stylesheet" href="css/themes.css?v=5.0">
-  <link rel="stylesheet" href="css/responsive.css?v=5.0">
+  <link rel="stylesheet" href="css/style.css?v=5.8">
+  <link rel="stylesheet" href="css/tickets.css?v=5.8">
+  <link rel="stylesheet" href="css/map.css?v=5.8">
+  <link rel="stylesheet" href="css/themes.css?v=5.8">
+  <link rel="stylesheet" href="css/responsive.css?v=5.8">
+  <link rel="stylesheet" href="css/select.css?v=5.8">
 </head>
 <body>
 
@@ -365,6 +366,11 @@
       <a href="#" class="nav-link" data-tab="strikes"><i class="fa-solid fa-triangle-exclamation"></i> Scioperi & Fasce Orarie <span class="nav-badge-pill nav-badge-strike">LIVE</span></a>
       <a href="#" class="nav-link" data-tab="alerts"><i class="fa-solid fa-bullhorn"></i> Avvisi Viabilità</a>
       <a href="#" class="nav-link" data-tab="tickets"><i class="fa-solid fa-wallet"></i> Portafoglio Biglietti</a>
+      
+      <hr style="margin: 15px 0; border-color: var(--border-color);">
+      <a href="#" id="btnPremium" class="nav-link" onclick="return onPremiumClick();" style="color: #eab308; font-weight: bold;">
+        <i class="fa-solid fa-crown"></i> <span id="btnPremiumLabel">Sblocca Pass Premium</span><span id="btnPremiumPrice"></span>
+      </a>
     </div>
   </div>
 
@@ -464,7 +470,19 @@
         <i class="fa-solid fa-rotate-left"></i> Ripristina Predefinito
       </button>
 
-      <div class="cz-signature">
+      <!-- Codice sblocco riservato (nascosto: si rivela toccando 5 volte la firma) -->
+      <div id="devUnlockRow" class="cz-unlock-row" style="display:none;">
+        <div class="cz-group-title"><i class="fa-solid fa-key"></i> Codice Sblocco</div>
+        <div class="cz-unlock-input-wrap">
+          <input type="password" id="devUnlockInput" class="cz-unlock-input" placeholder="Inserisci il codice" autocomplete="off" inputmode="text" />
+          <button type="button" class="btn btn-primary btn-sm" id="devUnlockBtn" onclick="window.submitUnlockCode()">
+            <i class="fa-solid fa-unlock"></i> Sblocca
+          </button>
+        </div>
+        <div id="devUnlockMsg" class="cz-unlock-msg"></div>
+      </div>
+
+      <div class="cz-signature" id="czSignature" title="">
         Design & Sviluppo <strong>0Not_Exist0</strong><br>
         Not Exist Web Services
       </div>
@@ -1296,17 +1314,26 @@
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/data.js?v=5.0"></script>
-  <script src="js/realtime-engine.js?v=5.0"></script>
-  <script src="js/notifications.js?v=5.0"></script>
-  <script src="js/live-board.js?v=5.0"></script>
-  <script src="js/search.js?v=5.0"></script>
-  <script src="js/booking.js?v=5.0"></script>
-  <script src="js/map.js?v=5.0"></script>
-  <script src="js/strikes.js?v=5.0"></script>
-  <script src="js/app.js?v=5.0"></script>
-  <script src="js/customizer.js?v=5.0"></script>
-  <script src="js/geo-locator.js?v=5.0"></script>
+  <script src="js/data.js?v=5.8"></script>
+  <script src="js/data-normalize.js?v=5.8"></script>
+  <script src="js/realtime-engine.js?v=5.8"></script>
+  <script src="js/notifications.js?v=5.8"></script>
+  <script src="js/live-board.js?v=5.8"></script>
+  <script src="js/search.js?v=5.8"></script>
+  <script src="js/booking.js?v=5.8"></script>
+  <script src="js/map.js?v=5.8"></script>
+  <script src="js/strikes.js?v=5.8"></script>
+  <script src="js/app.js?v=5.8"></script>
+  <script src="js/web-ads.js?v=5.8"></script>
+  <script src="js/customizer.js?v=5.8"></script>
+  <script src="js/journey-planner.js?v=5.8"></script>
+  <script src="js/gmaps-directions.js?v=5.8"></script>
+  <script src="js/transitous-routing.js?v=5.8"></script>
+  <script src="js/geo-locator.js?v=5.8"></script>
+  <script src="js/select-enhancer.js?v=5.8"></script>
+  <script src="js/alerts-scheduler.js?v=5.8"></script>
 
 </body>
 </html>
+
+

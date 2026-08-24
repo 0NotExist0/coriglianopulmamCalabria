@@ -488,6 +488,17 @@ class LiveBoardEngine {
   }
 
   checkNearestDepartures() {
+    if (window.Unity) {
+      const btn = document.getElementById("btnCheckNearestDepartures");
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Individuo la fermata più vicina...';
+      }
+      window._waitingForGps = 'board';
+      window.Unity.call('request_gps');
+      return;
+    }
+
     if (!navigator.geolocation) {
       alert("Geolocalizzazione non supportata dal tuo dispositivo o browser.");
       return;
@@ -1256,3 +1267,6 @@ if (document.readyState === 'loading') {
 } else {
   initLiveBoardEngine();
 }
+
+
+

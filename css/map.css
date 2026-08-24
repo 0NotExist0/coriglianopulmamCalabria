@@ -3,6 +3,7 @@
    ========================================================================== */
 
 .transit-map-wrapper {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -727,6 +728,94 @@
   text-decoration: none;
 }
 
+/* ===== Controlli camera navigatore: Auto / Libera / Centra / Vedi percorso ===== */
+.geo-nav-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1200;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 7px;
+  box-shadow: 0 6px 22px rgba(2, 6, 23, 0.22);
+  max-width: 200px;
+}
+.geo-nav-controls.active { display: flex; }
+
+.geo-nav-modes {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-subtle, #f1f5f9);
+  border-radius: 9px;
+  padding: 3px;
+}
+.geo-nav-mode-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #475569);
+  font-weight: 800;
+  font-size: 0.8rem;
+  padding: 7px 6px;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.geo-nav-mode-btn.active {
+  background: var(--brand-primary, #0284c7);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+}
+.geo-nav-act-btn {
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary, #0f172a);
+  font-weight: 700;
+  font-size: 0.82rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+.geo-nav-act-btn:hover { background: var(--bg-subtle, #f1f5f9); }
+.geo-nav-act-btn i { color: var(--brand-primary, #0284c7); width: 16px; text-align: center; }
+
+@media (max-width: 768px) {
+  .geo-nav-controls { top: 8px; right: 8px; max-width: 168px; padding: 6px; }
+  .geo-nav-act-btn span, .geo-nav-mode-btn { font-size: 0.78rem; }
+  .geo-nav-act-btn { padding: 9px 9px; }
+}
+
+/* Etichette permanenti dei punti di salita/cambio sulla mappa */
+.leaflet-tooltip.geo-change-label {
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+.leaflet-tooltip.geo-change-label::before { display: none; } /* niente freccina */
+.leaflet-tooltip.geo-change-board { background: #15803d; }
+.leaflet-tooltip.geo-change-transfer { background: #c2410c; }
+
+.geo-transfer-pin-wrapper { background: transparent !important; border: none !important; }
+
 /* Walking route line and tooltip */
 .walking-route-polyline {
   animation: dashAnimation 1.5s linear infinite;
@@ -1165,6 +1254,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Regione mostrata sotto ogni destinazione (disambigua i nomi uguali) */
+.dest-item-region {
+  color: var(--text-secondary, #475569);
+  font-weight: 700;
+}
+.dest-item-region i { opacity: 0.7; margin-right: 2px; }
+.dest-item-region.amb {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 5px;
+  padding: 0 6px;
+  font-weight: 800;
+}
 
 .dest-item-tag {
   background: var(--bg-subtle, #f1f5f9);
@@ -1216,6 +1319,71 @@
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* --- Itinerario passo-passo "a prova di scimmia" --- */
+.geo-steps-list {
+  list-style: none;
+  margin: 6px 0 4px 0;
+  padding: 0;
+  position: relative;
+}
+.geo-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--border-color, #e2e8f0);
+}
+.geo-step-item:last-child { border-bottom: none; }
+.geo-step-num {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--brand-primary, #0284c7);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
+.geo-step-text {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--text-primary, #0f172a);
+  padding-top: 2px;
+}
+.geo-step-text small { color: var(--text-muted, #64748b); font-weight: 600; }
+
+.terrain-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.terrain-chip.terrain-down { background: rgba(22, 163, 74, 0.15); color: #16a34a; border: 1px solid #16a34a; }
+.terrain-chip.terrain-up { background: rgba(234, 88, 12, 0.15); color: #ea580c; border: 1px solid #ea580c; }
+
+.geo-transfers-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+  border: 1px solid #ea580c;
+  margin-left: 4px;
+}
+.geo-transfers-badge.geo-direct { background: rgba(22, 163, 74, 0.12); color: #16a34a; border-color: #16a34a; }
 
 .geo-stats-grid {
   display: grid;

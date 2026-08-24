@@ -1,3 +1,133 @@
+// --- SAFE UNITY CALLER ---
+window.invokeUnity = function(msg) {
+  if (window.Unity && typeof window.Unity.call === 'function') {
+    window.Unity.call(msg);
+    return true;
+  } else if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.unityControl) {
+    window.webkit.messageHandlers.unityControl.postMessage(msg);
+    return true;
+  }
+  return false;
+};
+// -------------------------
+
+// --- GESTIONE PASS PREMIUM (abbonamento mensile) ---
+// unlockPremium / lockPremium / setPremiumPrice sono invocate da Unity (WebViewManager)
+// in base allo stato REALE dell'abbonamento verificato presso lo store.
+function _premiumSet(val) {
+  try { localStorage.setItem('premium_unlocked', val ? 'true' : 'false'); } catch (e) {}
+  window._premiumUnlocked = !!val;
+}
+
+window.unlockPremium = function() {
+  _premiumSet(true);
+  var label = document.getElementById('btnPremiumLabel');
+  var price = document.getElementById('btnPremiumPrice');
+  var btn = document.getElementById('btnPremium');
+  if (label) label.textContent = 'Abbonamento Premium Attivo';
+  if (price) price.textContent = '';
+  if (btn) btn.style.opacity = '0.85';
+  if (!window._premiumNotified) {
+    window._premiumNotified = true;
+    try { alert('Abbonamento Premium attivo! Pubblicita disattivate. Grazie.'); } catch (e) {}
+  }
+};
+
+window.lockPremium = function() {
+  _premiumSet(false);
+  var label = document.getElementById('btnPremiumLabel');
+  var btn = document.getElementById('btnPremium');
+  if (label) label.textContent = 'Sblocca Pass Premium';
+  if (btn) btn.style.opacity = '1';
+};
+
+// Mostra il prezzo reale e localizzato dell'abbonamento sul bottone (ricevuto dallo store).
+window.setPremiumPrice = function(priceString) {
+  var price = document.getElementById('btnPremiumPrice');
+  if (price && priceString) price.textContent = ' - ' + priceString + '/mese';
+};
+
+// Handler del bottone Premium: se gia' abbonato non fa nulla, altrimenti avvia l'acquisto.
+window.onPremiumClick = function() {
+  if (window._premiumUnlocked) return false;
+  if (window.invokeUnity && window.invokeUnity('buy_premium')) return false;
+  alert('Funzione disponibile solo nell\'App Nativa');
+  return false;
+};
+
+// Stato iniziale (ultimo valore noto), poi Unity lo aggiorna con la verifica reale.
+try { window._premiumUnlocked = (localStorage.getItem('premium_unlocked') === 'true'); } catch (e) { window._premiumUnlocked = false; }
+
+// --- SBLOCCO PREMIUM CON CODICE RISERVATO (solo per il proprietario) ---
+// Il codice vero e' impostato in Unity (WebViewManager). L'app invia il codice
+// digitato a Unity, che lo confronta e sblocca il premium (niente pubblicita').
+// Fallback per test nel browser: window.DEV_UNLOCK_CODE (vuoto = disattivato).
+window.DEV_UNLOCK_CODE = window.DEV_UNLOCK_CODE || "";
+
+function _setUnlockMsg(text, ok) {
+  var el = document.getElementById('devUnlockMsg');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'cz-unlock-msg' + (text ? (ok ? ' ok' : ' err') : '');
+}
+
+window.submitUnlockCode = function() {
+  var input = document.getElementById('devUnlockInput');
+  var code = input ? (input.value || '').trim() : '';
+  if (!code) { _setUnlockMsg('Inserisci un codice.', false); return; }
+
+  // 1) Verifica nativa in Unity (il codice resta nascosto nel codice nativo)
+  if (window.invokeUnity && window.invokeUnity('unlock_premium|' + code)) {
+    _setUnlockMsg('Verifica in corso...', true);
+    return; // Unity richiamera' window.premiumCodeResult(true/false)
+  }
+
+  // 2) Fallback browser/test: confronto con un codice locale (se impostato)
+  if (window.DEV_UNLOCK_CODE && code === window.DEV_UNLOCK_CODE) {
+    window.premiumCodeResult(true);
+  } else {
+    window.premiumCodeResult(false);
+  }
+};
+
+// Chiamata da Unity (o dal fallback) con l'esito della verifica del codice.
+window.premiumCodeResult = function(ok) {
+  if (ok) {
+    if (typeof window.unlockPremium === 'function') window.unlockPremium();
+    _setUnlockMsg('Premium sbloccato! Pubblicità disattivate.', true);
+    var input = document.getElementById('devUnlockInput');
+    if (input) input.value = '';
+  } else {
+    _setUnlockMsg('Codice non valido.', false);
+  }
+};
+
+// Rivela il campo codice toccando 5 volte la firma nel pannello Personalizza.
+(function () {
+  function bindSignature() {
+    var sig = document.getElementById('czSignature');
+    if (!sig) return;
+    var taps = 0, timer = null;
+    sig.style.cursor = 'default';
+    sig.addEventListener('click', function () {
+      taps++;
+      clearTimeout(timer);
+      timer = setTimeout(function () { taps = 0; }, 1200);
+      if (taps >= 5) {
+        taps = 0;
+        var row = document.getElementById('devUnlockRow');
+        if (row) {
+          row.style.display = 'block';
+          var input = document.getElementById('devUnlockInput');
+          if (input) input.focus();
+        }
+      }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindSignature);
+  else bindSignature();
+})();
+// -------------------------
 /**
  * ITALIABUS & MOBILITÀ ITALIA - MAIN APP CONTROLLER
  * Gestione navigazione, schede, dark mode, rendering sezioni statiche/dinamiche,
@@ -741,6 +871,15 @@ class AppController {
 
     const info = TAB_LABELS[tabId] || { title: "Caricamento Sezione...", sub: "Elaborazione contenuti in tempo reale..." };
 
+    if (localStorage.getItem('premium_unlocked') !== 'true') {
+      window._adCounter = (window._adCounter || 0) + 1;
+      if (window._adCounter >= 2) {
+        window._adCounter = 0;
+        // Canale scelto in automatico: Unity Ads in-app, Google AdSense su web/repo.
+        if (typeof window.showAppAd === 'function') window.showAppAd();
+      }
+    }
+
     this.withAppLoader(info.title, info.sub, () => {
       this.currentTab = tabId;
 
@@ -958,6 +1097,32 @@ function initAppController() {
   window.withAppLoader = (title, sub, fn, minTime) => window.app.withAppLoader(title, sub, fn, minTime);
 }
 
+// --- INIZIO INTERCETTAZIONE SELECT PER UNITY ---
+function interceptSelect(e) {
+  if (!window.Unity && !window.webkit) return; // Fallback per Unity e iOS WKWebView se non ha iniettato window.Unity
+
+  const sel = e.target.closest('select');
+  if (sel) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Evita chiamate multiple per lo stesso tap (es. touchstart + mousedown + click)
+    if (sel._lastUnityCall && (Date.now() - sel._lastUnityCall) < 500) return;
+    sel._lastUnityCall = Date.now();
+
+    const options = Array.from(sel.options).map(o => o.value + ":::" + o.text);
+    const payload = (sel.id || "unnamed") + "|||" + options.join("|||");
+    
+    window.invokeUnity("open_select|||" + payload);
+  }
+}
+
+document.addEventListener('mousedown', interceptSelect, {capture: true});
+document.addEventListener('click', interceptSelect, {capture: true});
+document.addEventListener('touchstart', interceptSelect, {passive: false, capture: true});
+document.addEventListener('touchend', interceptSelect, {passive: false, capture: true});
+// --- FINE INTERCETTAZIONE ---
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initAppController);
 } else {
@@ -973,3 +1138,7 @@ window.addEventListener('load', () => {
     }, 500);
   }
 });
+
+
+
+

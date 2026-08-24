@@ -302,20 +302,25 @@ button, input, select, textarea {
 .mobile-drawer {
   position: fixed;
   top: 0;
-  right: -320px;
+  right: 0;
   width: 300px;
   height: 100vh;
   background-color: var(--bg-card);
   box-shadow: var(--shadow-xl);
   z-index: 2000;
-  transition: right var(--transition-smooth);
+  /* Chiuso: spostato completamente fuori schermo e NON interattivo,
+     cosi' non intercetta i tocchi ne' blocca lo scroll della pagina. */
+  transform: translateX(110%);
+  pointer-events: none;
+  transition: transform var(--transition-smooth);
   padding: 24px;
   display: flex;
   flex-direction: column;
 }
 
 .mobile-drawer.open {
-  right: 0;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .drawer-header {
