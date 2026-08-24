@@ -877,6 +877,7 @@ class AppController {
         window._adCounter = 0;
         // Canale scelto in automatico: Unity Ads in-app, Google AdSense su web/repo.
         if (typeof window.showAppAd === 'function') window.showAppAd();
+        else if (window.invokeUnity) window.invokeUnity('show_ad'); // fallback se web-ads.js non caricato
       }
     }
 

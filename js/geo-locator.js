@@ -578,6 +578,7 @@ class GeoLocatorEngine {
     const doRouting = async () => {
       if (localStorage.getItem('premium_unlocked') !== 'true') {
         if (typeof window.showAppAd === 'function') window.showAppAd();
+        else if (window.invokeUnity) window.invokeUnity('show_ad'); // fallback se web-ads.js non caricato
       }
       // Switch alla tab mappa
       if (window.app && typeof window.app.switchTab === 'function') {

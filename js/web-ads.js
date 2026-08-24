@@ -97,10 +97,10 @@ window.ADSENSE_CONFIG = window.ADSENSE_CONFIG || { client: "", slot: "" };
   // Punto UNICO per mostrare una pubblicita' (usato da app.js e geo-locator.js).
   window.showAppAd = function () {
     if (isPremium()) return;
-    if (inUnity()) {
-      if (window.invokeUnity) window.invokeUnity('show_ad'); // Unity Ads (solo in-app)
-      return;
-    }
-    WebAds.showInterstitial(); // Google AdSense (versione web / repo)
+    // Canale NATIVO (Unity Ads, solo in-app): invokeUnity ritorna true se Unity
+    // e' presente e ha gestito il messaggio -> stesso meccanismo collaudato.
+    if (window.invokeUnity && window.invokeUnity('show_ad')) return;
+    // Altrimenti siamo nella versione WEB/repo -> Google AdSense.
+    WebAds.showInterstitial();
   };
 })();
