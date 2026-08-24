@@ -8,14 +8,21 @@
  *
  * Premium (localStorage premium_unlocked) => niente pubblicita', in entrambi i casi.
  *
- * >>> ATTIVARE ADSENSE (versione web) <<<
- *   imposta window.ADSENSE_CONFIG = { client: "ca-pub-XXXXXXXXXXXXXXXX", slot: "0000000000" }
- *   (l'ID AdSense e' pubblico per definizione). Vuoto = nessuna pubblicita' web.
+ * >>> IMPORTANTE: AdMob (app) != AdSense (web) <<<
+ *   Gli ID AdMob (ca-app-pub-...~... e ca-app-pub-.../...) funzionano SOLO nell'app
+ *   nativa (SDK Unity), NON in JavaScript su web. Per la web/repo serve AdSense.
+ *   Il numero publisher e' lo stesso: client AdSense = "ca-pub-2046132491347242".
+ *   Ti manca solo lo SLOT: crealo su https://adsense.google.com (Annunci > Per unita'
+ *   pubblicitaria > Display) e incollalo qui sotto in ADSENSE_CONFIG.slot.
+ *   Finche' manca lo slot, la pubblicita' web resta disattivata.
  *
  * Firmato 0Not_Exist0 — Not Exist Web Services
  */
 
-window.ADSENSE_CONFIG = window.ADSENSE_CONFIG || { client: "", slot: "" };
+window.ADSENSE_CONFIG = window.ADSENSE_CONFIG || {
+  client: "ca-pub-2046132491347242",  // publisher (da AdMob/AdSense) - pubblico
+  slot: ""                            // <-- INCOLLA QUI lo slot di un'unita' AdSense DISPLAY (web)
+};
 
 (function () {
   "use strict";
@@ -29,7 +36,9 @@ window.ADSENSE_CONFIG = window.ADSENSE_CONFIG || { client: "", slot: "" };
     try { return localStorage.getItem('premium_unlocked') === 'true'; } catch (e) { return false; }
   }
   function configured() {
-    return !!(window.ADSENSE_CONFIG && window.ADSENSE_CONFIG.client);
+    // Servono ENTRAMBI client e slot: senza slot AdSense non riempie l'annuncio,
+    // quindi evitiamo di aprire un riquadro pubblicitario vuoto.
+    return !!(window.ADSENSE_CONFIG && window.ADSENSE_CONFIG.client && window.ADSENSE_CONFIG.slot);
   }
 
   function ensureAdSenseScript(cb) {

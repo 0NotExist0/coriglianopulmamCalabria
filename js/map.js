@@ -177,6 +177,7 @@ class TransitMapEngine {
     this._renderedZoom = null;
     this._renderedBounds = null;
     this._dragging = false;
+    this._stopsHidden = false;
 
     this.map.on('popupopen', () => {
       this._skipMoveEnd = true;
@@ -301,7 +302,10 @@ class TransitMapEngine {
   placeStopMarkers() {
     if (!this.stopMarkersLayer || !this.map) return;
     this.stopMarkersLayer.clearLayers();
+    // Percorso isolato (visualizza orari): non ridisegnare tutte le fermate
     if (this.isRouteIsolated) return;
+    // Se le fermate sono nascoste dall'utente, non ridisegnarle (nemmeno al moveend)
+    if (this._stopsHidden) return;
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
@@ -759,6 +763,17 @@ class TransitMapEngine {
     }
   }
 
+  /* Nasconde o mostra i marker delle fermate sulla mappa */
+  toggleStops() {
+    this._stopsHidden = !this._stopsHidden;
+    if (this._stopsHidden) {
+      if (this.stopMarkersLayer) this.stopMarkersLayer.clearLayers();
+    } else {
+      this.placeStopMarkers();
+    }
+    this.bindMapControls(); // aggiorna l'etichetta del pulsante
+  }
+
   bindMapControls() {
     const container = document.getElementById("mapQuickButtonsContainer");
     if (!container) return;
@@ -806,6 +821,17 @@ class TransitMapEngine {
     resetBtn.title = "Riporta la mappa alla visuale completa della regione";
     resetBtn.addEventListener('click', () => this.resetView());
     container.appendChild(resetBtn);
+
+    // 3b. Pulsante Nascondi / Mostra fermate
+    const stopsBtn = document.createElement('button');
+    stopsBtn.type = 'button';
+    stopsBtn.className = 'map-btn-pill btn-toggle-stops';
+    stopsBtn.innerHTML = this._stopsHidden
+      ? `<i class="fa-solid fa-eye text-primary"></i> Mostra fermate`
+      : `<i class="fa-solid fa-eye-slash text-primary"></i> Nascondi fermate`;
+    stopsBtn.title = this._stopsHidden ? "Mostra di nuovo le fermate sulla mappa" : "Nascondi le fermate dalla mappa";
+    stopsBtn.addEventListener('click', () => this.toggleStops());
+    container.appendChild(stopsBtn);
 
     // 4. GPS My Location Button
     const gpsBtn = document.createElement('button');

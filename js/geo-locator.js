@@ -731,7 +731,7 @@ class GeoLocatorEngine {
         console.warn("journeyPlanner error:", e);
       }
     }
-    if (itinerary && itinerary.legs && itinerary.rideCount >= 1) {
+    if (itinerary && itinerary.legs && (itinerary.rideCount >= 1 || itinerary.walkOnly)) {
       return itinerary;
     }
 

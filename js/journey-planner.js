@@ -312,26 +312,67 @@ class JourneyPlanner {
       if (marked.size === 0) break;
     }
 
-    if (!parent.has(destId)) return null; // destinazione non raggiungibile nei limiti
-
-    // --- Ricostruzione itinerario ---
-    const legsRev = [];
-    let cur = destId;
-    let guard = 0;
-    while (cur !== 'USER' && cur != null && guard++ < 50) {
-      const p = parent.get(cur);
-      if (!p) break;
-      if (p.type === 'ride') {
-        legsRev.push({ kind: 'ride', line: p.line, boardIdx: p.boardIdx, alightIdx: p.alightIdx, boardId: p.boardStop, alightId: cur });
-        cur = p.boardStop;
-      } else {
-        legsRev.push({ kind: 'walk', fromId: p.from, toId: cur, meters: p.meters, elevGain: p.elevGain });
-        cur = p.from;
+    // --- Ricostruzione itinerario in transito (se raggiunta) ---
+    let transitIt = null;
+    if (parent.has(destId)) {
+      const legsRev = [];
+      let cur = destId;
+      let guard = 0;
+      while (cur !== 'USER' && cur != null && guard++ < 50) {
+        const p = parent.get(cur);
+        if (!p) break;
+        if (p.type === 'ride') {
+          legsRev.push({ kind: 'ride', line: p.line, boardIdx: p.boardIdx, alightIdx: p.alightIdx, boardId: p.boardStop, alightId: cur });
+          cur = p.boardStop;
+        } else {
+          legsRev.push({ kind: 'walk', fromId: p.from, toId: cur, meters: p.meters, elevGain: p.elevGain });
+          cur = p.from;
+        }
       }
+      legsRev.reverse();
+      transitIt = this._materialize(index, legsRev, originLatLng, destStop, bestTrips.get(destId) || 0);
     }
-    legsRev.reverse();
 
-    return this._materialize(index, legsRev, originLatLng, destStop, bestTrips.get(destId) || 0);
+    // Se camminare fino a destinazione e' ragionevole ed e' piu' veloce del
+    // transito, proponi di CAMMINARE: evita i "giri assurdi" (es. 3 bus per 1 km).
+    return this._chooseWalkOrTransit(originLatLng, destStop, transitIt);
+  }
+
+  /* Confronto cammino diretto vs transito: sceglie il piu' sensato */
+  _chooseWalkOrTransit(origin, destStop, transitIt) {
+    const dLat = destStop.lat_actual || destStop.lat;
+    const dLng = destStop.lng_actual || destStop.lng;
+    if (dLat == null || dLng == null) return transitIt;
+
+    const directWalk = this.haversine(origin, [dLat, dLng]);
+    const walkTime = directWalk / 1.25; // s (stima a piedi, leggermente prudente)
+
+    let transitTime = Infinity;
+    if (transitIt && transitIt.legs) {
+      let t = 0;
+      for (const l of transitIt.legs) {
+        // ride: ~29 km/h + 4 min di attesa/salita; walk: ~4.9 km/h
+        t += (l.type === 'ride') ? ((l.meters || 0) / 8 + 240) : ((l.meters || 0) / 1.35);
+      }
+      transitTime = t;
+    }
+
+    const WALK_MAX = 3000; // oltre non proponiamo di camminare
+    if (directWalk <= WALK_MAX && (!transitIt || walkTime < transitTime)) {
+      return {
+        legs: [{
+          type: 'walk', isOrigin: true, fromLatLng: origin,
+          toStop: { id: destStop.id, name: destStop.name, lat: dLat, lng: dLng },
+          toName: destStop.name,
+          coords: [origin, [dLat, dLng]],
+          meters: Math.round(directWalk), seconds: Math.round(directWalk / 1.35), elevGain: null
+        }],
+        transfers: 0, rideCount: 0, walkOnly: true,
+        totalWalkMeters: Math.round(directWalk), totalRideMeters: 0, rideStops: 0,
+        destinationStop: destStop
+      };
+    }
+    return transitIt;
   }
 
   /* Converte i leg astratti in leg concreti con coordinate e testi */
