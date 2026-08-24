@@ -480,17 +480,15 @@
 }
 
 .geo-route-panel {
-  padding: 0;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height var(--transition-smooth), padding var(--transition-smooth);
-  border-bottom: 1px solid transparent;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
 }
 .geo-route-panel.open {
-  max-height: 640px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border-color);
   background: var(--bg-card);
+}
+.geo-panel-drag-header {
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .geo-route-head {

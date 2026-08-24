@@ -14,6 +14,7 @@ class TransitMapEngine {
     this.activeFilter = "all"; 
     this.activeBuses = [];
     this.animationTimer = null;
+    this.isRouteIsolated = false;
 
     this.init();
   }
@@ -189,12 +190,11 @@ class TransitMapEngine {
     // Non ricostruire mentre l'utente sta trascinando la mappa
     this.map.on('dragstart', () => { this._dragging = true; });
     this.map.on('dragend', () => { this._dragging = false; });
-
     this.map.on('moveend', () => {
-      if (!this.map || this._skipMoveEnd) return;
+      if (!this.map || this._skipMoveEnd || this.isRouteIsolated) return;
       clearTimeout(this._moveEndTimer);
       this._moveEndTimer = setTimeout(() => {
-        if (this._skipMoveEnd || this._dragging) return;
+        if (this._skipMoveEnd || this._dragging || this.isRouteIsolated) return;
         if (this._shouldReplaceStops()) {
           this.placeStopMarkers();
         }
@@ -205,7 +205,7 @@ class TransitMapEngine {
   // Decide se le fermate vanno ridisegnate: solo se e' cambiato lo zoom oppure
   // la vista e' uscita dall'area (con margine) gia' renderizzata.
   _shouldReplaceStops() {
-    if (!this.map) return false;
+    if (!this.map || this.isRouteIsolated) return false;
     if (this._renderedZoom == null || !this._renderedBounds) return true;
     if (this.map.getZoom() !== this._renderedZoom) return true;
     return !this._renderedBounds.contains(this.map.getBounds());
@@ -249,6 +249,7 @@ class TransitMapEngine {
   drawRoutePolylines() {
     if (!this.routeLinesLayer) return;
     this.routeLinesLayer.clearLayers();
+    if (this.isRouteIsolated) return;
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
@@ -268,14 +269,12 @@ class TransitMapEngine {
     }
 
     // Renderizza le linee principali per garantire 60fps
-    const linesToDraw = lines.slice(0, 35);
-
-    linesToDraw.forEach(line => {
-      const sIds = line.stopsIds || line.stops || [];
+    lines.forEach(line => {
+      const stopsArr = line.stopsIds || line.stops || [];
       const latlngs = [];
-      for (let i = 0; i < sIds.length; i++) {
-        const coords = stopCoordMap.get(sIds[i]);
-        if (coords) latlngs.push(coords);
+      for (let i = 0; i < stopsArr.length; i++) {
+        const c = stopCoordMap.get(stopsArr[i]);
+        if (c) latlngs.push(c);
       }
 
       if (latlngs.length >= 2) {
@@ -302,6 +301,7 @@ class TransitMapEngine {
   placeStopMarkers() {
     if (!this.stopMarkersLayer || !this.map) return;
     this.stopMarkersLayer.clearLayers();
+    if (this.isRouteIsolated) return;
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
@@ -591,6 +591,7 @@ class TransitMapEngine {
     this.activeBuses = [];
     if (!this.liveBusesLayer) return;
     this.liveBusesLayer.clearLayers();
+    if (this.isRouteIsolated) return;
 
     const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
@@ -678,8 +679,8 @@ class TransitMapEngine {
   }
 
   animateBusesStep() {
-    // Non eseguire l'animazione se la scheda mappa non è visibile o la pagina è nascosta
-    if (document.hidden) return;
+    // Non eseguire l'animazione se la scheda mappa non è visibile o la pagina è nascosta o il percorso è isolato
+    if (document.hidden || this.isRouteIsolated) return;
     const isMapActive = document.getElementById("section-map")?.classList.contains("active");
     if (!isMapActive) return;
 
@@ -1069,6 +1070,31 @@ class TransitMapEngine {
     const banner = document.getElementById("activeRouteFloatingBanner");
     if (banner) {
       banner.classList.remove("active");
+    }
+  }
+
+  /* Modalità Percorso Isolato: pulisce completamente la mappa da tutte le linee,
+     fermate e bus di sfondo, per mantenere UNICAMENTE il percorso tracciato attivo */
+  isolateRouteView(isolate = true) {
+    this.isRouteIsolated = !!isolate;
+    if (this.isRouteIsolated) {
+      if (this.stopMarkersLayer) this.stopMarkersLayer.clearLayers();
+      if (this.routeLinesLayer) this.routeLinesLayer.clearLayers();
+      if (this.liveBusesLayer) this.liveBusesLayer.clearLayers();
+      if (this.highlightedRouteLayer) this.highlightedRouteLayer.clearLayers();
+      if (this.walkingRouteLayer) this.walkingRouteLayer.clearLayers();
+      if (this.animationTimer) {
+        clearInterval(this.animationTimer);
+        this.animationTimer = null;
+      }
+      const quickBtns = document.getElementById("mapQuickButtonsContainer");
+      if (quickBtns) quickBtns.style.opacity = "0.45";
+    } else {
+      const quickBtns = document.getElementById("mapQuickButtonsContainer");
+      if (quickBtns) quickBtns.style.opacity = "1";
+      this.drawRoutePolylines();
+      this.placeStopMarkers();
+      this.spawnLiveBuses();
     }
   }
 }

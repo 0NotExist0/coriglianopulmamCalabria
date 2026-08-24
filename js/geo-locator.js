@@ -120,14 +120,16 @@ class GeoLocatorEngine {
       }, 60);
     });
 
-    // Tasto Invio -> seleziona il primo risultato filtrato
+    // Tasto Invio -> seleziona il primo risultato filtrato e avvia la ricerca solo all'invio
     this.destInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
         const firstItem = this.destDropdownList?.querySelector(".dest-dropdown-item");
         if (firstItem && firstItem._destData) {
-          this.selectDestination(firstItem._destData);
+          this.selectDestination(firstItem._destData, false);
         }
+        this.closeDropdown();
+        this.locateAndRoute();
       } else if (e.key === "Escape") {
         this.closeDropdown();
       }
@@ -186,8 +188,14 @@ class GeoLocatorEngine {
     this.stopLiveTracking();
     this.resetNavState();
     if (this.geoLayer) this.geoLayer.clearLayers();
-    if (this.panel) this.panel.classList.remove("open");
+    if (this.panel) {
+      this.panel.classList.remove("open");
+      this.panel.classList.remove("minimized");
+    }
     if (this.countdownTimer) clearInterval(this.countdownTimer);
+    if (window.transitMap && typeof window.transitMap.isolateRouteView === 'function') {
+      window.transitMap.isolateRouteView(false);
+    }
   }
 
   /* Azzera tutti i riferimenti a marker/tracciati del navigatore */
@@ -455,15 +463,19 @@ class GeoLocatorEngine {
     });
   }
 
-  selectDestination(dest) {
+  selectDestination(dest, autoRoute = false) {
     if (!dest) return;
     this.selectedDestination = dest;
     if (this.destInput) this.destInput.value = dest.name;
     if (this.btnClearDest) this.btnClearDest.style.display = "flex";
     this.closeDropdown();
 
-    // Esegui il calcolo della fermata utile più vicina per raggiungere questa destinazione
-    this.routeToDestination(dest);
+    if (autoRoute) {
+      if (window.transitMap && typeof window.transitMap.isolateRouteView === 'function') {
+        window.transitMap.isolateRouteView(true);
+      }
+      this.routeToDestination(dest);
+    }
   }
 
   /* ==========================================================================
@@ -1371,7 +1383,7 @@ class GeoLocatorEngine {
   }
 
   /* ==========================================================================
-     PANNELLO ITINERARIO PASSO-PASSO ("a prova di scimmia")
+     PANNELLO ITINERARIO TRASCINABILE PASSO-PASSO
      ========================================================================== */
 
   renderItineraryPanel(refLatLng) {
@@ -1416,52 +1428,64 @@ class GeoLocatorEngine {
     const gmapsUrl = this.buildGmapsTransitUrl(refLatLng, dest);
 
     this.panel.innerHTML = `
-      <div class="geo-route-head" style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-        <div>
-          <span style="background:rgba(22,163,74,0.15); color:#16a34a; border:1px solid #16a34a; font-weight:800; font-size:0.72rem; padding:3px 8px; border-radius:6px;">
-            <i class="fa-solid fa-route"></i> ITINERARIO CONSIGLIATO
-          </span> ${transfersBadge}
-          <h3 style="margin:6px 0 2px 0; font-size:1.2rem; color:var(--text-primary);">Verso <strong>${dest ? dest.name : 'Destinazione'}</strong></h3>
+      <div class="geo-panel-drag-header" id="geoPanelDragHeader">
+        <div class="geo-drag-handle-pill" title="Trascina per spostare l'itinerario sulla mappa"><span></span></div>
+        <div class="geo-panel-title-area">
+          <div class="geo-panel-badge-row">
+            <span class="geo-panel-top-badge"><i class="fa-solid fa-route"></i> ITINERARIO</span>
+            ${transfersBadge}
+          </div>
+          <h3 class="geo-panel-title">Verso <strong>${dest ? dest.name : 'Destinazione'}</strong></h3>
+        </div>
+        <div class="geo-panel-actions">
+          <button type="button" class="btn-geo-panel-tool btn-geo-panel-minimize" id="btnMinMaxGeoPanel" title="Riduci/Espandi Itinerario">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <button type="button" class="btn-geo-panel-tool btn-geo-panel-close" id="btnCloseGeoPanel" title="Chiudi Itinerario e Ripristina Mappa">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
+        <div class="geo-summary-bar">
           <small class="text-muted"><i class="fa-solid ${vehIcon}"></i> ${it.rideCount} mezzo${it.rideCount === 1 ? '' : 'i'} &bull; <i class="fa-solid fa-person-walking"></i> ${totalWalkTxt} a piedi in totale</small>
         </div>
-        <button class="btn btn-sm btn-primary" onclick="window.geoLocator.onVisualizzaOrari()">
-          <i class="fa-solid fa-route"></i> Visualizza Orari e Percorso
-        </button>
-      </div>
 
-      <ol class="geo-steps-list" id="geoStepsList">${stepsHtml}</ol>
+        <ol class="geo-steps-list" id="geoStepsList">${stepsHtml}</ol>
 
-      <div class="geo-departures-wrapper" style="margin-top:14px;">
-        <div class="geo-departures-title" style="font-weight:800; font-size:0.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-          <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${boardName}</strong>
+        <div class="geo-departures-wrapper" style="margin-top:12px;">
+          <div class="geo-departures-title" style="font-weight:800; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${boardName}</strong>
+          </div>
+          <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
+          <div id="geoVerdict" class="geo-verdict-box" style="margin-top:8px;"></div>
         </div>
-        <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
-        <div id="geoVerdict" class="geo-verdict-box" style="margin-top:10px;"></div>
-      </div>
 
-      <div class="geo-footer-actions" style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="window.geoLocator.onVisualizzaOrari()" style="flex:1;">
-          <i class="fa-solid fa-route"></i> Visualizza Orari e Traccia Percorso Completo
-        </button>
-        ${gmapsUrl ? `
-        <a href="${gmapsUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-gmaps-compare" title="Apri e confronta questo percorso su Google Maps (trasporto pubblico)">
-          <i class="fa-brands fa-google"></i> Confronta su Google Maps
-        </a>` : ''}
-        <button class="btn btn-outline" onclick="window.geoLocator.goToLiveBoardTimetable()">
-          <i class="fa-solid fa-table-list"></i> Tabellone
-        </button>
-        <button class="btn btn-outline" onclick="window.geoLocator.locateAndRoute()">
-          <i class="fa-solid fa-location-crosshairs"></i> Rilocalizza
-        </button>
+        <div class="geo-footer-actions" style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="window.geoLocator.onVisualizzaOrari()" style="flex:1;">
+            <i class="fa-solid fa-route"></i> Orari & Traccia Completa
+          </button>
+          ${gmapsUrl ? `
+          <a href="${gmapsUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm btn-gmaps-compare" title="Apri e confronta questo percorso su Google Maps">
+            <i class="fa-brands fa-google"></i> Maps
+          </a>` : ''}
+          <button class="btn btn-outline btn-sm" onclick="window.geoLocator.goToLiveBoardTimetable()">
+            <i class="fa-solid fa-table-list"></i> Tabellone
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.geoLocator.fitWholeRoute()" title="Centra l'intero percorso">
+            <i class="fa-solid fa-arrows-to-eye"></i> Vedi Tutto
+          </button>
+        </div>
       </div>
     `;
 
     this.panel.classList.add("open");
+    this.setupDraggablePanel();
     this.startCountdown();
   }
 
-  /* Deep-link a Google Maps con indicazioni in TRASPORTO PUBBLICO (gratuito,
-     nessuna API key): permette all'utente di confrontare col percorso "reale". */
+  /* Deep-link a Google Maps con indicazioni in TRASPORTO PUBBLICO */
   buildGmapsTransitUrl(refLatLng, destStop) {
     const origin = this.userLatLng || refLatLng;
     if (!origin || !destStop) return null;
@@ -1472,7 +1496,7 @@ class GeoLocatorEngine {
   }
 
   /* ==========================================================================
-     RENDERING DEL PANNELLO INFORMATIVO SMART ROUTE
+     RENDERING DEL PANNELLO INFORMATIVO SMART ROUTE TRASCINABILE
      ========================================================================== */
 
   renderSmartRoutePanel(routeInfo, refLatLng) {
@@ -1500,97 +1524,140 @@ class GeoLocatorEngine {
 
     const headTitle = dest && !routeInfo.isDirectNearest
       ? `Per arrivare a <strong>${dest.name}</strong>`
-      : `Fermata di Partenza Più Vicina: <strong>${dep.name}</strong>`;
+      : `Fermata Più Vicina: <strong>${dep.name}</strong>`;
 
     const hasDest = !!(dest && !routeInfo.isDirectNearest);
     const vehicleWord = isFlight ? 'del Volo' : (isTrain ? 'del Treno' : (isTaxi ? 'del Taxi' : (mode === 'tram' ? 'del Tram' : 'del Bus')));
 
     this.panel.innerHTML = `
-      <div class="geo-route-head" style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
-        <div>
-          <span style="background:rgba(22,163,74,0.15); color:#16a34a; border:1px solid #16a34a; font-weight:800; font-size:0.75rem; padding:3px 8px; border-radius:6px;">
-            <i class="fa-solid fa-circle-check"></i> FERMATA DI PARTENZA CONSIGLIATA
-          </span>
-          <h3 style="margin:6px 0 2px 0; font-size:1.2rem; color:var(--text-primary);">
-            ${headTitle}
-          </h3>
-          <small class="text-muted">Raggiungi questa fermata per prendere il tuo mezzo di trasporto</small>
+      <div class="geo-panel-drag-header" id="geoPanelDragHeader">
+        <div class="geo-drag-handle-pill" title="Trascina per spostare il pannello"><span></span></div>
+        <div class="geo-panel-title-area">
+          <div class="geo-panel-badge-row">
+            <span class="geo-panel-top-badge"><i class="fa-solid fa-circle-check"></i> FERMATA CONSIGLIATA</span>
+          </div>
+          <h3 class="geo-panel-title">${headTitle}</h3>
         </div>
-        <button class="btn btn-sm btn-primary" onclick="window.geoLocator.${hasDest ? 'onVisualizzaOrari()' : 'goToLiveBoardTimetable()'}">
-          <i class="fa-solid ${hasDest ? 'fa-route' : 'fa-table-list'}"></i> ${hasDest ? 'Visualizza Orari e Percorso' : 'Tabellone Orari Completo'}
-        </button>
-      </div>
-
-      <div class="geo-stats-grid">
-        <div class="geo-stat-card" style="border-left:4px solid #16a34a;">
-          <span class="geo-stat-label"><i class="fa-solid fa-person-walking-arrow-right text-success"></i> Fermata da Raggiungere</span>
-          <strong class="geo-stat-val text-success">${dep.name}</strong>
-          <small class="text-muted">${dep.address || dep.area || 'Punto di salita utile'}</small>
-        </div>
-        ${dest && !routeInfo.isDirectNearest ? `
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-location-arrow text-primary"></i> Destinazione Voluta</span>
-          <strong class="geo-stat-val text-primary">${dest.name}</strong>
-          <small class="text-muted">Linee e orari collegati</small>
-        </div>
-        ` : `
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-location-crosshairs text-primary"></i> Modalità Attiva</span>
-          <strong class="geo-stat-val text-primary">${mode.toUpperCase()}</strong>
-          <small class="text-muted">Rete trasporti in tempo reale</small>
-        </div>
-        `}
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-person-walking"></i> Tragitto a Piedi</span>
-          <strong class="geo-stat-val">${distTxt}</strong>
-          <small class="text-muted">~${walkMin} min di camminata</small>
-        </div>
-        <div class="geo-stat-card">
-          <span class="geo-stat-label"><i class="fa-solid fa-route"></i> Linee da Questa Fermata</span>
-          <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">${lineBadgesHtml || '<span class="text-muted">Tutte le linee attive</span>'}</div>
-          <small class="text-muted" style="margin-top:4px;">${lines[0]?.name || 'Transito orari regolari'}</small>
+        <div class="geo-panel-actions">
+          <button type="button" class="btn-geo-panel-tool btn-geo-panel-minimize" id="btnMinMaxGeoPanel" title="Riduci/Espandi">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+          <button type="button" class="btn-geo-panel-tool btn-geo-panel-close" id="btnCloseGeoPanel" title="Chiudi e Ripristina Mappa">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
       </div>
 
-      <div class="geo-departures-wrapper" style="margin-top:14px;">
-        <div class="geo-departures-title" style="font-weight:800; font-size:0.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-          <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${dep.name}</strong> ${dest && !routeInfo.isDirectNearest ? `verso <strong>${dest.name}</strong>` : ''}
+      <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
+        <div class="geo-stats-grid">
+          <div class="geo-stat-card" style="border-left:4px solid #16a34a;">
+            <span class="geo-stat-label"><i class="fa-solid fa-person-walking-arrow-right text-success"></i> Fermata da Raggiungere</span>
+            <strong class="geo-stat-val text-success">${dep.name}</strong>
+            <small class="text-muted">${dep.address || dep.area || 'Punto di salita utile'}</small>
+          </div>
+          ${dest && !routeInfo.isDirectNearest ? `
+          <div class="geo-stat-card">
+            <span class="geo-stat-label"><i class="fa-solid fa-location-arrow text-primary"></i> Destinazione Voluta</span>
+            <strong class="geo-stat-val text-primary">${dest.name}</strong>
+            <small class="text-muted">Linee e orari collegati</small>
+          </div>
+          ` : `
+          <div class="geo-stat-card">
+            <span class="geo-stat-label"><i class="fa-solid fa-location-crosshairs text-primary"></i> Modalità Attiva</span>
+            <strong class="geo-stat-val text-primary">${mode.toUpperCase()}</strong>
+            <small class="text-muted">Rete trasporti in tempo reale</small>
+          </div>
+          `}
+          <div class="geo-stat-card">
+            <span class="geo-stat-label"><i class="fa-solid fa-person-walking"></i> Tragitto a Piedi</span>
+            <strong class="geo-stat-val">${distTxt}</strong>
+            <small class="text-muted">~${walkMin} min di camminata</small>
+          </div>
+          <div class="geo-stat-card">
+            <span class="geo-stat-label"><i class="fa-solid fa-route"></i> Linee da Questa Fermata</span>
+            <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">${lineBadgesHtml || '<span class="text-muted">Tutte le linee attive</span>'}</div>
+            <small class="text-muted" style="margin-top:4px;">${lines[0]?.name || 'Transito orari regolari'}</small>
+          </div>
         </div>
-        <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
-        <div id="geoVerdict" class="geo-verdict-box" style="margin-top:10px;"></div>
-      </div>
 
-      <div class="geo-footer-actions" style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
-        ${hasDest ? `
-        <button class="btn btn-primary" onclick="window.geoLocator.onVisualizzaOrari()" style="flex:1;">
-          <i class="fa-solid fa-route"></i> Visualizza Orari e Traccia Percorso ${vehicleWord}
-        </button>
-        ` : `
-        <button class="btn btn-primary" onclick="window.geoLocator.goToLiveBoardTimetable()" style="flex:1;">
-          <i class="fa-solid fa-ticket"></i> Visualizza Tabellone Partenze di ${dep.name}
-        </button>
-        `}
-        <button class="btn btn-outline" onclick="window.geoLocator.goToLiveBoardTimetable()">
-          <i class="fa-solid fa-table-list"></i> Tabellone Completo
-        </button>
-        <button class="btn btn-outline" onclick="window.geoLocator.locateAndRoute()">
-          <i class="fa-solid fa-location-crosshairs"></i> Rilocalizza GPS
-        </button>
+        <div class="geo-departures-wrapper" style="margin-top:12px;">
+          <div class="geo-departures-title" style="font-weight:800; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${dep.name}</strong> ${dest && !routeInfo.isDirectNearest ? `verso <strong>${dest.name}</strong>` : ''}
+          </div>
+          <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
+          <div id="geoVerdict" class="geo-verdict-box" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="geo-footer-actions" style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          ${hasDest ? `
+          <button class="btn btn-primary btn-sm" onclick="window.geoLocator.onVisualizzaOrari()" style="flex:1;">
+            <i class="fa-solid fa-route"></i> Orari & Traccia ${vehicleWord}
+          </button>
+          ` : `
+          <button class="btn btn-primary btn-sm" onclick="window.geoLocator.goToLiveBoardTimetable()" style="flex:1;">
+            <i class="fa-solid fa-ticket"></i> Tabellone Partenze
+          </button>
+          `}
+          <button class="btn btn-outline btn-sm" onclick="window.geoLocator.goToLiveBoardTimetable()">
+            <i class="fa-solid fa-table-list"></i> Tabellone Completo
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="window.geoLocator.locateAndRoute()">
+            <i class="fa-solid fa-location-crosshairs"></i> Rilocalizza
+          </button>
+        </div>
       </div>
     `;
 
     this.panel.classList.add("open");
+    this.setupDraggablePanel();
     this.startCountdown();
   }
 
   /* ==========================================================================
-     GEOLOCALIZZAZIONE NATIVA & TROVA FERMATA
+     GEOLOCALIZZAZIONE NATIVA & TROVA FERMATA (CON ISOLAMENTO MAPPA A RICHIESTA)
      ========================================================================== */
 
   locateAndRoute() {
     // Interrompe un'eventuale navigazione precedente prima di ricalcolare
     this.stopLiveTracking();
     this.arrived = false;
+
+    // Se l'utente ha inserito del testo nel campo ma non ha cliccato dal dropdown
+    const q = this.destInput ? this.destInput.value.trim() : "";
+    if (q && !this.selectedDestination) {
+      const matches = this.searchDestDestinations ? this.searchDestDestinations(q, 1) : this.searchDestinations(q, 1);
+      if (matches && matches.length > 0) {
+        this.selectedDestination = matches[0];
+      } else {
+        const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+        const modeData = window.TRANSIT_DATA?.modes?.[currentMode] || window.TRANSIT_DATA?.modes?.pullman;
+        const allStops = modeData?.stops || [];
+        const found = allStops.find(s => s.name.toLowerCase().includes(q.toLowerCase()) || (s.area && s.area.toLowerCase().includes(q.toLowerCase())));
+        if (found) {
+          this.selectedDestination = {
+            id: found.id,
+            name: found.name,
+            lat: found.lat_actual || found.lat,
+            lng: found.lng_actual || found.lng,
+            stop: found,
+            category: 'Destinazione',
+            isMainHub: !!found.isMainHub
+          };
+        }
+      }
+    }
+
+    // Se la destinazione è presente, isola la mappa da tutto lasciando solo il percorso
+    if (this.selectedDestination) {
+      if (window.transitMap && typeof window.transitMap.isolateRouteView === 'function') {
+        window.transitMap.isolateRouteView(true);
+      }
+    } else {
+      // Se non c'è una destinazione inserita dall'input, mantieni la mappa standard
+      if (window.transitMap && typeof window.transitMap.isolateRouteView === 'function') {
+        window.transitMap.isolateRouteView(false);
+      }
+    }
 
     if (window.invokeUnity('request_gps')) {
       this.setLoading(true);
@@ -1653,9 +1720,15 @@ class GeoLocatorEngine {
     this.arrived = false;
 
     if (this.selectedDestination) {
+      if (window.transitMap && typeof window.transitMap.isolateRouteView === 'function') {
+        window.transitMap.isolateRouteView(true);
+      }
       // Se c'è già una destinazione scelta, calcola direttamente la fermata di partenza giusta
       await this.routeToDestination(this.selectedDestination);
     } else {
+      if (window.transitMap && typeof window.transitMap.isolateRouteView === 'function') {
+        window.transitMap.isolateRouteView(false);
+      }
       // Se non è stata digitata una destinazione, trova direttamente la fermata più vicina
       const defaultStop = this.findNearestStop(this.userLatLng);
       if (defaultStop) {
@@ -1663,9 +1736,161 @@ class GeoLocatorEngine {
       }
     }
 
-    // Avvia il tracciamento GPS continuo (navigatore): il percorso si accorcia
-    // man mano che l'utente si avvicina, come un vero navigatore.
+    // Avvia il tracciamento GPS continuo (navigatore)
     this.startLiveTracking();
+  }
+
+  /* ==========================================================================
+     SISTEMA TRASCINAMENTO PANNELLO ITINERARIO VINCOLATO AI BORDI
+     ========================================================================== */
+
+  setupDraggablePanel() {
+    if (!this.panel) return;
+
+    // Reset initial styles when newly opened
+    if (!this.panel.dataset.positioned) {
+      this.panel.dataset.positioned = "true";
+      this.panel.style.left = "16px";
+      this.panel.style.bottom = "16px";
+      this.panel.style.top = "auto";
+      this.panel.style.right = "auto";
+    }
+
+    const btnMinMax = this.panel.querySelector("#btnMinMaxGeoPanel");
+    if (btnMinMax) {
+      btnMinMax.onclick = (e) => {
+        e.stopPropagation();
+        this.toggleMinimizePanel();
+      };
+    }
+
+    const btnClose = this.panel.querySelector("#btnCloseGeoPanel");
+    if (btnClose) {
+      btnClose.onclick = (e) => {
+        e.stopPropagation();
+        this.clearDestination();
+      };
+    }
+
+    const dragHeader = this.panel.querySelector("#geoPanelDragHeader");
+    if (!dragHeader || dragHeader._dragBound) return;
+    dragHeader._dragBound = true;
+
+    const wrapper = document.querySelector('.transit-map-wrapper') || document.body;
+
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    const getPointerPos = (e) => {
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    };
+
+    const onDragStart = (e) => {
+      if (e.target.closest("button") || e.target.closest("a") || e.target.closest("input")) return;
+
+      const p = getPointerPos(e);
+      startX = p.x;
+      startY = p.y;
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const panelRect = this.panel.getBoundingClientRect();
+
+      initialLeft = panelRect.left - wrapperRect.left;
+      initialTop = panelRect.top - wrapperRect.top;
+
+      this.panel.style.bottom = "auto";
+      this.panel.style.right = "auto";
+      this.panel.style.left = `${initialLeft}px`;
+      this.panel.style.top = `${initialTop}px`;
+
+      isDragging = true;
+      this.panel.classList.add("dragging");
+
+      if (e.type === 'touchstart') {
+        document.addEventListener('touchmove', onDragMove, { passive: false });
+        document.addEventListener('touchend', onDragEnd);
+        document.addEventListener('touchcancel', onDragEnd);
+      } else {
+        document.addEventListener('mousemove', onDragMove);
+        document.addEventListener('mouseup', onDragEnd);
+      }
+    };
+
+    const onDragMove = (e) => {
+      if (!isDragging) return;
+      if (e.cancelable && e.type === 'touchmove') e.preventDefault();
+
+      const p = getPointerPos(e);
+      const dx = p.x - startX;
+      const dy = p.y - startY;
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const panelRect = this.panel.getBoundingClientRect();
+
+      const pad = 10;
+      const minLeft = pad;
+      const maxLeft = Math.max(pad, wrapperRect.width - panelRect.width - pad);
+      const minTop = pad;
+      const maxTop = Math.max(pad, wrapperRect.height - panelRect.height - pad);
+
+      let newLeft = initialLeft + dx;
+      let newTop = initialTop + dy;
+
+      // Vincolo rigido ai bordi della mappa ("attaccato ai bordi")
+      newLeft = Math.max(minLeft, Math.min(maxLeft, newLeft));
+      newTop = Math.max(minTop, Math.min(maxTop, newTop));
+
+      this.panel.style.left = `${newLeft}px`;
+      this.panel.style.top = `${newTop}px`;
+    };
+
+    const onDragEnd = () => {
+      if (!isDragging) return;
+      isDragging = false;
+      this.panel.classList.remove("dragging");
+
+      document.removeEventListener('mousemove', onDragMove);
+      document.removeEventListener('mouseup', onDragEnd);
+      document.removeEventListener('touchmove', onDragMove);
+      document.removeEventListener('touchend', onDragEnd);
+      document.removeEventListener('touchcancel', onDragEnd);
+
+      // Snap magnetico ai bordi entro 24px
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const panelRect = this.panel.getBoundingClientRect();
+      const pad = 12;
+      let left = panelRect.left - wrapperRect.left;
+      let top = panelRect.top - wrapperRect.top;
+
+      if (left < pad + 24) left = pad;
+      else if (left > wrapperRect.width - panelRect.width - pad - 24) left = wrapperRect.width - panelRect.width - pad;
+
+      if (top < pad + 24) top = pad;
+      else if (top > wrapperRect.height - panelRect.height - pad - 24) top = wrapperRect.height - panelRect.height - pad;
+
+      this.panel.style.left = `${Math.max(pad, left)}px`;
+      this.panel.style.top = `${Math.max(pad, top)}px`;
+    };
+
+    dragHeader.addEventListener('mousedown', onDragStart);
+    dragHeader.addEventListener('touchstart', onDragStart, { passive: false });
+  }
+
+  toggleMinimizePanel() {
+    if (!this.panel) return;
+    this.panel.classList.toggle("minimized");
+    const icon = this.panel.querySelector("#btnMinMaxGeoPanel i");
+    if (icon) {
+      if (this.panel.classList.contains("minimized")) {
+        icon.className = "fa-solid fa-chevron-up";
+      } else {
+        icon.className = "fa-solid fa-chevron-down";
+      }
+    }
   }
 
   /* ==========================================================================
@@ -2142,8 +2367,24 @@ class GeoLocatorEngine {
 
   showError(msg) {
     if (!this.panel) return;
-    this.panel.innerHTML = `<div class="search-alert alert-warning"><i class="fa-solid fa-circle-exclamation"></i> <div><strong>Avviso Itinerario:</strong><p>${msg}</p></div></div>`;
+    this.panel.innerHTML = `
+      <div class="geo-panel-drag-header" id="geoPanelDragHeader">
+        <div class="geo-drag-handle-pill"><span></span></div>
+        <div class="geo-panel-title-area">
+          <h3 class="geo-panel-title text-warning" style="font-size:1rem; margin:0;"><i class="fa-solid fa-circle-exclamation"></i> Avviso Itinerario</h3>
+        </div>
+        <div class="geo-panel-actions">
+          <button type="button" class="btn-geo-panel-tool btn-geo-panel-close" id="btnCloseGeoPanel" title="Chiudi">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
+        <div class="search-alert alert-warning" style="margin:0;"><i class="fa-solid fa-circle-exclamation"></i> <div><strong>Avviso:</strong><p style="margin:4px 0 0 0;">${msg}</p></div></div>
+      </div>
+    `;
     this.panel.classList.add("open");
+    this.setupDraggablePanel();
   }
 
   /* Nessun percorso disponibile: messaggio onesto + confronto Google Maps.
@@ -2160,23 +2401,36 @@ class GeoLocatorEngine {
     const gmapsUrl = this.buildGmapsTransitUrl(refLatLng, destStop);
 
     this.panel.innerHTML = `
-      <div class="search-alert alert-warning" style="align-items:flex-start;">
-        <i class="fa-solid fa-route" style="font-size:1.4rem;"></i>
-        <div>
-          <strong>Nessun collegamento in ${modeWord} trovato fino a ${destName}</strong>
-          <p style="margin:6px 0 10px 0;">
-            Nella nostra rete non risulta una linea che colleghi la tua zona a questa destinazione
-            (di solito e' una tratta lunga o fuori dall'area coperta dai dati di linea).
-            Controlla che la destinazione sia quella giusta, oppure verifica il percorso reale su Google Maps.
-          </p>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" rel="noopener" class="btn btn-primary btn-sm"><i class="fa-brands fa-google"></i> Vedi su Google Maps</a>` : ''}
-            <button class="btn btn-outline btn-sm" onclick="window.geoLocator.clearDestination()"><i class="fa-solid fa-xmark"></i> Chiudi</button>
+      <div class="geo-panel-drag-header" id="geoPanelDragHeader">
+        <div class="geo-drag-handle-pill"><span></span></div>
+        <div class="geo-panel-title-area">
+          <h3 class="geo-panel-title text-warning" style="font-size:0.95rem; margin:0;"><i class="fa-solid fa-triangle-exclamation"></i> Tratta Non Diretta</h3>
+        </div>
+        <div class="geo-panel-actions">
+          <button type="button" class="btn-geo-panel-tool btn-geo-panel-close" id="btnCloseGeoPanel" title="Chiudi e Ripristina Mappa">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+      <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
+        <div class="search-alert alert-warning" style="align-items:flex-start; margin:0;">
+          <i class="fa-solid fa-route" style="font-size:1.4rem;"></i>
+          <div>
+            <strong>Nessun collegamento in ${modeWord} trovato fino a ${destName}</strong>
+            <p style="margin:6px 0 10px 0; font-size:0.85rem;">
+              Nella nostra rete non risulta una linea che colleghi la tua zona a questa destinazione.
+              Verifica la destinazione o consulta Google Maps.
+            </p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              ${gmapsUrl ? `<a href="${gmapsUrl}" target="_blank" rel="noopener" class="btn btn-primary btn-sm"><i class="fa-brands fa-google"></i> Vedi su Google Maps</a>` : ''}
+              <button class="btn btn-outline btn-sm" onclick="window.geoLocator.clearDestination()"><i class="fa-solid fa-xmark"></i> Chiudi</button>
+            </div>
           </div>
         </div>
       </div>
     `;
     this.panel.classList.add("open");
+    this.setupDraggablePanel();
   }
 }
 

@@ -1303,21 +1303,180 @@
   box-shadow: 0 6px 18px rgba(2, 132, 199, 0.45);
 }
 
+/* ==========================================================================
+   PANNELLO ITINERARIO FLUTTUANTE & TRASCINABILE (EDGE-DOCKED)
+   ========================================================================== */
+
 .geo-route-panel {
   display: none;
-  padding: 16px 20px;
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 1050;
+  width: min(440px, calc(100% - 32px));
+  max-height: min(65vh, 480px);
   background: var(--bg-card, #ffffff);
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(2, 132, 199, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+  transition: box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .geo-route-panel.open {
-  display: block;
-  animation: slideDownPanel 0.3s ease;
+  display: flex;
+  animation: popInPanel 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes slideDownPanel {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.geo-route-panel.dragging {
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35), 0 0 0 2px var(--brand-primary, #0284c7);
+  transition: none !important;
+  opacity: 0.96;
+}
+
+@keyframes popInPanel {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Header di trascinamento */
+.geo-panel-drag-header {
+  padding: 10px 14px 10px 14px;
+  background: var(--bg-subtle, #f8fafc);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.geo-route-panel.dragging .geo-panel-drag-header {
+  cursor: grabbing;
+}
+
+.geo-drag-handle-pill {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  background: var(--text-muted, #94a3b8);
+  border-radius: 4px;
+  opacity: 0.6;
+}
+
+.geo-panel-title-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 4px;
+}
+
+.geo-panel-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.geo-panel-top-badge {
+  background: rgba(22, 163, 74, 0.15);
+  color: #16a34a;
+  border: 1px solid #16a34a;
+  font-weight: 800;
+  font-size: 0.7rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+}
+
+.geo-panel-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.geo-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.btn-geo-panel-tool {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-secondary, #475569);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.15s ease;
+}
+
+.btn-geo-panel-tool:hover {
+  background: var(--brand-primary, #0284c7);
+  color: #ffffff;
+  border-color: var(--brand-primary, #0284c7);
+}
+
+.btn-geo-panel-close:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+/* Corpo a scorrimento */
+.geo-panel-scroll-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  user-select: text;
+  max-height: calc(min(65vh, 480px) - 56px);
+}
+
+.geo-summary-bar {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+/* Stato Minimizzato */
+.geo-route-panel.minimized {
+  max-height: 52px;
+  overflow: hidden;
+}
+
+.geo-route-panel.minimized .geo-panel-scroll-body {
+  display: none;
+}
+
+.geo-route-panel.minimized .geo-panel-drag-header {
+  border-bottom: none;
+}
+
+@media (max-width: 640px) {
+  .geo-route-panel {
+    width: calc(100% - 16px);
+    left: 8px !important;
+    bottom: 8px !important;
+    max-height: min(60vh, 380px);
+  }
 }
 
 /* --- Itinerario passo-passo "a prova di scimmia" --- */
