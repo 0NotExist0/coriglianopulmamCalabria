@@ -1030,6 +1030,17 @@ class GeoLocatorEngine {
     const destStop = dest.stop || { id: dest.id, name: dest.name, lat: dest.lat, lng: dest.lng };
     const rawOptions = [];
 
+    // Calcolo percorso in auto (OSRM driving con manovre, rotonde e consumi)
+    let drivingRoute = null;
+    const destLL = [destStop.lat_actual || destStop.lat, destStop.lng_actual || destStop.lng];
+    if (destLL[0] != null && destLL[1] != null && refLatLng) {
+      try {
+        drivingRoute = await this.fetchDrivingRoute(refLatLng, destLL);
+      } catch (e) {
+        console.warn("fetchDrivingRoute error:", e);
+      }
+    }
+
     // 1) Fallback Locale Diretto (Pullman di linea locale / Calabria)
     const localFb = this._localDirectFallback(dest, refLatLng);
     if (localFb) {
@@ -1070,7 +1081,8 @@ class GeoLocatorEngine {
       }
     }
 
-    if (rawOptions.length === 0) return [];
+    // Se non ci sono opzioni di trasporto pubblico ma c'è l'auto, prosegui
+    if (rawOptions.length === 0 && !drivingRoute) return [];
 
     // Deduplica percorsi in base alla sequenza di linee e fermate
     const deduplicated = [];
@@ -1184,9 +1196,67 @@ class GeoLocatorEngine {
       });
     }
 
-    // 3. EVENTUALI ALTRE ALTERNATIVE (es. Treno FS o altri percorsi fino a 4 opzioni)
+    // 3. OPZIONE AUTO / MACCHINA (con calcolo consumi, costi e HUD 3D rotonde)
+    if (drivingRoute && drivingRoute.distance > 0) {
+      const distKm = drivingRoute.distance / 1000;
+      const liters = (distKm / 100) * 6.2; // 6.2 L / 100km consumo medio auto
+      const costEur = liters * 1.82; // €1.82 / L
+      const co2Kg = (distKm * 120) / 1000; // 120 g CO2 / km
+      const isCarFasterThanTransit = drivingRoute.duration < minSec;
+
+      const carItinerary = {
+        isCar: true,
+        mode: 'car',
+        source: 'osrm_driving',
+        totalSeconds: Math.round(drivingRoute.duration),
+        totalMeters: Math.round(drivingRoute.distance),
+        totalDistanceKm: distKm,
+        consumptionLiters: liters,
+        costEstimateEur: costEur,
+        co2EstimateKg: co2Kg,
+        roundaboutsCount: drivingRoute.roundaboutsCount || 0,
+        legs: [
+          {
+            type: 'drive',
+            mode: 'car',
+            coords: drivingRoute.coords,
+            meters: Math.round(drivingRoute.distance),
+            seconds: Math.round(drivingRoute.duration),
+            steps: drivingRoute.steps,
+            fromName: this.manualOriginAddress || 'La tua posizione',
+            toName: destStop.name || 'Destinazione',
+            revealed: true
+          }
+        ],
+        transfers: 0,
+        rideCount: 1,
+        totalWalkMeters: 0,
+        totalRideMeters: Math.round(drivingRoute.distance),
+        destinationStop: destStop
+      };
+
+      structuredOptions.push({
+        id: 'opt_car',
+        title: 'In Auto / Macchina',
+        badge: 'Navigatore Auto 3D',
+        badgeClass: 'badge-car',
+        icon: 'fa-car-side',
+        color: '#2563eb',
+        isCar: true,
+        isPurePullman: false,
+        hasPullman: false,
+        isPullmanHybrid: false,
+        isFastest: isCarFasterThanTransit,
+        durationText: this.formatDuration(drivingRoute.duration),
+        transfersText: `${distKm.toFixed(1)} km &bull; ~${liters.toFixed(1)} L (€${costEur.toFixed(2)})`,
+        itinerary: carItinerary,
+        desc: `Navigazione auto con calcolo consumi, costi e HUD 3D per rotonde e svolte.`
+      });
+    }
+
+    // 4. EVENTUALI ALTRE ALTERNATIVE (es. Treno FS o altri percorsi fino a 4 opzioni)
     for (const it of candidateList) {
-      if (structuredOptions.length >= 4) break;
+      if (structuredOptions.length >= 5) break;
       const already = structuredOptions.some(o => o.itinerary === it);
       if (already) continue;
 
@@ -1231,6 +1301,9 @@ class GeoLocatorEngine {
     } else if (filter === 'fastest') {
       const fIdx = this.currentItineraryOptions.findIndex(o => o.isFastest);
       targetIdx = fIdx !== -1 ? fIdx : 0;
+    } else if (filter === 'car') {
+      const cIdx = this.currentItineraryOptions.findIndex(o => o.isCar);
+      targetIdx = cIdx !== -1 ? cIdx : 0;
     } else {
       targetIdx = 0;
     }
@@ -1384,15 +1457,23 @@ class GeoLocatorEngine {
     for (let i = 0; i < this.navLegs.length; i++) {
       const leg = this.navLegs[i];
       if (!leg.coords || leg.coords.length < 2) continue;
+      const isDrive = leg.type === 'drive';
       const isRide = leg.type === 'ride';
-      const color = isRide ? ((leg.line && leg.line.color) || '#0284c7') : (leg.isOrigin ? '#2563eb' : '#ea580c');
+      const color = isDrive ? '#2563eb' : (isRide ? ((leg.line && leg.line.color) || '#0284c7') : (leg.isOrigin ? '#2563eb' : '#ea580c'));
       const shown = leg.revealed ? leg.coords : [];
 
       leg.glow = L.polyline(shown, {
-        color: '#ffffff', weight: isRide ? 12 : 11, opacity: 0.82, lineCap: 'round', lineJoin: 'round'
+        color: '#ffffff', weight: isDrive ? 14 : (isRide ? 12 : 11), opacity: 0.85, lineCap: 'round', lineJoin: 'round'
       }).addTo(this.geoLayer);
 
-      if (isRide) {
+      if (isDrive) {
+        const kmTxt = (leg.meters / 1000).toFixed(1);
+        const minTxt = Math.max(1, Math.round(leg.seconds / 60));
+        leg.polyline = L.polyline(shown, {
+          color: '#2563eb', weight: 7, opacity: 1, lineCap: 'round', lineJoin: 'round', className: 'driving-route-polyline'
+        }).bindTooltip(`🚗 <strong>Guida in Auto:</strong> ${kmTxt} km &bull; ~${minTxt} min`,
+          { sticky: true, className: 'custom-map-tooltip' }).addTo(this.geoLayer);
+      } else if (isRide) {
         leg.polyline = L.polyline(shown, {
           color, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round'
         }).bindTooltip(`<strong>${leg.line ? (leg.line.code || leg.line.name) : 'Mezzo'}</strong> ➔ ${leg.alightName || ''}`,
@@ -1454,8 +1535,52 @@ class GeoLocatorEngine {
   _drawItineraryMarkers(modeIcon) {
     const legs = this.navLegs;
     if (!legs) return;
-    const rideLegs = legs.filter(l => l.type === 'ride');
     const destStop = this.activeItinerary && this.activeItinerary.destinationStop;
+
+    if (this.activeItinerary && this.activeItinerary.isCar) {
+      const driveLeg = legs[0];
+      const steps = (driveLeg && driveLeg.steps) || [];
+      steps.forEach((s) => {
+        const man = s.maneuver || {};
+        const isRoundabout = man.type === 'roundabout' || man.type === 'rotary' || man.type === 'roundabout turn';
+        if (isRoundabout && man.location) {
+          const exit = man.exit || 2;
+          const rIcon = L.divIcon({
+            html: `<div class="map-rotonda-3d-pin" title="Rotonda 3D: Prendi la ${exit}ª uscita"><span>${exit}</span></div>`,
+            className: 'map-rotonda-pin-wrap',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+          });
+          const rm = L.marker(man.location, { icon: rIcon, zIndexOffset: 2800 })
+            .bindPopup(`
+              <div style="min-width:210px;padding:5px;">
+                <span style="background:#10b981;color:#fff;padding:3px 8px;border-radius:4px;font-size:0.72rem;font-weight:800;display:inline-block;margin-bottom:4px;">
+                  <i class="fa-solid fa-rotate-right"></i> ROTONDA 3D
+                </span>
+                <h4 style="margin:2px 0;font-size:0.95rem;color:#0f172a;font-weight:800;">Prendi la ${exit}ª uscita</h4>
+                <div style="color:#0369a1;font-size:0.8rem;margin-top:2px;">Direzione: <strong>${s.name || 'Prossima via'}</strong></div>
+              </div>
+            `)
+            .addTo(this.geoLayer);
+          this.legMarkers.push(rm);
+        }
+      });
+
+      if (destStop) {
+        const dLL = [destStop.lat_actual || destStop.lat, destStop.lng_actual || destStop.lng];
+        const dIcon = L.divIcon({
+          html: `<div class="target-alt-marker-pulse" style="background:#2563eb;"><i class="fa-solid fa-flag-checkered"></i></div>`,
+          className: 'target-marker-wrapper', iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -30]
+        });
+        this.destMarker = L.marker(dLL, { icon: dIcon, zIndexOffset: 2600 }).bindPopup(
+          `<div style="min-width:200px;padding:4px;"><span style="background:#2563eb;color:#fff;padding:4px 10px;border-radius:6px;font-weight:800;font-size:0.76rem;"><i class="fa-solid fa-flag-checkered"></i> DESTINAZIONE AUTO</span><h4 style="margin:4px 0 2px;font-size:1.05rem;color:#0f172a;font-weight:800;">${destStop.name}</h4></div>`
+        ).addTo(this.geoLayer);
+        this.legMarkers.push(this.destMarker);
+      }
+      return;
+    }
+
+    const rideLegs = legs.filter(l => l.type === 'ride');
 
     rideLegs.forEach((leg, idx) => {
       const b = leg.boardStop;
@@ -1964,6 +2089,7 @@ class GeoLocatorEngine {
     const code = ((leg.line && (leg.line.code || leg.line.name)) || '').toLowerCase();
     const name = ((leg.line && leg.line.name) || '').toLowerCase();
     const all = code + ' ' + name;
+    if (/auto|car|macchina|guida/.test(all)) return 'car';
     if (/freccia|italo|treno|intercity|regionale|\br\b|\brv\b|fs\b|rfi|eurocity|rail/.test(all)) return 'train';
     if (/volo|flight|aereo|ryanair|ita\b|easyjet|air/.test(all)) return 'flight';
     if (/taxi|ncc|radiotaxi/.test(all)) return 'taxi';
@@ -1972,7 +2098,7 @@ class GeoLocatorEngine {
   }
 
   getModeLabel(mode) {
-    const labels = { pullman: 'Pullman', train: 'Treno', flight: 'Aereo', taxi: 'Taxi', tram: 'Tram' };
+    const labels = { pullman: 'Pullman', train: 'Treno', flight: 'Aereo', taxi: 'Taxi', tram: 'Tram', car: 'Auto' };
     return labels[mode] || 'Pullman';
   }
 
@@ -1982,18 +2108,19 @@ class GeoLocatorEngine {
       train: 'Stai prendendo il Treno',
       flight: 'Stai prendendo il Volo',
       taxi: 'Stai prendendo il Taxi',
-      tram: 'Stai prendendo il Tram'
+      tram: 'Stai prendendo il Tram',
+      car: 'Stai guidando in Auto'
     };
     return verbs[mode] || 'Stai prendendo il Mezzo';
   }
 
   getModeIcon(mode) {
-    const icons = { pullman: 'fa-bus', train: 'fa-train', flight: 'fa-plane', taxi: 'fa-taxi', tram: 'fa-train-tram' };
+    const icons = { pullman: 'fa-bus', train: 'fa-train', flight: 'fa-plane', taxi: 'fa-taxi', tram: 'fa-train-tram', car: 'fa-car' };
     return icons[mode] || 'fa-bus';
   }
 
   getModeColor(mode) {
-    const colors = { pullman: '#0284c7', train: '#dc2626', flight: '#0284c7', taxi: '#d97706', tram: '#059669' };
+    const colors = { pullman: '#0284c7', train: '#dc2626', flight: '#0284c7', taxi: '#d97706', tram: '#059669', car: '#2563eb' };
     return colors[mode] || '#0284c7';
   }
 
@@ -2082,137 +2209,249 @@ class GeoLocatorEngine {
     const legs = it.legs || [];
     const dest = it.destinationStop;
 
-    const rideLegs = legs.filter(l => l.type === 'ride');
-    const distinctModes = Array.from(new Set(rideLegs.map(l => this.getTransitMode(l))));
+    const rideLegs = legs.filter(l => l.type === 'ride' || l.type === 'drive');
+    const distinctModes = Array.from(new Set(legs.map(l => this.getTransitMode(l)).filter(m => m !== 'walk')));
+    if (distinctModes.length === 0) distinctModes.push(it.isCar ? 'car' : 'pullman');
     const isMultiModal = distinctModes.length > 1;
 
     const steps = [];
     let lastRideMode = null;
 
-    for (let i = 0; i < legs.length; i++) {
-      const leg = legs[i];
-      if (leg.type === 'walk') {
-        let terrain = '';
-        if (leg.elevGain != null && Math.abs(leg.elevGain) >= 5) {
-          terrain = leg.elevGain < 0
-            ? ` <span class="terrain-chip terrain-down"><i class="fa-solid fa-arrow-trend-down"></i> in discesa (${Math.abs(leg.elevGain)} m)</span>`
-            : ` <span class="terrain-chip terrain-up"><i class="fa-solid fa-arrow-trend-up"></i> in salita (${leg.elevGain} m)</span>`;
-        }
-        const mins = Math.max(1, Math.round((leg.seconds || leg.meters / 1.35) / 60));
-        const dirWord = leg.isOrigin ? 'Cammina' : 'Scendi e cammina';
-        steps.push(`
-          <div class="geo-step-body">
-            <div class="geo-step-main-text">
-              <i class="fa-solid fa-person-walking text-primary"></i> <strong>${dirWord} ${leg.meters} m</strong> (~${mins} min)${terrain} fino a <strong>${leg.toName}</strong>.
-            </div>
-          </div>
-        `);
-      } else {
-        const legMode = this.getTransitMode(leg);
-        const legIcon = this.getModeIcon(legMode);
-        const legVerb = this.getModeVerb(legMode);
-        const legColor = this.getModeColor(legMode);
-        const legTicket = this.getTicketAdvice(legMode);
-        const legPlatform = leg.platform || this.getPlatformAdvice(leg, legMode);
-        const isModeChange = lastRideMode && lastRideMode !== legMode;
-        const prevModeLabel = lastRideMode ? this.getModeLabel(lastRideMode) : null;
-        lastRideMode = legMode;
+    if (it.isCar) {
+      // 🚗 MODALITÀ AUTO & NAVIGATORE 3D
+      const driveLeg = legs[0] || {};
+      const driveSteps = driveLeg.steps || [];
 
-        const code = leg.line ? (leg.line.code || leg.line.name || 'Mezzo') : 'Mezzo';
-        const lname = leg.line && leg.line.name ? leg.line.name : '';
-        const nstops = leg.stopsCount || 1;
+      for (let i = 0; i < driveSteps.length; i++) {
+        const step = driveSteps[i];
+        const man = step.maneuver || {};
+        const isRoundabout = man.type === 'roundabout' || man.type === 'rotary' || man.type === 'roundabout turn';
+        const isTurn = man.type === 'turn' || man.type === 'fork' || man.type === 'on ramp' || man.type === 'off ramp';
+        const isArrive = man.type === 'arrive' || i === driveSteps.length - 1;
+        const mins = Math.max(1, Math.round((step.duration || 60) / 60));
+        const distTxt = step.distance >= 1000 ? (step.distance / 1000).toFixed(1) + ' km' : step.distance + ' m';
+        const loc = man.location ? `${man.location[0]}, ${man.location[1]}` : 'null, null';
 
-        let changeBanner = '';
-        if (isModeChange) {
-          changeBanner = `
-            <div class="geo-intermodal-alert">
-              <i class="fa-solid fa-right-left"></i>
-              <span><strong>CAMBIO MEZZO / INTERSCAMBIO:</strong> Stai passando da <strong>${prevModeLabel}</strong> a <strong>${this.getModeLabel(legMode)}</strong>!</span>
-            </div>
-          `;
-        }
-
-        steps.push(`
-          <div class="geo-step-body">
-            ${changeBanner}
-            <div class="geo-step-mode-header">
-              <span class="geo-step-mode-pill" style="background:${legColor}; color:#fff;">
-                <i class="fa-solid ${legIcon}"></i> ${legVerb.toUpperCase()}
-              </span>
-              <span class="geo-step-line-name" style="color:${legColor}; font-weight:800;">${code}</span>
-            </div>
-            <div class="geo-step-main-text" style="margin:6px 0;">
-              Sali su <strong>${code}</strong>${lname ? ` <small>(${lname})</small>` : ''} e <strong>scendi a ${leg.alightName}</strong> <small>(${nstops} ferma${nstops === 1 ? 'ta' : 'te'})</small>.
-            </div>
-            <div class="geo-step-details-grid">
-              <div class="geo-step-platform-box">
-                <i class="fa-solid fa-signs-post text-primary"></i>
-                <div>
-                  <strong>Dove salire / Binario:</strong>
-                  <span>${legPlatform} presso <em>${leg.boardName}</em></span>
-                </div>
-              </div>
-              <div class="geo-step-ticket-box">
-                <i class="fa-solid fa-ticket text-success"></i>
-                <div>
-                  <strong>Biglietto richiesto:</strong>
-                  <span>${legTicket.title}</span>
-                  <small style="display:block; color:#64748b; margin-top:2px;">${legTicket.howToBuy}</small>
-                </div>
+        if (isRoundabout) {
+          const rotondaSvg = this.generateRoundabout3DSvg(man.exit || 2, man.modifier, step.name);
+          steps.push(`
+            <div class="geo-step-body geo-step-car-roundabout" onclick="window.geoLocator.focusStepLocation(${loc})" role="button" tabindex="0" title="Clicca per centrare la rotonda sulla mappa">
+              ${rotondaSvg}
+              <div class="geo-step-meta-row">
+                <span><i class="fa-solid fa-arrows-left-right"></i> Distanza: <strong>${distTxt}</strong></span>
+                <span><i class="fa-solid fa-clock"></i> ~${mins} min</span>
+                <span class="geo-step-zoom-hint"><i class="fa-solid fa-magnifying-glass-plus"></i> Centra 3D</span>
               </div>
             </div>
-          </div>
-        `);
+          `);
+        } else if (isTurn) {
+          const turnSvg = this.generateTurn3DSvg(man.type, man.modifier, step.name);
+          steps.push(`
+            <div class="geo-step-body geo-step-car-turn" onclick="window.geoLocator.focusStepLocation(${loc})" role="button" tabindex="0" title="Clicca per centrare la svolta sulla mappa">
+              ${turnSvg}
+              <div class="geo-step-main-text" style="margin-top:6px;">
+                Prosegui per <strong>${distTxt}</strong> (~${mins} min) su <strong>${step.name || 'Strada'}</strong>.
+              </div>
+            </div>
+          `);
+        } else if (isArrive) {
+          steps.push(`
+            <div class="geo-step-body" style="border-left: 3px solid #16a34a;">
+              <div class="geo-step-main-text" style="color:#16a34a; font-weight:800;">
+                <i class="fa-solid fa-flag-checkered text-success"></i> Arrivo a <strong>${dest ? dest.name : (step.name || 'Destinazione')}</strong> (${distTxt}).
+              </div>
+            </div>
+          `);
+        } else {
+          steps.push(`
+            <div class="geo-step-body">
+              <div class="geo-step-main-text">
+                <i class="fa-solid fa-arrow-up text-primary"></i> Continua dritto su <strong>${step.name || 'Strada principale'}</strong> per <strong>${distTxt}</strong> (~${mins} min).
+              </div>
+            </div>
+          `);
+        }
       }
-    }
+    } else {
+      // 🚌 MODALITÀ TRASPORTO PUBBLICO (Pullman, Treni, Tram, Taxi, Voli)
+      for (let i = 0; i < legs.length; i++) {
+        const leg = legs[i];
+        if (leg.type === 'walk') {
+          let terrain = '';
+          if (leg.elevGain != null && Math.abs(leg.elevGain) >= 5) {
+            terrain = leg.elevGain < 0
+              ? ` <span class="terrain-chip terrain-down"><i class="fa-solid fa-arrow-trend-down"></i> in discesa (${Math.abs(leg.elevGain)} m)</span>`
+              : ` <span class="terrain-chip terrain-up"><i class="fa-solid fa-arrow-trend-up"></i> in salita (${leg.elevGain} m)</span>`;
+          }
+          const mins = Math.max(1, Math.round((leg.seconds || leg.meters / 1.35) / 60));
+          const dirWord = leg.isOrigin ? 'Cammina' : 'Scendi e cammina';
+          steps.push(`
+            <div class="geo-step-body">
+              <div class="geo-step-main-text">
+                <i class="fa-solid fa-person-walking text-primary"></i> <strong>${dirWord} ${leg.meters} m</strong> (~${mins} min)${terrain} fino a <strong>${leg.toName}</strong>.
+              </div>
+            </div>
+          `);
+        } else {
+          const legMode = this.getTransitMode(leg);
+          const legIcon = this.getModeIcon(legMode);
+          const legVerb = this.getModeVerb(legMode);
+          const legColor = this.getModeColor(legMode);
+          const legTicket = this.getTicketAdvice(legMode);
+          const legPlatform = leg.platform || this.getPlatformAdvice(leg, legMode);
+          const isModeChange = lastRideMode && lastRideMode !== legMode;
+          const prevModeLabel = lastRideMode ? this.getModeLabel(lastRideMode) : null;
+          lastRideMode = legMode;
 
-    steps.push(`
-      <div class="geo-step-body">
-        <div class="geo-step-main-text" style="color:#16a34a; font-weight:800;">
-          <i class="fa-solid fa-flag-checkered text-success"></i> Sei arrivato a <strong>${dest ? dest.name : 'destinazione'}</strong>.
+          const code = leg.line ? (leg.line.code || leg.line.name || 'Mezzo') : 'Mezzo';
+          const lname = leg.line && leg.line.name ? leg.line.name : '';
+          const nstops = leg.stopsCount || 1;
+
+          let changeBanner = '';
+          if (isModeChange) {
+            changeBanner = `
+              <div class="geo-intermodal-alert">
+                <i class="fa-solid fa-right-left"></i>
+                <span><strong>CAMBIO MEZZO / INTERSCAMBIO:</strong> Stai passando da <strong>${prevModeLabel}</strong> a <strong>${this.getModeLabel(legMode)}</strong>!</span>
+              </div>
+            `;
+          }
+
+          steps.push(`
+            <div class="geo-step-body">
+              ${changeBanner}
+              <div class="geo-step-mode-header">
+                <span class="geo-step-mode-pill" style="background:${legColor}; color:#fff;">
+                  <i class="fa-solid ${legIcon}"></i> ${legVerb.toUpperCase()}
+                </span>
+                <span class="geo-step-line-name" style="color:${legColor}; font-weight:800;">${code}</span>
+              </div>
+              <div class="geo-step-main-text" style="margin:6px 0;">
+                Sali su <strong>${code}</strong>${lname ? ` <small>(${lname})</small>` : ''} e <strong>scendi a ${leg.alightName}</strong> <small>(${nstops} ferma${nstops === 1 ? 'ta' : 'te'})</small>.
+              </div>
+              <div class="geo-step-details-grid">
+                <div class="geo-step-platform-box">
+                  <i class="fa-solid fa-signs-post text-primary"></i>
+                  <div>
+                    <strong>Dove salire / Binario:</strong>
+                    <span>${legPlatform} presso <em>${leg.boardName}</em></span>
+                  </div>
+                </div>
+                <div class="geo-step-ticket-box">
+                  <i class="fa-solid fa-ticket text-success"></i>
+                  <div>
+                    <strong>Biglietto richiesto:</strong>
+                    <span>${legTicket.title}</span>
+                    <small style="display:block; color:#64748b; margin-top:2px;">${legTicket.howToBuy}</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `);
+        }
+      }
+
+      steps.push(`
+        <div class="geo-step-body">
+          <div class="geo-step-main-text" style="color:#16a34a; font-weight:800;">
+            <i class="fa-solid fa-flag-checkered text-success"></i> Sei arrivato a <strong>${dest ? dest.name : 'destinazione'}</strong>.
+          </div>
         </div>
-      </div>
-    `);
+      `);
+    }
 
     const stepsHtml = steps.map((s, i) =>
       `<li class="geo-step-item"><span class="geo-step-num">${i + 1}</span>${s}</li>`
     ).join('');
 
-    // Costruisci il box riepilogativo Biglietti
-    const ticketsGuideHtml = distinctModes.map(m => {
-      const t = this.getTicketAdvice(m);
-      return `
-        <div class="geo-ticket-guide-item" style="border-left: 3px solid ${t.color};">
-          <div class="geo-tgi-head">
-            <span class="geo-tgi-badge" style="background:${t.color}; color:#fff;"><i class="fa-solid ${t.icon}"></i> ${t.badge}</span>
-            <strong>${t.title}</strong>
+    // Box riepilogativo Biglietti (solo per trasporto pubblico)
+    let ticketsGuideBox = '';
+    if (!it.isCar) {
+      const ticketsGuideHtml = distinctModes.map(m => {
+        const t = this.getTicketAdvice(m);
+        return `
+          <div class="geo-ticket-guide-item" style="border-left: 3px solid ${t.color};">
+            <div class="geo-tgi-head">
+              <span class="geo-tgi-badge" style="background:${t.color}; color:#fff;"><i class="fa-solid ${t.icon}"></i> ${t.badge}</span>
+              <strong>${t.title}</strong>
+            </div>
+            <p class="geo-tgi-desc">${t.desc}</p>
+            <div class="geo-tgi-buy"><i class="fa-solid fa-cart-shopping"></i> <strong>Come fare il biglietto:</strong> ${t.howToBuy}</div>
           </div>
-          <p class="geo-tgi-desc">${t.desc}</p>
-          <div class="geo-tgi-buy"><i class="fa-solid fa-cart-shopping"></i> <strong>Come fare il biglietto:</strong> ${t.howToBuy}</div>
+        `;
+      }).join('');
+
+      ticketsGuideBox = `
+        <div class="geo-tickets-guide-box">
+          <div class="geo-tickets-guide-head">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-ticket-simple" style="color:#0284c7; font-size:1.1rem;"></i>
+              <strong>Guida Biglietti & Titoli di Viaggio</strong>
+            </div>
+            ${isMultiModal ? '<span class="geo-multi-badge">Biglietti Separati</span>' : ''}
+          </div>
+          ${isMultiModal ? `
+            <div class="geo-tickets-multi-note">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>Questo percorso prevede <strong>${distinctModes.map(m => this.getModeLabel(m)).join(' + ')}</strong>: assicurati di avere i rispettivi biglietti per ciascuna tratta prima di salire.</span>
+            </div>
+          ` : ''}
+          <div class="geo-tickets-guide-list">
+            ${ticketsGuideHtml}
+          </div>
         </div>
       `;
-    }).join('');
+    }
 
-    const ticketsGuideBox = `
-      <div class="geo-tickets-guide-box">
-        <div class="geo-tickets-guide-head">
-          <div style="display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-ticket-simple" style="color:#0284c7; font-size:1.1rem;"></i>
-            <strong>Guida Biglietti & Titoli di Viaggio</strong>
+    // Dashboard consumi & costi per l'Auto
+    let carDashboardBox = '';
+    if (it.isCar) {
+      carDashboardBox = `
+        <div class="geo-car-stats-panel">
+          <div class="geo-car-stats-head">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-car-side" style="color:#2563eb; font-size:1.15rem;"></i>
+              <strong>Computer di Bordo & Consumi Stimati</strong>
+            </div>
+            <span class="geo-car-badge-hud"><i class="fa-solid fa-cube"></i> HUD 3D Attivo</span>
           </div>
-          ${isMultiModal ? '<span class="geo-multi-badge">Biglietti Separati</span>' : ''}
-        </div>
-        ${isMultiModal ? `
-          <div class="geo-tickets-multi-note">
-            <i class="fa-solid fa-circle-info"></i>
-            <span>Questo percorso prevede <strong>${distinctModes.map(m => this.getModeLabel(m)).join(' + ')}</strong>: assicurati di avere i rispettivi biglietti per ciascuna tratta prima di salire.</span>
+          <div class="geo-car-stats-grid">
+            <div class="geo-car-stat-card">
+              <span class="geo-csc-icon" style="color:#f59e0b;"><i class="fa-solid fa-gas-pump"></i></span>
+              <div>
+                <strong class="geo-csc-val">~${(it.consumptionLiters || 0).toFixed(1)} L</strong>
+                <span class="geo-csc-lbl">Consumo Carburante</span>
+              </div>
+            </div>
+            <div class="geo-car-stat-card">
+              <span class="geo-csc-icon" style="color:#10b981;"><i class="fa-solid fa-euro-sign"></i></span>
+              <div>
+                <strong class="geo-csc-val">~€${(it.costEstimateEur || 0).toFixed(2)}</strong>
+                <span class="geo-csc-lbl">Spesa Carburante</span>
+              </div>
+            </div>
+            <div class="geo-car-stat-card">
+              <span class="geo-csc-icon" style="color:#0284c7;"><i class="fa-solid fa-route"></i></span>
+              <div>
+                <strong class="geo-csc-val">${(it.totalDistanceKm || 0).toFixed(1)} km</strong>
+                <span class="geo-csc-lbl">Distanza Totale</span>
+              </div>
+            </div>
+            <div class="geo-car-stat-card">
+              <span class="geo-csc-icon" style="color:#14b8a6;"><i class="fa-solid fa-leaf"></i></span>
+              <div>
+                <strong class="geo-csc-val">~${(it.co2EstimateKg || 0).toFixed(1)} kg</strong>
+                <span class="geo-csc-lbl">Emissioni CO2</span>
+              </div>
+            </div>
           </div>
-        ` : ''}
-        <div class="geo-tickets-guide-list">
-          ${ticketsGuideHtml}
+          <div class="geo-car-rotonde-note">
+            <i class="fa-solid fa-rotate-right text-success"></i>
+            <span><strong>${it.roundaboutsCount || 0} Rotonde</strong> sul percorso: visualizzatore 3D con traiettoria attiva, corsia da occupare e numero di uscite.</span>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
 
     const activeOpt = (this.currentItineraryOptions && this.currentItineraryOptions[this.activeOptionIndex]) || null;
     const hasOptions = this.currentItineraryOptions && this.currentItineraryOptions.length > 1;
@@ -2226,6 +2465,9 @@ class GeoLocatorEngine {
           </button>
           <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'fastest' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('fastest')">
             <i class="fa-solid fa-bolt"></i> Più Veloce
+          </button>
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'car' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('car')">
+            <i class="fa-solid fa-car-side"></i> In Auto (3D)
           </button>
           <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'all' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('all')">
             <i class="fa-solid fa-layer-group"></i> Tutte (${this.currentItineraryOptions.length})
@@ -2272,14 +2514,16 @@ class GeoLocatorEngine {
       `;
     }
 
-    const transfersBadge = it.transfers > 0
-      ? `<span class="geo-transfers-badge"><i class="fa-solid fa-arrows-turn-right"></i> ${it.transfers} cambio${it.transfers > 1 ? 'i' : ''}</span>`
-      : `<span class="geo-transfers-badge geo-direct"><i class="fa-solid fa-bolt"></i> Diretto</span>`;
+    const transfersBadge = it.isCar
+      ? `<span class="geo-transfers-badge geo-direct" style="background:#2563eb; color:#fff;"><i class="fa-solid fa-car"></i> Guida Diretta</span>`
+      : (it.transfers > 0
+        ? `<span class="geo-transfers-badge"><i class="fa-solid fa-arrows-turn-right"></i> ${it.transfers} cambio${it.transfers > 1 ? 'i' : ''}</span>`
+        : `<span class="geo-transfers-badge geo-direct"><i class="fa-solid fa-bolt"></i> Diretto</span>`);
 
     const totalWalkTxt = it.totalWalkMeters >= 1000 ? (it.totalWalkMeters / 1000).toFixed(1) + ' km' : it.totalWalkMeters + ' m';
     const boardName = this.nearestStop ? this.nearestStop.name : '';
-    const gmapsUrl = this.buildGmapsTransitUrl(refLatLng, dest);
-    const mainMode = distinctModes[0] || 'pullman';
+    const gmapsUrl = it.isCar ? this.buildGmapsCarUrl(refLatLng, dest) : this.buildGmapsTransitUrl(refLatLng, dest);
+    const mainMode = it.isCar ? 'car' : (distinctModes[0] || 'pullman');
     const vehIcon = this.getModeIcon(mainMode);
 
     this.panel.innerHTML = `
@@ -2287,7 +2531,7 @@ class GeoLocatorEngine {
         <div class="geo-drag-handle-pill" title="Trascina per spostare l'itinerario sulla mappa"><span></span></div>
         <div class="geo-panel-title-area">
           <div class="geo-panel-badge-row">
-            <span class="geo-panel-top-badge"><i class="fa-solid fa-route"></i> ITINERARIO</span>
+            <span class="geo-panel-top-badge"><i class="fa-solid ${it.isCar ? 'fa-car' : 'fa-route'}"></i> ${it.isCar ? 'NAVIGATORE AUTO' : 'ITINERARIO'}</span>
             ${transfersBadge}
             ${distinctModes.map(m => `<span class="geo-mode-pill-mini" style="background:${this.getModeColor(m)}; color:#fff;"><i class="fa-solid ${this.getModeIcon(m)}"></i> ${this.getModeLabel(m)}</span>`).join('')}
           </div>
@@ -2306,15 +2550,20 @@ class GeoLocatorEngine {
       <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
         ${optionsSelectorHtml}
         ${optionNoticeHtml}
+        ${carDashboardBox}
 
         <div class="geo-summary-bar">
-          <small class="text-muted"><i class="fa-solid ${vehIcon}"></i> ${it.rideCount} mezzo${it.rideCount === 1 ? '' : 'i'} &bull; <i class="fa-solid fa-person-walking"></i> ${totalWalkTxt} a piedi &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>
+          ${it.isCar 
+            ? `<small class="text-muted"><i class="fa-solid fa-car"></i> Guida in Auto &bull; ${(it.totalDistanceKm || 0).toFixed(1)} km &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>`
+            : `<small class="text-muted"><i class="fa-solid ${vehIcon}"></i> ${it.rideCount} mezzo${it.rideCount === 1 ? '' : 'i'} &bull; <i class="fa-solid fa-person-walking"></i> ${totalWalkTxt} a piedi &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>`
+          }
         </div>
 
         <ol class="geo-steps-list" id="geoStepsList">${stepsHtml}</ol>
 
         ${ticketsGuideBox}
 
+        ${!it.isCar ? `
         <div class="geo-departures-wrapper" style="margin-top:14px;">
           <div class="geo-departures-title" style="font-weight:800; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
             <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${boardName}</strong>
@@ -2322,18 +2571,26 @@ class GeoLocatorEngine {
           <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
           <div id="geoVerdict" class="geo-verdict-box" style="margin-top:8px;"></div>
         </div>
+        ` : ''}
 
         <div class="geo-footer-actions" style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          ${!it.isCar ? `
           <button class="btn btn-primary btn-sm" onclick="window.geoLocator.onVisualizzaOrari()" style="flex:1;">
             <i class="fa-solid fa-route"></i> Orari & Traccia Completa
           </button>
+          ` : `
+          <button class="btn btn-primary btn-sm" onclick="window.geoLocator.fitWholeRoute()" style="flex:1;">
+            <i class="fa-solid fa-location-crosshairs"></i> Inizia Navigazione 3D
+          </button>
+          `}
           ${gmapsUrl ? `
           <a href="${gmapsUrl}" target="_blank" rel="noopener" class="btn btn-outline btn-sm btn-gmaps-compare" title="Apri e confronta questo percorso su Google Maps">
             <i class="fa-brands fa-google"></i> Maps
           </a>` : ''}
+          ${!it.isCar ? `
           <button class="btn btn-outline btn-sm" onclick="window.geoLocator.goToLiveBoardTimetable()">
             <i class="fa-solid fa-table-list"></i> Tabellone
-          </button>
+          </button>` : ''}
           <button class="btn btn-outline btn-sm" onclick="window.geoLocator.fitWholeRoute()" title="Centra l'intero percorso">
             <i class="fa-solid fa-arrows-to-eye"></i> Vedi Tutto
           </button>
@@ -2343,7 +2600,19 @@ class GeoLocatorEngine {
 
     this.panel.classList.add("open");
     this.setupDraggablePanel();
-    this.startCountdown();
+    if (!it.isCar) {
+      this.startCountdown();
+    }
+  }
+
+  /* Deep-link a Google Maps con indicazioni in AUTO */
+  buildGmapsCarUrl(refLatLng, destStop) {
+    const origin = this.userLatLng || refLatLng;
+    if (!origin || !destStop) return null;
+    const dLat = destStop.lat_actual || destStop.lat;
+    const dLng = destStop.lng_actual || destStop.lng;
+    if (dLat == null || dLng == null) return null;
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin[0]},${origin[1]}&destination=${dLat},${dLng}&travelmode=driving`;
   }
 
   /* Deep-link a Google Maps con indicazioni in TRASPORTO PUBBLICO */
@@ -3132,6 +3401,213 @@ class GeoLocatorEngine {
       clearTimeout(timer);
       return null;
     }
+  }
+
+  /* ==========================================================================
+     NAVIGATORE AUTO & VISUALIZZATORE 3D ROTONDE E SVOLTE
+     ========================================================================== */
+
+  async fetchDrivingRoute(from, to) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson&steps=true&annotations=true`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.routes || !data.routes.length) return null;
+      const route = data.routes[0];
+      const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+      const rawSteps = (route.legs && route.legs[0] && route.legs[0].steps) || [];
+      let roundaboutsCount = 0;
+
+      const processedSteps = rawSteps.map(s => {
+        const man = s.maneuver || {};
+        const isRoundabout = man.type === 'roundabout' || man.type === 'rotary' || man.type === 'roundabout turn';
+        if (isRoundabout) roundaboutsCount++;
+        return {
+          name: s.name || (isRoundabout ? 'Rotonda di svincolo' : 'Strada principale'),
+          distance: Math.round(s.distance || 0),
+          duration: Math.round(s.duration || 0),
+          maneuver: {
+            type: man.type || 'turn',
+            modifier: man.modifier || 'straight',
+            exit: man.exit || (isRoundabout ? 2 : 1),
+            location: man.location ? [man.location[1], man.location[0]] : null
+          },
+          coords: s.geometry && s.geometry.coordinates ? s.geometry.coordinates.map(c => [c[1], c[0]]) : null
+        };
+      });
+
+      return {
+        coords,
+        distance: route.distance,
+        duration: route.duration,
+        steps: processedSteps,
+        roundaboutsCount
+      };
+    } catch (e) {
+      clearTimeout(timer);
+      console.warn("fetchDrivingRoute error:", e);
+      return null;
+    }
+  }
+
+  generateRoundabout3DSvg(exitNumber, modifier, stepName) {
+    const exit = parseInt(exitNumber, 10) || 2;
+    
+    let pathD = "";
+    let exitAngleText = "2ª Uscita (Prosegui Dritto)";
+    let laneAdvice = "Occupa la corsia centrale / destra";
+
+    if (exit === 1) {
+      pathD = "M 160 195 Q 160 145 195 130 Q 235 125 255 105 L 290 105";
+      exitAngleText = "1ª Uscita (A Destra)";
+      laneAdvice = "Resta sulla corsia esterna destra prima di entrare";
+    } else if (exit === 2) {
+      pathD = "M 160 195 Q 160 145 210 130 Q 240 100 200 65 Q 175 50 160 40 L 160 15";
+      exitAngleText = "2ª Uscita (Prosegui Dritto)";
+      laneAdvice = "Occupa la corsia centrale / destra e mantieni la traiettoria";
+    } else if (exit === 3) {
+      pathD = "M 160 195 Q 160 145 210 130 Q 240 95 190 60 Q 140 45 100 70 Q 75 90 65 105 L 30 105";
+      exitAngleText = "3ª Uscita (A Sinistra)";
+      laneAdvice = "Entra dalla corsia interna/sinistra, poi disimpegnati a destra prima dell'uscita 3";
+    } else {
+      pathD = "M 160 195 Q 160 145 210 130 Q 240 95 190 60 Q 130 45 90 75 Q 70 105 95 135 Q 120 150 135 165 L 140 195";
+      exitAngleText = `${exit}ª Uscita (Inversione)`;
+      laneAdvice = "Gira intorno all'anello interno e segnala con freccia a destra prima di uscire";
+    }
+
+    return `
+      <div class="geo-roundabout-3d-card">
+        <div class="geo-rotonda-hud-header">
+          <div class="geo-rotonda-hud-badge">
+            <i class="fa-solid fa-rotate-right fa-spin" style="--fa-animation-duration: 9s;"></i>
+            <strong>ROTONDA 3D &bull; ${exitAngleText.toUpperCase()}</strong>
+          </div>
+          <span class="geo-rotonda-hud-target">${stepName || 'Uscita'}</span>
+        </div>
+
+        <div class="geo-rotonda-svg-wrap">
+          <svg viewBox="0 0 320 220" class="geo-rotonda-svg" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="roadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#334155" />
+                <stop offset="100%" stop-color="#1e293b" />
+              </linearGradient>
+              <linearGradient id="activeTrackGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                <stop offset="0%" stop-color="#38bdf8" />
+                <stop offset="60%" stop-color="#10b981" />
+                <stop offset="100%" stop-color="#22c55e" />
+              </linearGradient>
+              <filter id="glow3D" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+              <marker id="arrowCar" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#22c55e" />
+              </marker>
+            </defs>
+
+            <!-- Ombra 3D anello rotonda -->
+            <ellipse cx="160" cy="115" rx="82" ry="46" fill="#0f172a" opacity="0.6" />
+
+            <!-- Bracci stradali 3D -->
+            <path d="M 144 195 L 144 150 L 176 150 L 176 195 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
+            <path d="M 235 94 L 290 94 L 290 118 L 235 118 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
+            <path d="M 144 15 L 144 65 L 176 65 L 176 15 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
+            <path d="M 30 94 L 85 94 L 85 118 L 30 118 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
+
+            <!-- Anello asfalto -->
+            <ellipse cx="160" cy="105" rx="80" ry="45" fill="url(#roadGrad)" stroke="#64748b" stroke-width="2" />
+            <ellipse cx="160" cy="105" rx="58" ry="32" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" opacity="0.7" />
+
+            <!-- Isola centrale in rilievo 3D -->
+            <ellipse cx="160" cy="109" rx="38" ry="21" fill="#065f46" />
+            <ellipse cx="160" cy="105" rx="36" ry="19" fill="#059669" stroke="#10b981" stroke-width="1.5" />
+            <ellipse cx="160" cy="103" rx="20" ry="10" fill="#34d399" opacity="0.3" />
+
+            <!-- Frecce bianche circolazione -->
+            <path d="M 195 130 Q 215 110 200 85" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6" />
+            <path d="M 125 80 Q 105 100 120 125" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6" />
+
+            <!-- Badge numeri uscite -->
+            <g class="geo-exit-badge ${exit === 1 ? 'active-exit' : ''}">
+              <circle cx="270" cy="106" r="11" fill="${exit === 1 ? '#10b981' : '#334155'}" stroke="#ffffff" stroke-width="1.5" />
+              <text x="270" y="110" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">1</text>
+            </g>
+            <g class="geo-exit-badge ${exit === 2 ? 'active-exit' : ''}">
+              <circle cx="160" cy="28" r="11" fill="${exit === 2 ? '#10b981' : '#334155'}" stroke="#ffffff" stroke-width="1.5" />
+              <text x="160" y="32" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">2</text>
+            </g>
+            <g class="geo-exit-badge ${exit === 3 ? 'active-exit' : ''}">
+              <circle cx="50" cy="106" r="11" fill="${exit === 3 ? '#10b981' : '#334155'}" stroke="#ffffff" stroke-width="1.5" />
+              <text x="50" y="110" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">3</text>
+            </g>
+
+            <!-- Traiettoria attiva con bagliore -->
+            <path d="${pathD}" fill="none" stroke="#047857" stroke-width="10" opacity="0.4" filter="url(#glow3D)" stroke-linecap="round" />
+            <path d="${pathD}" fill="none" stroke="url(#activeTrackGrad)" stroke-width="5" stroke-linecap="round" marker-end="url(#arrowCar)" filter="url(#glow3D)" class="geo-active-rotonda-line" />
+
+            <!-- Ingresso auto -->
+            <circle cx="160" cy="195" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
+          </svg>
+        </div>
+
+        <div class="geo-rotonda-hud-footer">
+          <div class="geo-lane-guide">
+            <i class="fa-solid fa-road text-success"></i>
+            <span><strong>Corsia consigliata:</strong> ${laneAdvice}</span>
+          </div>
+          <div class="geo-exit-instruction">
+            <i class="fa-solid fa-arrow-turn-up text-primary"></i>
+            <span>Conta le uscite: <strong>Esci alla ${exit}ª</strong></span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  generateTurn3DSvg(type, modifier, stepName) {
+    const isRight = modifier && modifier.includes('right');
+    const isLeft = modifier && modifier.includes('left');
+    const isSharp = modifier && modifier.includes('sharp');
+    const isSlight = modifier && modifier.includes('slight');
+    const isFork = type === 'fork';
+
+    let title = "Svolta";
+    let icon = "fa-turn-up";
+
+    if (isRight) {
+      title = isSharp ? "Svolta Secca a Destra" : (isSlight ? "Tieni la Destra" : "Svolta a Destra");
+      icon = isSharp ? "fa-arrow-turn-down" : "fa-arrow-turn-up";
+    } else if (isLeft) {
+      title = isSharp ? "Svolta Secca a Sinistra" : (isSlight ? "Tieni la Sinistra" : "Svolta a Sinistra");
+      icon = isSharp ? "fa-arrow-turn-down" : "fa-arrow-turn-up";
+    } else if (isFork) {
+      title = isRight ? "Al Bivio tieni la Destra" : "Al Bivio tieni la Sinistra";
+      icon = "fa-code-fork";
+    }
+
+    return `
+      <div class="geo-turn-3d-pill">
+        <div class="geo-turn-3d-left">
+          <i class="fa-solid ${icon} text-primary"></i>
+          <div>
+            <strong>${title}</strong>
+            <small style="display:block; color:#64748b;">${stepName || 'Segui la strada'}</small>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  focusStepLocation(lat, lng) {
+    if (lat == null || lng == null) return;
+    const map = this.ensureMap();
+    if (!map) return;
+    map.flyTo([lat, lng], 17, { animate: true, duration: 1.2 });
   }
 
   /* ==========================================================================

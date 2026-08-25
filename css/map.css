@@ -2276,6 +2276,289 @@
   background: rgba(2, 132, 199, 0.05);
 }
 
+/* ==========================================================================
+   NAVIGATORE AUTO & VISUALIZZATORE 3D ROTONDE E SVOLTE
+   ========================================================================== */
+
+.badge-car {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* Dashboard Consumi & Computer di Bordo */
+.geo-car-stats-panel {
+  background: linear-gradient(145deg, #1e293b, #0f172a);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  color: #f8fafc;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.geo-car-stats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+}
+
+.geo-car-badge-hud {
+  background: rgba(37, 99, 235, 0.25);
+  border: 1px solid rgba(37, 99, 235, 0.5);
+  color: #60a5fa;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.geo-car-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.geo-car-stat-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.geo-csc-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.geo-csc-val {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1.15;
+}
+
+.geo-csc-lbl {
+  display: block;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.geo-car-rotonde-note {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Card 3D Rotonda Interattiva */
+.geo-step-car-roundabout {
+  cursor: pointer;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+.geo-roundabout-3d-card {
+  background: #0f172a;
+  border: 1.5px solid #334155;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+}
+
+.geo-roundabout-3d-card:hover {
+  border-color: #10b981;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.2);
+}
+
+.geo-rotonda-hud-header {
+  padding: 10px 12px;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.geo-rotonda-hud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #34d399;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.geo-rotonda-hud-target {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #f8fafc;
+  max-width: 50%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.geo-rotonda-svg-wrap {
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  padding: 6px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.geo-rotonda-svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  display: block;
+}
+
+.geo-active-rotonda-line {
+  stroke-dasharray: 12, 6;
+  animation: rotondaDash 1.6s linear infinite;
+}
+
+@keyframes rotondaDash {
+  from {
+    stroke-dashoffset: 36;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.geo-exit-badge circle {
+  transition: all 0.2s ease;
+}
+
+.geo-exit-badge.active-exit circle {
+  filter: drop-shadow(0 0 6px #10b981);
+}
+
+.geo-rotonda-hud-footer {
+  padding: 10px 12px;
+  background: #1e293b;
+  border-top: 1px solid #334155;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.geo-lane-guide, .geo-exit-instruction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cbd5e1;
+}
+
+.geo-step-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px 2px 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+}
+
+.geo-step-zoom-hint {
+  color: #0284c7;
+  font-weight: 700;
+}
+
+/* Card Svolte 3D */
+.geo-step-car-turn {
+  cursor: pointer;
+}
+
+.geo-turn-3d-pill {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  transition: background 0.15s ease;
+}
+
+.geo-turn-3d-pill:hover {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.geo-turn-3d-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.geo-turn-3d-left i {
+  font-size: 1.25rem;
+}
+
+/* Pin Rotonda 3D sulla Mappa Leaflet */
+.map-rotonda-pin-wrap {
+  background: transparent;
+  border: none;
+}
+
+.map-rotonda-3d-pin {
+  width: 30px;
+  height: 30px;
+  background: #10b981;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6), 0 0 0 4px rgba(16, 185, 129, 0.2);
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.map-rotonda-3d-pin::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.8);
+  animation: spinPin 8s linear infinite;
+}
+
+@keyframes spinPin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.map-rotonda-3d-pin:hover {
+  transform: scale(1.15);
+}
+
+.driving-route-polyline {
+  filter: drop-shadow(0 0 4px rgba(37, 99, 235, 0.6));
+}
+
 
 
 
