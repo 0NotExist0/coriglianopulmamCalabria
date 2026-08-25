@@ -573,8 +573,8 @@
     </div>
   </section>
 
-  <!-- REGION, CITY & STOP SELECTOR BAR -->
-  <div class="region-selector-bar">
+  <!-- REGION, CITY & STOP SELECTOR BAR (Nascosto in automatico sulla mappa GPS) -->
+  <div class="region-selector-bar" id="regionSelectorBar" style="display: none;">
     <div class="container region-selector-inner">
       <div class="selector-field">
         <label for="regionSelect"><i class="fa-solid fa-map-location-dot"></i> <span>Regione Attuale:</span></label>
@@ -799,11 +799,6 @@
             <h2><i class="fa-solid fa-map-location-dot text-primary"></i> Mappa Interattiva e Posizione Bus Live</h2>
             <p>Tracciati delle linee, posizione satellitare in tempo reale dei pullman e fermate in tutta Italia.</p>
           </div>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <button type="button" class="btn btn-sm btn-outline" id="btnToggleMapSearch" title="Apri/Chiudi barra di ricerca destinazione">
-              <i class="fa-solid fa-magnifying-glass"></i> Cerca Destinazione
-            </button>
-          </div>
         </div>
 
         <div class="transit-map-wrapper">
@@ -838,8 +833,8 @@
             <div class="manual-origin-results-list" id="manualOriginResultsList" style="display: none;"></div>
           </div>
 
-          <!-- Ricerca Destinazione Intelligente (Chiusa in automatico all'avvio per visualizzare subito la mappa GPS pulita) -->
-          <div class="map-destination-hub-bar" id="mapDestinationHubBar" style="display: none;">
+          <!-- Ricerca Destinazione Intelligente & Localizzazione Fermata Più Vicina Utile -->
+          <div class="map-destination-hub-bar" id="mapDestinationHubBar">
             <div class="map-dest-input-container">
               <div class="map-dest-input-group">
                 <i class="fa-solid fa-location-dot map-dest-field-icon"></i>

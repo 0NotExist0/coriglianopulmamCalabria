@@ -903,6 +903,12 @@ class AppController {
         sec.classList.toggle("active", sec.id === `section-${tabId}`);
       });
 
+      // Nascondi la barra regione/città/fermata sulla mappa GPS, mostrala nelle altre sezioni
+      const regBar = document.getElementById("regionSelectorBar") || document.querySelector(".region-selector-bar");
+      if (regBar) {
+        regBar.style.display = (tabId === "map") ? "none" : "block";
+      }
+
       // Scroll fluido in alto al cambio scheda su mobile
       if (window.innerWidth <= 768) {
         window.scrollTo({ top: 0, behavior: "smooth" });

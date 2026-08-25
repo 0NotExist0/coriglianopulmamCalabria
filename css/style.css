@@ -1143,6 +1143,12 @@ button:active,
   z-index: 10;
 }
 
+/* Nasconde automaticamente la barra selettori regione/città/fermata quando si è sulla mappa GPS */
+body:has(#section-map.active) .region-selector-bar,
+#section-map.active ~ .region-selector-bar {
+  display: none !important;
+}
+
 .region-selector-inner {
   display: flex;
   align-items: center;
