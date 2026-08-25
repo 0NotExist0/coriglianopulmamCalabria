@@ -241,7 +241,11 @@ class TransitMapEngine {
         }
       },
       (err) => {
-        alert("Impossibile ottenere la posizione: " + (err.message || "Permesso negato o GPS non disponibile."));
+        if (window.geoLocator) {
+          window.geoLocator.onGeoError(err);
+        } else {
+          alert("Impossibile ottenere la posizione: " + (err.message || "Permesso negato o GPS non disponibile."));
+        }
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 }
     );

@@ -248,13 +248,13 @@
 
       <!-- Desktop Nav -->
       <nav class="desktop-nav">
-        <a href="#" class="nav-link active" data-tab="live-board">
+        <a href="#" class="nav-link" data-tab="live-board">
           <i class="fa-solid fa-clock"></i> Tabellone Live
         </a>
         <a href="#" class="nav-link" data-tab="search">
           <i class="fa-solid fa-magnifying-glass-location"></i> Cerca & Prenota
         </a>
-        <a href="#" class="nav-link" data-tab="map">
+        <a href="#" class="nav-link active" data-tab="map">
           <i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS
         </a>
         <a href="#" class="nav-link" data-tab="fleet">
@@ -362,9 +362,9 @@
     </div>
 
     <div class="drawer-nav">
-      <a href="#" class="nav-link active" data-tab="live-board"><i class="fa-solid fa-clock"></i> Tabellone Partenze Live</a>
+      <a href="#" class="nav-link" data-tab="live-board"><i class="fa-solid fa-clock"></i> Tabellone Partenze Live</a>
       <a href="#" class="nav-link" data-tab="search"><i class="fa-solid fa-magnifying-glass-location"></i> Cerca Corsa & Biglietti</a>
-      <a href="#" class="nav-link" data-tab="map"><i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS</a>
+      <a href="#" class="nav-link active" data-tab="map"><i class="fa-solid fa-map-location-dot"></i> Mappa Live GPS</a>
       <a href="#" class="nav-link" data-tab="fleet"><i class="fa-solid fa-truck-front"></i> Parco Mezzi & Flotta</a>
       <a href="#" class="nav-link" data-tab="tariffs"><i class="fa-solid fa-tags"></i> Tariffe Ufficiali</a>
       <a href="#" class="nav-link" data-tab="strikes"><i class="fa-solid fa-triangle-exclamation"></i> Scioperi & Fasce Orarie <span class="nav-badge-pill nav-badge-strike">LIVE</span></a>
@@ -610,7 +610,7 @@
     <div class="container">
 
       <!-- SECTION 1: TABELLONE PARTENZE LIVE -->
-      <section class="app-section active" id="section-live-board">
+      <section class="app-section" id="section-live-board">
         <div class="section-header">
           <div>
             <h2><i class="fa-solid fa-satellite-dish text-primary"></i> Tabellone Partenze & Arrivi in Tempo Reale</h2>
@@ -793,17 +793,53 @@
       </section>
 
       <!-- SECTION 3: MAPPA INTERATTIVA LIVE -->
-      <section class="app-section" id="section-map">
+      <section class="app-section active" id="section-map">
         <div class="section-header">
           <div>
             <h2><i class="fa-solid fa-map-location-dot text-primary"></i> Mappa Interattiva e Posizione Bus Live</h2>
             <p>Tracciati delle linee, posizione satellitare in tempo reale dei pullman e fermate in tutta Italia.</p>
           </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button type="button" class="btn btn-sm btn-outline" id="btnToggleMapSearch" title="Apri/Chiudi barra di ricerca destinazione">
+              <i class="fa-solid fa-magnifying-glass"></i> Cerca Destinazione
+            </button>
+          </div>
         </div>
 
         <div class="transit-map-wrapper">
-          <!-- Ricerca Destinazione Intelligente & Localizzazione Fermata Più Vicina Utile -->
-          <div class="map-destination-hub-bar" id="mapDestinationHubBar">
+          <!-- Pannello Inserimento Posizione Manuale (si apre SOLO ed ESCLUSIVAMENTE se la posizione GPS viene negata/non consentita) -->
+          <div class="map-manual-origin-bar" id="mapManualOriginBar" style="display: none;">
+            <div class="manual-origin-badge-row">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="manual-origin-alert-tag"><i class="fa-solid fa-location-crosshairs-slash"></i> GPS non consentito</span>
+                <span class="manual-origin-hint">Inserisci il tuo comune o via di partenza:</span>
+              </div>
+              <button type="button" class="btn-close-manual-origin" id="btnCloseManualOrigin" title="Chiudi avviso manuale"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="manual-origin-input-row">
+              <div class="manual-origin-field-wrap">
+                <i class="fa-solid fa-location-dot manual-origin-icon"></i>
+                <input 
+                  type="text" 
+                  id="manualOriginInput" 
+                  class="manual-origin-input" 
+                  placeholder="Es. Via Roma Cosenza, Stazione Paola, Corigliano, Catanzaro..." 
+                  autocomplete="off"
+                  aria-label="Posizione o indirizzo di partenza manuale"
+                />
+                <button type="button" class="btn-clear-manual-origin" id="btnClearManualOrigin" title="Cancella" style="display: none;">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <button type="button" class="btn-set-manual-origin" id="btnSetManualOrigin" title="Imposta questa posizione come partenza">
+                <i class="fa-solid fa-location-arrow"></i> <span>Imposta Partenza</span>
+              </button>
+            </div>
+            <div class="manual-origin-results-list" id="manualOriginResultsList" style="display: none;"></div>
+          </div>
+
+          <!-- Ricerca Destinazione Intelligente (Chiusa in automatico all'avvio per visualizzare subito la mappa GPS pulita) -->
+          <div class="map-destination-hub-bar" id="mapDestinationHubBar" style="display: none;">
             <div class="map-dest-input-container">
               <div class="map-dest-input-group">
                 <i class="fa-solid fa-location-dot map-dest-field-icon"></i>
@@ -1284,7 +1320,7 @@
        MOBILE BOTTOM NAVIGATION BAR (FIXED DOCK)
        ========================================== -->
   <nav class="mobile-bottom-bar" id="mobileBottomBar" aria-label="Navigazione Rapida Mobile">
-    <button class="mobile-nav-btn active" data-tab="live-board" aria-label="Tabellone Partenze Live">
+    <button class="mobile-nav-btn" data-tab="live-board" aria-label="Tabellone Partenze Live">
       <div class="mobile-nav-icon"><i class="fa-solid fa-clock"></i></div>
       <span class="mobile-nav-label">Partenze</span>
     </button>
@@ -1292,7 +1328,7 @@
       <div class="mobile-nav-icon"><i class="fa-solid fa-magnifying-glass-location"></i></div>
       <span class="mobile-nav-label">Cerca</span>
     </button>
-    <button class="mobile-nav-btn" data-tab="map" aria-label="Mappa Satellitare GPS">
+    <button class="mobile-nav-btn active" data-tab="map" aria-label="Mappa Satellitare GPS">
       <div class="mobile-nav-icon"><i class="fa-solid fa-map-location-dot"></i></div>
       <span class="mobile-nav-label">Mappa GPS</span>
     </button>

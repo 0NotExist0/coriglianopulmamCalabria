@@ -159,7 +159,7 @@ function safeStorageSet(key, val) {
 
 class AppController {
   constructor() {
-    this.currentTab = "live-board";
+    this.currentTab = "map";
     this.theme = safeStorageGet("italiabus_theme", "light");
     this.currentMode = safeStorageGet("italiabus_transport_mode", "pullman");
     this.currentRegion = safeStorageGet("italiabus_region", "calabria");
@@ -847,6 +847,17 @@ class AppController {
         setTimeout(() => {
           if (preloader.parentNode) {
             preloader.parentNode.removeChild(preloader);
+          }
+          // Inizializza subito la mappa a schermo intero e avvia la geolocalizzazione GPS
+          if (this.currentTab === "map") {
+            setTimeout(() => {
+              if (window.transitMap && window.transitMap.map) {
+                window.transitMap.map.invalidateSize();
+              }
+              if (window.geoLocator) {
+                window.geoLocator.locateAndRoute();
+              }
+            }, 100);
           }
         }, 500);
       }, 400);

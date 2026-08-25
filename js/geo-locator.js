@@ -21,6 +21,16 @@ class GeoLocatorEngine {
     this.destDropdownBadge = document.getElementById("destDropdownModeBadge");
     this.btnClearDest = document.getElementById("btnClearMapDest");
     this.btnToggleDropdown = document.getElementById("btnToggleDestDropdown");
+    this.destHubBar = document.getElementById("mapDestinationHubBar");
+    this.btnToggleMapSearch = document.getElementById("btnToggleMapSearch");
+
+    // Controlli Inserimento Posizione Manuale (aperto solo se il GPS viene negato)
+    this.manualOriginBar = document.getElementById("mapManualOriginBar");
+    this.manualOriginInput = document.getElementById("manualOriginInput");
+    this.btnSetManualOrigin = document.getElementById("btnSetManualOrigin");
+    this.btnCloseManualOrigin = document.getElementById("btnCloseManualOrigin");
+    this.btnClearManualOrigin = document.getElementById("btnClearManualOrigin");
+    this.manualOriginResultsList = document.getElementById("manualOriginResultsList");
 
     this.map = null;
     this.geoLayer = null;
@@ -30,6 +40,11 @@ class GeoLocatorEngine {
     this.activeRouteInfo = null;
     this.walkSeconds = null;
     this.countdownTimer = null;
+
+    // --- Stato GPS & Posizione Manuale Fallback ---
+    this.gpsDenied = false;              // true solo se il permesso GPS e' stato negato o fallito
+    this.manualOriginAddress = null;     // stringa indirizzo manuale inserito
+    this.manualOriginMarker = null;      // marker Leaflet per la partenza manuale
 
     // --- Stato NAVIGATORE in tempo reale ---
     this.watchId = null;              // id di navigator.geolocation.watchPosition (path browser)
@@ -73,6 +88,7 @@ class GeoLocatorEngine {
     }
 
     this.bindDestinationControls();
+    this.bindManualOriginControls();
 
     // Aggiornamento reattivo al cambio modalità di trasporto
     document.addEventListener("transportModeChanged", (e) => {
@@ -246,6 +262,260 @@ class GeoLocatorEngine {
         flight: "Quale aeroporto o città vuoi raggiungere in Volo? Es. Roma Fiumicino, Milano..."
       };
       this.destInput.placeholder = PLACEHOLDERS[currentMode] || "Inserisci la tua destinazione...";
+    }
+  }
+
+  /* ==========================================================================
+     GESTIONE POSIZIONE MANUALE (FALLBACK QUANDO IL GPS VIENE NEGATO)
+     ========================================================================== */
+
+  bindManualOriginControls() {
+    if (this.btnToggleMapSearch) {
+      this.btnToggleMapSearch.addEventListener("click", () => {
+        if (!this.destHubBar) this.destHubBar = document.getElementById("mapDestinationHubBar");
+        if (this.destHubBar) {
+          const isHidden = this.destHubBar.style.display === "none" || !this.destHubBar.style.display;
+          this.destHubBar.style.display = isHidden ? "grid" : "none";
+          if (isHidden && this.destInput) {
+            this.destInput.focus();
+          }
+        }
+      });
+    }
+
+    if (this.btnCloseManualOrigin) {
+      this.btnCloseManualOrigin.addEventListener("click", () => {
+        this.hideManualOriginPanel();
+      });
+    }
+
+    if (this.btnClearManualOrigin) {
+      this.btnClearManualOrigin.addEventListener("click", () => {
+        if (this.manualOriginInput) {
+          this.manualOriginInput.value = "";
+          this.manualOriginInput.focus();
+        }
+        if (this.manualOriginResultsList) {
+          this.manualOriginResultsList.style.display = "none";
+          this.manualOriginResultsList.innerHTML = "";
+        }
+        this.btnClearManualOrigin.style.display = "none";
+      });
+    }
+
+    if (this.manualOriginInput) {
+      let debounceTimer = null;
+      this.manualOriginInput.addEventListener("input", () => {
+        const q = this.manualOriginInput.value.trim();
+        if (this.btnClearManualOrigin) {
+          this.btnClearManualOrigin.style.display = q ? "flex" : "none";
+        }
+        clearTimeout(debounceTimer);
+        if (q.length >= 2) {
+          debounceTimer = setTimeout(() => {
+            this.renderManualOriginSuggestions(q);
+          }, 150);
+        } else {
+          if (this.manualOriginResultsList) {
+            this.manualOriginResultsList.style.display = "none";
+            this.manualOriginResultsList.innerHTML = "";
+          }
+        }
+      });
+
+      this.manualOriginInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.handleManualOriginSubmit();
+        }
+      });
+    }
+
+    if (this.btnSetManualOrigin) {
+      this.btnSetManualOrigin.addEventListener("click", () => {
+        this.handleManualOriginSubmit();
+      });
+    }
+  }
+
+  showManualOriginPanel(err = null) {
+    if (!this.manualOriginBar) this.manualOriginBar = document.getElementById("mapManualOriginBar");
+    if (this.manualOriginBar) {
+      this.manualOriginBar.style.display = "block";
+    }
+    if (this.manualOriginInput) {
+      this.manualOriginInput.focus();
+    }
+  }
+
+  hideManualOriginPanel() {
+    if (!this.manualOriginBar) this.manualOriginBar = document.getElementById("mapManualOriginBar");
+    if (this.manualOriginBar) {
+      this.manualOriginBar.style.display = "none";
+    }
+  }
+
+  async renderManualOriginSuggestions(query) {
+    if (!this.manualOriginResultsList) this.manualOriginResultsList = document.getElementById("manualOriginResultsList");
+    if (!this.manualOriginResultsList) return;
+
+    const list = this.manualOriginResultsList;
+    const qLower = query.toLowerCase();
+
+    // 1) Cerca prima tra le fermate locali
+    const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    let allStops = (typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion) : []) || [];
+    if (typeof getStopsByRegion === 'function') {
+      allStops = allStops.concat(getStopsByRegion('all') || []);
+    }
+
+    const matchedStops = allStops.filter(s => s.name && s.name.toLowerCase().includes(qLower)).slice(0, 5);
+
+    let html = matchedStops.map(s => `
+      <div class="manual-origin-item" onclick="window.geoLocator.applyManualOrigin(${s.lat_actual || s.lat}, ${s.lng_actual || s.lng}, '${s.name.replace(/'/g, "\\'")}')">
+        <i class="fa-solid fa-bus text-primary"></i>
+        <div>
+          <strong>${s.name}</strong>
+          <small class="text-muted" style="display:block;">Fermata Rete / Stazione</small>
+        </div>
+      </div>
+    `).join('');
+
+    // 2) Opzione di ricerca libera OpenStreetMap
+    html += `
+      <div class="manual-origin-item manual-origin-geocode-opt" onclick="window.geoLocator.handleManualOriginSubmit()">
+        <i class="fa-solid fa-magnifying-glass-location text-success"></i>
+        <div>
+          <strong>Cerca "${query}" come indirizzo/città</strong>
+          <small class="text-muted" style="display:block;">Geolocalizzazione indirizzo OpenStreetMap</small>
+        </div>
+      </div>
+    `;
+
+    list.innerHTML = html;
+    list.style.display = "block";
+  }
+
+  async geocodeManualAddress(query) {
+    if (!query || query.trim().length < 2) return null;
+    const clean = query.trim().toLowerCase();
+
+    // 1) Cerca prima tra le fermate e gli hub regionali
+    const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
+    let allStops = (typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion) : []) || [];
+    if (typeof getStopsByRegion === 'function') {
+      allStops = allStops.concat(getStopsByRegion('all') || []);
+    }
+
+    const matchedStop = allStops.find(s => s.name && s.name.toLowerCase().includes(clean));
+    if (matchedStop) {
+      return {
+        lat: matchedStop.lat_actual || matchedStop.lat,
+        lng: matchedStop.lng_actual || matchedStop.lng,
+        name: matchedStop.name
+      };
+    }
+
+    // 2) Geocoding Nominatim OpenStreetMap (CORS aperto per l'Italia)
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=it&limit=1&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url, { headers: { 'accept-language': 'it' } });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
+            name: data[0].display_name.split(',')[0] || data[0].display_name
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("Geocoding manual address error:", e);
+    }
+
+    return null;
+  }
+
+  async handleManualOriginSubmit() {
+    if (!this.manualOriginInput) return;
+    const q = this.manualOriginInput.value.trim();
+    if (!q) return;
+
+    if (this.manualOriginResultsList) {
+      this.manualOriginResultsList.style.display = "none";
+    }
+
+    if (this.btnSetManualOrigin) {
+      this.btnSetManualOrigin.disabled = true;
+      this.btnSetManualOrigin.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Localizzo...`;
+    }
+
+    const res = await this.geocodeManualAddress(q);
+    if (this.btnSetManualOrigin) {
+      this.btnSetManualOrigin.disabled = false;
+      this.btnSetManualOrigin.innerHTML = `<i class="fa-solid fa-location-arrow"></i> <span>Imposta Partenza</span>`;
+    }
+
+    if (res && res.lat != null && res.lng != null) {
+      this.applyManualOrigin(res.lat, res.lng, res.name || q);
+    } else {
+      this.showError(`Indirizzo "${q}" non trovato. Prova specificando la città o la fermata.`);
+    }
+  }
+
+  applyManualOrigin(lat, lng, name) {
+    this.gpsDenied = true; // Solo in questo caso (GPS negato) usiamo la posizione manuale
+    this.userLatLng = [lat, lng];
+    this.manualOriginAddress = name;
+
+    const map = this.ensureMap();
+    if (!map) return;
+
+    if (this.manualOriginMarker && this.geoLayer) {
+      this.geoLayer.removeLayer(this.manualOriginMarker);
+    }
+
+    const pinHtml = `
+      <div class="user-manual-origin-pin" title="Punto di Partenza Impostato">
+        <i class="fa-solid fa-location-dot"></i>
+      </div>
+    `;
+    const icon = L.divIcon({
+      html: pinHtml,
+      className: 'user-manual-origin-pin-wrap',
+      iconSize: [32, 32],
+      iconAnchor: [16, 32]
+    });
+
+    this.manualOriginMarker = L.marker([lat, lng], { icon, zIndexOffset: 2500 })
+      .bindPopup(`<strong>📍 Partenza Impostata:</strong><br>${name}`)
+      .addTo(this.geoLayer);
+
+    map.flyTo([lat, lng], 15, { animate: true, duration: 1.2 });
+    this.manualOriginMarker.openPopup();
+
+    if (this.manualOriginResultsList) {
+      this.manualOriginResultsList.style.display = "none";
+    }
+
+    // Se c'è già una destinazione scelta, calcola subito l'itinerario dalla partenza manuale
+    if (this.selectedDestination) {
+      this.routeToDestination(this.selectedDestination);
+    } else {
+      // Altrimenti trova la fermata di partenza più vicina alla posizione manuale inserita
+      const defaultStop = this.findNearestStop(this.userLatLng);
+      if (defaultStop) {
+        this.routeToNearestDeparture(defaultStop);
+      }
+    }
+
+    if (window.notificationManager) {
+      window.notificationManager.send(
+        `Partenza Impostata: ${name} 📍`,
+        `Posizione manuale impostata con successo. Calcolo fermate e percorsi disponibili.`,
+        { type: "info", icon: "fa-location-dot", tabTarget: "map", showToast: true, sendNative: false }
+      );
     }
   }
 
@@ -2326,15 +2596,27 @@ class GeoLocatorEngine {
 
   onGeoError(err) {
     this.setLoading(false);
+    this.gpsDenied = true;
     let msg = "Impossibile ottenere la posizione GPS.";
-    if (err.code === 1) msg = "Permesso di geolocalizzazione negato. Abilitalo nelle impostazioni per trovare la fermata più vicina.";
-    else if (err.code === 2) msg = "Posizione GPS non disponibile. Assicurati che la localizzazione sia attiva e riprova.";
-    else if (err.code === 3) msg = "Tempo scaduto nel recupero del segnale GPS. Riprova all'aperto.";
+    if (err && err.code === 1) {
+      msg = "Permesso di geolocalizzazione negato. Inserisci la tua posizione di partenza nel campo in cima alla mappa per trovare la fermata più vicina.";
+    } else if (err && err.code === 2) {
+      msg = "Posizione GPS non disponibile. Inserisci la tua posizione di partenza nel campo in cima alla mappa.";
+    } else if (err && err.code === 3) {
+      msg = "Tempo scaduto nel recupero del segnale GPS. Inserisci la tua posizione di partenza nel campo in cima alla mappa.";
+    }
+
+    // Mostra il pannello di inserimento posizione manuale SOLO perche' il GPS e' stato negato
+    this.showManualOriginPanel(err);
     this.showError(msg);
   }
 
   async onPosition(pos) {
     this.setLoading(false);
+    this.gpsDenied = false;
+    // Se il GPS e' consentito, chiudi in automatico il pannello di input manuale
+    this.hideManualOriginPanel();
+
     const map = this.ensureMap();
     if (!map) return;
 
