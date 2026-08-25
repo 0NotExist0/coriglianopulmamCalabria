@@ -192,7 +192,7 @@ class JourneyPlanner {
      ========================================================================== */
   async plan(originLatLng, destStop, opts = {}) {
     if (!originLatLng || !destStop || !destStop.id) return null;
-    const modeKey = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const modeKey = opts.modeKey || (typeof getActiveMode === 'function' ? getActiveMode() : 'pullman');
     const index = this._buildIndex(modeKey);
     if (!index.stopsById.has(destStop.id)) {
       // La destinazione non e' una fermata nota di questa modalita'
@@ -432,14 +432,27 @@ class JourneyPlanner {
 
     if (out.length === 0) return null;
 
+    const rideLegs = out.filter(l => l.type === 'ride');
+    const rideModes = rideLegs.map(l => l.mode || index.modeKey || 'pullman');
+    const isPurePullman = rideModes.length > 0 && rideModes.every(m => m === 'pullman');
+    const hasPullman = rideModes.includes('pullman');
+    const hasTrain = rideModes.includes('train');
+    const totalSeconds = Math.round((totalWalk / 1.35) + (totalRide / 8.33));
+
     return {
       legs: out,
       transfers: Math.max(0, transfers - 1),
-      rideCount: out.filter(l => l.type === 'ride').length,
+      rideCount: rideLegs.length,
       totalWalkMeters: Math.round(totalWalk),
       totalRideMeters: Math.round(totalRide),
+      totalSeconds: totalSeconds,
       rideStops,
-      destinationStop: destStop
+      destinationStop: destStop,
+      source: 'journeyPlanner',
+      isPurePullman: isPurePullman,
+      hasPullman: hasPullman,
+      hasTrain: hasTrain,
+      modes: Array.from(new Set(rideModes))
     };
   }
 

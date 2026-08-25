@@ -53,6 +53,13 @@ class GeoLocatorEngine {
     this.legMarkers = [];            // segnaposto di salita/cambio/destinazione
     this.fullRouteShown = false;     // tutte le tratte sono state rivelate ("Visualizza Orari")
 
+    // --- Opzioni di Viaggio & Filtri Mezzi (Solo Pullman vs Più Veloce vs Intermodale) ---
+    this.itineraryFilter = 'all';    // 'all' | 'pullman' | 'fastest'
+    this.currentItineraryOptions = []; // elenco opzioni calcolate per la destinazione attiva
+    this.activeOptionIndex = 0;      // indice dell'opzione selezionata
+    this.currentDest = null;         // destinazione corrente
+    this.currentRefLatLng = null;    // punto di partenza di riferimento corrente
+
     // Modalita' camera: 'free' = la mappa NON torna al punto da sola (default);
     // 'auto' = segue la posizione dell'utente, zoomata (stile navigatore).
     this.followMode = 'free';
@@ -610,32 +617,54 @@ class GeoLocatorEngine {
         }
       }
 
-      // Costruisce l'itinerario completo (multi-tratta con cambi automatici se serve)
-      const itinerary = await this.buildItinerary(dest, refLatLng);
-      if (!itinerary || !itinerary.legs || itinerary.legs.length === 0) {
+      this.currentDest = dest;
+      this.currentRefLatLng = refLatLng;
+
+      // Costruisce e cataloga tutte le opzioni di viaggio (Solo Pullman, Più Veloce, Intermodale, etc.)
+      const options = await this.buildItineraryOptions(dest, refLatLng, this.itineraryFilter);
+      if (!options || options.length === 0) {
         this.showNoRouteError(dest, refLatLng);
         return;
       }
 
-      this.setActiveItinerary(itinerary, refLatLng);
+      this.currentItineraryOptions = options;
+
+      // Determina quale opzione selezionare in base al filtro attivo
+      let targetIdx = 0;
+      if (this.itineraryFilter === 'pullman') {
+        const pIdx = options.findIndex(o => o.isPurePullman);
+        if (pIdx !== -1) targetIdx = pIdx;
+        else {
+          const hIdx = options.findIndex(o => o.isPullmanHybrid || o.hasPullman);
+          targetIdx = hIdx !== -1 ? hIdx : 0;
+        }
+      } else if (this.itineraryFilter === 'fastest') {
+        const fIdx = options.findIndex(o => o.isFastest);
+        targetIdx = fIdx !== -1 ? fIdx : 0;
+      }
+
+      this.activeOptionIndex = targetIdx;
+      const chosen = options[targetIdx];
+
+      this.setActiveItinerary(chosen.itinerary, refLatLng);
 
       // Migliora il primo tratto a piedi con la geometria pedonale reale (OSRM)
       await this.enhanceOriginWalkGeometry();
 
-      // Disegna l'itinerario sulla mappa (mostra il primo tratto a piedi + i segnaposto del piano)
+      // Disegna l'itinerario sulla mappa
       this.drawNavLegs(refLatLng);
 
-      // Renderizza il pannello con le indicazioni passo-passo
+      // Renderizza il pannello con selettore opzioni e indicazioni passo-passo
       this.renderItineraryPanel(refLatLng);
 
       // Notifica di sistema
       if (window.notificationManager) {
         const board = this.nearestStop;
-        const extra = itinerary.transfers > 0
-          ? `Percorso con ${itinerary.transfers} cambio${itinerary.transfers > 1 ? 'i' : ''}: segui le indicazioni passo-passo.`
-          : `Sali a ${board.name} e raggiungi ${dest.name}.`;
+        const extra = chosen.itinerary.transfers > 0
+          ? `Percorso ${chosen.title} (${chosen.durationText}, ${chosen.transfersText}): segui le indicazioni passo-passo.`
+          : `Percorso ${chosen.title} (${chosen.durationText}): sali a ${board ? board.name : 'fermata'}.`;
         window.notificationManager.send(
-          `Itinerario pronto per ${dest.name} 🧭`,
+          `Itinerario per ${dest.name} 🧭`,
           extra,
           { type: "success", icon: "fa-route", tabTarget: "map", showToast: true, sendNative: false }
         );
@@ -643,7 +672,7 @@ class GeoLocatorEngine {
     };
 
     if (typeof window.withAppLoader === 'function') {
-      await window.withAppLoader(`Calcolo Itinerario per ${dest.name || 'Destinazione'}...`, "Individuazione fermata di salita ottimale e tracciato...", doRouting, 240);
+      await window.withAppLoader(`Calcolo Itinerario per ${dest.name || 'Destinazione'}...`, "Ricerca corse solo pullman, coincidenze e percorsi più veloci...", doRouting, 240);
     } else {
       await doRouting();
     }
@@ -708,50 +737,253 @@ class GeoLocatorEngine {
      COSTRUZIONE ITINERARIO (multi-tratta con cambi automatici)
      ========================================================================== */
 
-  async buildItinerary(dest, refLatLng) {
-    const destStop = dest.stop || { id: dest.id, name: dest.name, lat: dest.lat, lng: dest.lng };
+  /* ==========================================================================
+     COSTRUZIONE ITINERARI & OPZIONI MULTIPLE (Solo Pullman, Più Veloce, etc.)
+     ========================================================================== */
 
-    // 0) Se configurata la chiave Google, usa i percorsi REALI di Google Maps
-    //    (trasporto pubblico). Senza chiave questo blocco e' inattivo.
+  formatDuration(sec) {
+    if (!sec || isNaN(sec) || sec <= 0) return '~30 min';
+    const m = Math.round(sec / 60);
+    if (m < 60) return `${m} min`;
+    const hrs = Math.floor(m / 60);
+    const mins = m % 60;
+    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+  }
+
+  async buildItinerary(dest, refLatLng) {
+    const options = await this.buildItineraryOptions(dest, refLatLng, this.itineraryFilter);
+    if (!options || options.length === 0) return null;
+    return options[this.activeOptionIndex]?.itinerary || options[0]?.itinerary;
+  }
+
+  async buildItineraryOptions(dest, refLatLng, preferredFilter = 'all') {
+    const destStop = dest.stop || { id: dest.id, name: dest.name, lat: dest.lat, lng: dest.lng };
+    const rawOptions = [];
+
+    // 1) Fallback Locale Diretto (Pullman di linea locale / Calabria)
+    const localFb = this._localDirectFallback(dest, refLatLng);
+    if (localFb) {
+      rawOptions.push(localFb);
+    }
+
+    // 2) Pianificatore Multi-hop Locale (JourneyPlanner RAPTOR con preferenza Pullman)
+    if (window.journeyPlanner && destStop.id) {
+      try {
+        const jpPullman = await window.journeyPlanner.plan(refLatLng, destStop, { modeKey: 'pullman' });
+        if (jpPullman && jpPullman.legs && jpPullman.rideCount >= 1) {
+          rawOptions.push(jpPullman);
+        }
+      } catch (e) {
+        console.warn("journeyPlanner pullman error:", e);
+      }
+    }
+
+    // 3) Rete Pubblica Nazionale (Transitous / MOTIS - bus reali, treni, interscambi)
+    if (window.transitousRouting && window.transitousRouting.available()) {
+      try {
+        const ttOptions = await window.transitousRouting.planOptions(refLatLng, destStop, {});
+        if (ttOptions && ttOptions.length) {
+          ttOptions.forEach(it => rawOptions.push(it));
+        }
+      } catch (e) {
+        console.warn("transitous planOptions error:", e);
+      }
+    }
+
+    // 4) Google Directions (se attivo)
     if (window.gmapsDirections && window.gmapsDirections.available()) {
       try {
         const gIt = await window.gmapsDirections.plan(refLatLng, destStop, {});
-        if (gIt && gIt.legs && gIt.legs.length) return gIt;
+        if (gIt && gIt.legs && gIt.legs.length) rawOptions.push(gIt);
       } catch (e) {
-        console.warn("Google Directions non disponibile, uso il pianificatore locale:", e);
+        console.warn("gmapsDirections plan error:", e);
       }
     }
 
-    // 1) Pianificatore multi-hop: trova a piedi + mezzi + cambi fino a destinazione
-    let itinerary = null;
-    if (window.journeyPlanner && destStop.id) {
-      try {
-        itinerary = await window.journeyPlanner.plan(refLatLng, destStop, {});
-      } catch (e) {
-        console.warn("journeyPlanner error:", e);
-      }
-    }
-    if (itinerary && itinerary.legs && (itinerary.rideCount >= 1 || itinerary.walkOnly)) {
-      return itinerary;
-    }
+    if (rawOptions.length === 0) return [];
 
-    // 2) Fallback LOCALE: fermata servente piu' vicina + tratto diretto (rete Calabria)
-    const localFb = this._localDirectFallback(dest, refLatLng);
-    if (localFb) return localFb;
-
-    // 3) Rete pubblica REALE nazionale (Transitous/MOTIS, gratis, senza chiave):
-    //    copre le tratte lunghe/interregionali che la rete locale non ha, con
-    //    bus + treni + metro e orari reali (come Google Maps).
-    if (window.transitousRouting && window.transitousRouting.available()) {
-      try {
-        const tt = await window.transitousRouting.plan(refLatLng, destStop, {});
-        if (tt && tt.legs && tt.rideCount >= 1) return tt;
-      } catch (e) {
-        console.warn("transitous fallback error:", e);
+    // Deduplica percorsi in base alla sequenza di linee e fermate
+    const deduplicated = [];
+    const signatures = new Set();
+    for (const it of rawOptions) {
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      if (rideLegs.length === 0 && !it.walkOnly) continue;
+      const sig = rideLegs.map(l => (l.line ? (l.line.code || l.line.name) : '') + '_' + (l.boardName || '') + '_' + (l.alightName || '')).join('->');
+      if (!signatures.has(sig)) {
+        signatures.add(sig);
+        deduplicated.push(it);
       }
     }
 
-    return null;
+    const candidateList = deduplicated.length ? deduplicated : rawOptions;
+
+    // Calcolo durata minima globale
+    let minSec = Infinity;
+    for (const it of candidateList) {
+      const sec = it.totalSeconds || 999999;
+      if (sec < minSec) minSec = sec;
+    }
+
+    // Identifica opzioni Solo Pullman (100% bus)
+    const purePullmanList = candidateList.filter(it => {
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      return rideLegs.length > 0 && rideLegs.every(l => this.getTransitMode(l) === 'pullman');
+    });
+
+    // Identifica opzioni Intermodali con Pullman (es. Treno -> Pullman)
+    const hybridPullmanList = candidateList.filter(it => {
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      const modes = rideLegs.map(l => this.getTransitMode(l));
+      return modes.includes('pullman') && modes.some(m => m !== 'pullman');
+    });
+
+    const structuredOptions = [];
+
+    // 1. GESTIONE OPZIONE PULLMAN (PURA o con COINCIDENZA)
+    if (purePullmanList.length > 0) {
+      purePullmanList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
+      const bestPullman = purePullmanList[0];
+      const isAlsoFastest = bestPullman.totalSeconds <= minSec + 60;
+      structuredOptions.push({
+        id: 'opt_pullman_pure',
+        title: 'Solo Pullman',
+        badge: '100% Pullman',
+        badgeClass: 'badge-pullman',
+        icon: 'fa-bus',
+        color: '#0284c7',
+        isPurePullman: true,
+        hasPullman: true,
+        isPullmanHybrid: false,
+        isFastest: isAlsoFastest,
+        durationText: this.formatDuration(bestPullman.totalSeconds),
+        transfersText: bestPullman.transfers === 0 ? 'Diretto (0 cambi)' : `${bestPullman.transfers} cambio${bestPullman.transfers > 1 ? 'i' : ''} bus`,
+        itinerary: bestPullman,
+        desc: isAlsoFastest ? 'Percorso diretto/solo bus, ottimale anche nei tempi.' : 'Tutto in pullman senza prendere treni.'
+      });
+    } else if (hybridPullmanList.length > 0) {
+      hybridPullmanList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
+      const bestHybrid = hybridPullmanList[0];
+      structuredOptions.push({
+        id: 'opt_pullman_hybrid',
+        title: 'Interscambio Pullman',
+        badge: 'Treno + Pullman',
+        badgeClass: 'badge-hybrid',
+        icon: 'fa-right-left',
+        color: '#d97706',
+        isPurePullman: false,
+        hasPullman: true,
+        isPullmanHybrid: true,
+        isFastest: bestHybrid.totalSeconds <= minSec + 60,
+        durationText: this.formatDuration(bestHybrid.totalSeconds),
+        transfersText: `${bestHybrid.transfers} cambi`,
+        itinerary: bestHybrid,
+        notice: 'Nessuna corsa 100% Pullman diretta per questa tratta: calcolato cambio con Treno per proseguire con il Pullman.',
+        desc: 'Cambio con treno per raggiungere la linea pullman di destinazione.'
+      });
+    }
+
+    // 2. GESTIONE OPZIONE PIÙ VELOCE (TEMPO MINIMO)
+    candidateList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
+    const fastestIt = candidateList[0];
+    const firstAlreadyFastest = structuredOptions.length > 0 && structuredOptions[0].itinerary === fastestIt;
+
+    if (!firstAlreadyFastest && fastestIt) {
+      const rideLegs = (fastestIt.legs || []).filter(l => l.type === 'ride');
+      const modes = Array.from(new Set(rideLegs.map(l => this.getTransitMode(l))));
+      const modeLabels = modes.map(m => this.getModeLabel(m)).join(' + ');
+      const diffSec = (structuredOptions.length > 0 && structuredOptions[0].itinerary.totalSeconds)
+        ? structuredOptions[0].itinerary.totalSeconds - fastestIt.totalSeconds
+        : 0;
+      const diffTxt = diffSec > 120 ? ` (risparmi ~${Math.round(diffSec / 60)} min)` : '';
+
+      structuredOptions.push({
+        id: 'opt_fastest',
+        title: 'Più Veloce',
+        badge: 'Tempo Minimo' + diffTxt,
+        badgeClass: 'badge-fastest',
+        icon: 'fa-bolt',
+        color: '#16a34a',
+        isPurePullman: modes.length === 1 && modes[0] === 'pullman',
+        hasPullman: modes.includes('pullman'),
+        isPullmanHybrid: modes.includes('pullman') && modes.length > 1,
+        isFastest: true,
+        durationText: this.formatDuration(fastestIt.totalSeconds),
+        transfersText: fastestIt.transfers === 0 ? 'Diretto' : `${fastestIt.transfers} cambi (${modeLabels})`,
+        itinerary: fastestIt,
+        desc: `Arrivo più rapido a destinazione combinando ${modeLabels}.`
+      });
+    }
+
+    // 3. EVENTUALI ALTRE ALTERNATIVE (es. Treno FS o altri percorsi fino a 4 opzioni)
+    for (const it of candidateList) {
+      if (structuredOptions.length >= 4) break;
+      const already = structuredOptions.some(o => o.itinerary === it);
+      if (already) continue;
+
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      const modes = Array.from(new Set(rideLegs.map(l => this.getTransitMode(l))));
+      const isTrainOnly = modes.length === 1 && modes[0] === 'train';
+      const modeLabels = modes.map(m => this.getModeLabel(m)).join(' + ');
+
+      structuredOptions.push({
+        id: 'opt_alt_' + structuredOptions.length,
+        title: isTrainOnly ? 'Solo Treno FS' : `Opzione ${modeLabels}`,
+        badge: isTrainOnly ? 'Ferroviario' : 'Alternativa',
+        badgeClass: 'badge-alt',
+        icon: isTrainOnly ? 'fa-train' : 'fa-route',
+        color: isTrainOnly ? '#dc2626' : '#64748b',
+        isPurePullman: modes.length === 1 && modes[0] === 'pullman',
+        hasPullman: modes.includes('pullman'),
+        isPullmanHybrid: modes.includes('pullman') && modes.length > 1,
+        isFastest: false,
+        durationText: this.formatDuration(it.totalSeconds),
+        transfersText: it.transfers === 0 ? 'Diretto' : `${it.transfers} cambi`,
+        itinerary: it,
+        desc: `Percorso alternativo (${modeLabels}).`
+      });
+    }
+
+    return structuredOptions;
+  }
+
+  setItineraryFilter(filter) {
+    this.itineraryFilter = filter;
+    if (!this.currentItineraryOptions || this.currentItineraryOptions.length === 0) return;
+
+    let targetIdx = 0;
+    if (filter === 'pullman') {
+      const pIdx = this.currentItineraryOptions.findIndex(o => o.isPurePullman);
+      if (pIdx !== -1) targetIdx = pIdx;
+      else {
+        const hIdx = this.currentItineraryOptions.findIndex(o => o.isPullmanHybrid || o.hasPullman);
+        targetIdx = hIdx !== -1 ? hIdx : 0;
+      }
+    } else if (filter === 'fastest') {
+      const fIdx = this.currentItineraryOptions.findIndex(o => o.isFastest);
+      targetIdx = fIdx !== -1 ? fIdx : 0;
+    } else {
+      targetIdx = 0;
+    }
+
+    this.selectItineraryOption(targetIdx);
+  }
+
+  selectItineraryOption(idx) {
+    if (!this.currentItineraryOptions || !this.currentItineraryOptions[idx]) return;
+    this.activeOptionIndex = idx;
+    const opt = this.currentItineraryOptions[idx];
+    const refLatLng = this.currentRefLatLng || this.userLatLng || [39.7, 16.5];
+
+    this.setActiveItinerary(opt.itinerary, refLatLng);
+    this.enhanceOriginWalkGeometry().then(() => {
+      this.drawNavLegs(refLatLng);
+      this.renderItineraryPanel(refLatLng);
+      if (window.transitMap && this.navLegs) {
+        window.transitMap._skipMoveEnd = true;
+        this.fitWholeRoute();
+        setTimeout(() => { if (window.transitMap) window.transitMap._skipMoveEnd = false; }, 1400);
+      }
+    });
   }
 
   /* Fallback locale: fermata servente piu' vicina + tratto diretto del mezzo.
@@ -781,10 +1013,16 @@ class GeoLocatorEngine {
         boardName: depStop.name, alightName: destObj.name, coords: busCoords,
         stopsCount: Math.max(1, busCoords.length - 1), meters: Math.round(rideMeters), platform: platform }
     ];
+    const totalSeconds = Math.round((walkMeters / 1.35) + (rideMeters / 8.33));
     return {
       legs, transfers: 0, rideCount: 1,
       totalWalkMeters: Math.round(walkMeters), totalRideMeters: Math.round(rideMeters),
-      rideStops: legs[1].stopsCount, destinationStop: destObj, servingLines: routeInfo.servingLines
+      totalSeconds: totalSeconds,
+      rideStops: legs[1].stopsCount, destinationStop: destObj, servingLines: routeInfo.servingLines,
+      isPurePullman: mode === 'pullman',
+      hasPullman: mode === 'pullman',
+      hasTrain: mode === 'train',
+      source: 'localDirect'
     };
   }
 
@@ -1706,6 +1944,64 @@ class GeoLocatorEngine {
       </div>
     `;
 
+    const activeOpt = (this.currentItineraryOptions && this.currentItineraryOptions[this.activeOptionIndex]) || null;
+    const hasOptions = this.currentItineraryOptions && this.currentItineraryOptions.length > 1;
+
+    let optionsSelectorHtml = '';
+    if (this.currentItineraryOptions && this.currentItineraryOptions.length > 0) {
+      const filterPills = `
+        <div class="geo-itinerary-filter-pills">
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'pullman' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('pullman')">
+            <i class="fa-solid fa-bus"></i> Solo Pullman
+          </button>
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'fastest' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('fastest')">
+            <i class="fa-solid fa-bolt"></i> Più Veloce
+          </button>
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'all' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('all')">
+            <i class="fa-solid fa-layer-group"></i> Tutte (${this.currentItineraryOptions.length})
+          </button>
+        </div>
+      `;
+
+      const cardsHtml = this.currentItineraryOptions.map((opt, idx) => {
+        const isSel = idx === this.activeOptionIndex;
+        return `
+          <div class="geo-route-option-card ${isSel ? 'selected' : ''}" onclick="window.geoLocator.selectItineraryOption(${idx})" role="button" tabindex="0" title="${opt.desc}">
+            <div class="geo-opt-top">
+              <span class="geo-opt-badge ${opt.badgeClass}"><i class="fa-solid ${opt.icon}"></i> ${opt.badge}</span>
+              <strong class="geo-opt-duration"><i class="fa-solid fa-clock"></i> ${opt.durationText}</strong>
+            </div>
+            <div class="geo-opt-title">${opt.title}</div>
+            <div class="geo-opt-sub"><i class="fa-solid fa-arrows-turn-right"></i> ${opt.transfersText}</div>
+            ${isSel ? '<div class="geo-opt-selected-tag"><i class="fa-solid fa-circle-check"></i> Attivo sulla mappa</div>' : '<div class="geo-opt-select-prompt"><i class="fa-solid fa-arrow-pointer"></i> Clicca per scegliere</div>'}
+          </div>
+        `;
+      }).join('');
+
+      optionsSelectorHtml = `
+        <div class="geo-options-wrapper">
+          <div class="geo-options-header">
+            <span class="geo-options-title"><i class="fa-solid fa-shuffle"></i> Opzioni e Percorsi Disponibili:</span>
+          </div>
+          ${filterPills}
+          ${hasOptions ? `<div class="geo-options-carousel">${cardsHtml}</div>` : ''}
+        </div>
+      `;
+    }
+
+    let optionNoticeHtml = '';
+    if (activeOpt && activeOpt.notice) {
+      optionNoticeHtml = `
+        <div class="geo-option-notice-alert">
+          <i class="fa-solid fa-circle-info text-warning" style="font-size:1.1rem; flex-shrink:0;"></i>
+          <div>
+            <strong>Info Tragitto Pullman:</strong>
+            <div>${activeOpt.notice}</div>
+          </div>
+        </div>
+      `;
+    }
+
     const transfersBadge = it.transfers > 0
       ? `<span class="geo-transfers-badge"><i class="fa-solid fa-arrows-turn-right"></i> ${it.transfers} cambio${it.transfers > 1 ? 'i' : ''}</span>`
       : `<span class="geo-transfers-badge geo-direct"><i class="fa-solid fa-bolt"></i> Diretto</span>`;
@@ -1738,8 +2034,11 @@ class GeoLocatorEngine {
       </div>
 
       <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
+        ${optionsSelectorHtml}
+        ${optionNoticeHtml}
+
         <div class="geo-summary-bar">
-          <small class="text-muted"><i class="fa-solid ${vehIcon}"></i> ${it.rideCount} mezzo${it.rideCount === 1 ? '' : 'i'} &bull; <i class="fa-solid fa-person-walking"></i> ${totalWalkTxt} a piedi in totale</small>
+          <small class="text-muted"><i class="fa-solid ${vehIcon}"></i> ${it.rideCount} mezzo${it.rideCount === 1 ? '' : 'i'} &bull; <i class="fa-solid fa-person-walking"></i> ${totalWalkTxt} a piedi &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>
         </div>
 
         <ol class="geo-steps-list" id="geoStepsList">${stepsHtml}</ol>

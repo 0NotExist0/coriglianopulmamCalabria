@@ -54,10 +54,26 @@
 
     plan: function (originLatLng, destStop, opts) {
       opts = opts || {};
-      if (!this.available() || !originLatLng || !destStop) return Promise.resolve(null);
+      var self = this;
+      return this.planOptions(originLatLng, destStop, opts).then(function (options) {
+        if (!options || !options.length) return null;
+        if (opts.preference === 'pullman') {
+          var pure = options.find(function (o) { return o.isPurePullman; });
+          if (pure) return pure;
+          var withPullman = options.find(function (o) { return o.hasPullman; });
+          if (withPullman) return withPullman;
+        }
+        return options[0]; // il piu' veloce e' sempre in prima posizione
+      });
+    },
+
+    /* Restituisce tutte le opzioni di itinerario calcolate dal motore MOTIS */
+    planOptions: function (originLatLng, destStop, opts) {
+      opts = opts || {};
+      if (!this.available() || !originLatLng || !destStop) return Promise.resolve([]);
       var dLat = destStop.lat_actual || destStop.lat;
       var dLng = destStop.lng_actual || destStop.lng;
-      if (dLat == null || dLng == null) return Promise.resolve(null);
+      if (dLat == null || dLng == null) return Promise.resolve([]);
 
       var url = BASE +
         "?fromPlace=" + originLatLng[0] + "," + originLatLng[1] +
@@ -71,15 +87,25 @@
       return fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } })
         .then(function (res) { clearTimeout(timer); return res.ok ? res.json() : null; })
         .then(function (data) {
-          if (!data || !data.itineraries || !data.itineraries.length) return null;
-          // scegli l'itinerario piu' veloce
-          var best = data.itineraries[0];
-          for (var i = 1; i < data.itineraries.length; i++) {
-            if ((data.itineraries[i].duration || 1e15) < (best.duration || 1e15)) best = data.itineraries[i];
+          if (!data || !data.itineraries || !data.itineraries.length) return [];
+          var list = [];
+          for (var i = 0; i < data.itineraries.length; i++) {
+            var it = self._toItinerary(data.itineraries[i], destStop);
+            if (it && it.legs && it.legs.length) {
+              list.push(it);
+            }
           }
-          return self._toItinerary(best, destStop);
+          // Ordina per durata crescente (piu' veloce per primo)
+          list.sort(function (a, b) {
+            return (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9);
+          });
+          return list;
         })
-        .catch(function (e) { clearTimeout(timer); console.warn("transitous.plan:", e && e.message); return null; });
+        .catch(function (e) {
+          clearTimeout(timer);
+          console.warn("transitous.planOptions:", e && e.message);
+          return [];
+        });
     },
 
     _code: function (l) {
@@ -184,15 +210,32 @@
 
       if (!legs.length || rideCount === 0) return null;
 
+      var totalSeconds = 0;
+      for (var s = 0; s < legs.length; s++) totalSeconds += (legs[s].seconds || 0);
+      if (it.duration) totalSeconds = Math.round(it.duration);
+
+      var rideModes = [];
+      for (var rm = 0; rm < legs.length; rm++) {
+        if (legs[rm].type === 'ride' && legs[rm].mode) rideModes.push(legs[rm].mode);
+      }
+      var isPurePullman = rideModes.length > 0 && rideModes.every(function (m) { return m === 'pullman'; });
+      var hasPullman = rideModes.indexOf('pullman') !== -1;
+      var hasTrain = rideModes.indexOf('train') !== -1;
+
       return {
         legs: legs,
         transfers: Math.max(0, rideCount - 1),
         rideCount: rideCount,
         totalWalkMeters: Math.round(totalWalk),
         totalRideMeters: Math.round(totalRide),
+        totalSeconds: totalSeconds,
         rideStops: rideStops,
         destinationStop: destStop,
-        source: 'transitous'
+        source: 'transitous',
+        isPurePullman: isPurePullman,
+        hasPullman: hasPullman,
+        hasTrain: hasTrain,
+        modes: rideModes
       };
     },
 
