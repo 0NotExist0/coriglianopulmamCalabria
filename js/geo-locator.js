@@ -771,12 +771,15 @@ class GeoLocatorEngine {
 
     const rideMeters = this.haversine(depLL, destLL);
     const line = (routeInfo.servingLines && routeInfo.servingLines[0]) || null;
+    const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const platform = (line && (line.platform || line.binario || line.track)) || (mode === 'train' ? 'Binario 1 / 2 (verifica monitor FS)' : (mode === 'flight' ? 'Terminal Partenze / Gate' : (mode === 'tram' ? 'Banchina Tram' : (mode === 'taxi' ? 'Posteggio Taxi' : 'Banchina Bus'))));
+
     const legs = [
       { type: 'walk', isOrigin: true, fromLatLng: refLatLng, toStop: depStop, toName: depStop.name,
         coords: [refLatLng, depLL], meters: Math.round(walkMeters), seconds: Math.round(walkMeters / 1.35), elevGain: null },
-      { type: 'ride', line: line, boardStop: depStop, alightStop: destObj,
+      { type: 'ride', mode: mode, line: Object.assign({}, line, { mode: mode }), boardStop: depStop, alightStop: destObj,
         boardName: depStop.name, alightName: destObj.name, coords: busCoords,
-        stopsCount: Math.max(1, busCoords.length - 1), meters: Math.round(rideMeters) }
+        stopsCount: Math.max(1, busCoords.length - 1), meters: Math.round(rideMeters), platform: platform }
     ];
     return {
       legs, transfers: 0, rideCount: 1,
@@ -956,28 +959,73 @@ class GeoLocatorEngine {
       const prevCode = (idx > 0 && rideLegs[idx - 1].line) ? (rideLegs[idx - 1].line.code || 'mezzo') : '';
       const transferNo = idx; // per idx>=1 e' il numero del cambio
 
+      const curMode = this.getTransitMode(leg);
+      const curIcon = this.getModeIcon(curMode);
+      const curVerb = this.getModeVerb(curMode);
+      const curTicket = this.getTicketAdvice(curMode);
+      const curPlatform = leg.platform || this.getPlatformAdvice(leg, curMode);
+      const curColor = this.getModeColor(curMode);
+
       let m;
       if (isFirst) {
         // Punto di SALITA (verde, pulsante)
         const pin = L.divIcon({
-          html: `<div class="serving-departure-nav-pin" style="background:#16a34a;color:#fff;border:3px solid #fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(22,163,74,0.7),0 0 0 6px rgba(22,163,74,0.22);font-size:1.05rem;animation:pulse-nav-pin 2s infinite;"><i class="fa-solid ${modeIcon}"></i></div>`,
+          html: `<div class="serving-departure-nav-pin" style="background:${curColor};color:#fff;border:3px solid #fff;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px ${curColor}bb,0 0 0 6px ${curColor}33;font-size:1.05rem;animation:pulse-nav-pin 2s infinite;"><i class="fa-solid ${curIcon}"></i></div>`,
           className: 'serving-dep-pin-wrapper', iconSize: [44, 44], iconAnchor: [22, 44]
         });
         m = L.marker(bLL, { icon: pin, zIndexOffset: 3000 }).bindPopup(
-          `<div style="min-width:230px;padding:4px;"><span style="background:#16a34a;color:#fff;padding:4px 10px;border-radius:6px;font-weight:800;font-size:0.76rem;display:inline-block;margin-bottom:6px;"><i class="fa-solid fa-circle-check"></i> SALI QUI</span><h4 style="margin:4px 0 2px 0;font-size:1.05rem;color:#0f172a;font-weight:800;">${b.name}</h4><p style="margin:0;font-size:0.82rem;color:#0f172a;"><i class="fa-solid ${modeIcon}" style="color:${color}"></i> Prendi <strong>${code}</strong> e scendi a <strong>${leg.alightName || ''}</strong></p></div>`
+          `<div style="min-width:250px;padding:6px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;">
+              <span style="background:#16a34a;color:#fff;padding:3px 8px;border-radius:5px;font-weight:800;font-size:0.72rem;"><i class="fa-solid fa-circle-check"></i> SALI QUI</span>
+              <span style="background:${curColor};color:#fff;padding:3px 8px;border-radius:5px;font-weight:800;font-size:0.72rem;"><i class="fa-solid ${curIcon}"></i> ${this.getModeLabel(curMode).toUpperCase()}</span>
+            </div>
+            <h4 style="margin:2px 0 4px 0;font-size:1.05rem;color:#0f172a;font-weight:800;">${b.name}</h4>
+            <p style="margin:0 0 6px 0;font-size:0.84rem;color:#0f172a;font-weight:700;">
+              <i class="fa-solid ${curIcon}" style="color:${curColor}"></i> <strong>${curVerb}</strong>: ${code}${leg.line?.name ? ` <small>(${leg.line.name})</small>` : ''}
+            </p>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:0.78rem;">
+              <div style="margin-bottom:4px;color:#0369a1;"><i class="fa-solid fa-signs-post"></i> <strong>Dove salire:</strong> ${curPlatform}</div>
+              <div style="color:#166534;"><i class="fa-solid fa-ticket"></i> <strong>Biglietto:</strong> ${curTicket.title}</div>
+            </div>
+            <small style="color:#64748b;display:block;">Scendi a <strong>${leg.alightName || ''}</strong> (${leg.stopsCount || 1} fermate)</small>
+          </div>`
         ).addTo(this.geoLayer);
-        m.bindTooltip(`Sali: ${code}`, { permanent: true, direction: 'top', offset: [0, -40], className: 'geo-change-label geo-change-board' });
+        m.bindTooltip(`Sali (${this.getModeLabel(curMode)}): ${code}`, { permanent: true, direction: 'top', offset: [0, -40], className: 'geo-change-label geo-change-board' });
         this.depMarker = m;
       } else {
         // Punto di CAMBIO (arancione, con numero + etichetta permanente)
+        const prevLeg = rideLegs[idx - 1];
+        const prevMode = this.getTransitMode(prevLeg);
+        const isModeChange = prevMode !== curMode;
+
         const pin = L.divIcon({
           html: `<div class="geo-transfer-pin" style="background:#ea580c;color:#fff;border:3px solid #fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(234,88,12,0.7),0 0 0 6px rgba(234,88,12,0.22);position:relative;"><i class="fa-solid fa-arrows-rotate"></i><span style="position:absolute;top:-7px;right:-7px;background:#0f172a;color:#fff;border-radius:50%;width:19px;height:19px;font-size:0.72rem;font-weight:800;display:flex;align-items:center;justify-content:center;border:2px solid #fff;">${transferNo}</span></div>`,
           className: 'geo-transfer-pin-wrapper', iconSize: [40, 40], iconAnchor: [20, 40]
         });
         m = L.marker(bLL, { icon: pin, zIndexOffset: 3000 }).bindPopup(
-          `<div style="min-width:240px;padding:4px;"><span style="background:#ea580c;color:#fff;padding:4px 10px;border-radius:6px;font-weight:800;font-size:0.76rem;display:inline-block;margin-bottom:6px;"><i class="fa-solid fa-arrows-rotate"></i> CAMBIO ${transferNo}</span><h4 style="margin:4px 0 4px 0;font-size:1.02rem;color:#0f172a;font-weight:800;">${b.name}</h4><p style="margin:0 0 3px 0;font-size:0.82rem;color:#0f172a;"><i class="fa-solid fa-arrow-down text-danger"></i> Scendi da <strong>${prevCode}</strong></p><p style="margin:0;font-size:0.82rem;color:#0f172a;"><i class="fa-solid ${modeIcon}" style="color:${color}"></i> Prendi <strong>${code}</strong> e scendi a <strong>${leg.alightName || ''}</strong></p></div>`
+          `<div style="min-width:260px;padding:6px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;">
+              <span style="background:#ea580c;color:#fff;padding:3px 8px;border-radius:5px;font-weight:800;font-size:0.72rem;"><i class="fa-solid fa-arrows-rotate"></i> CAMBIO ${transferNo}</span>
+              <span style="background:${curColor};color:#fff;padding:3px 8px;border-radius:5px;font-weight:800;font-size:0.72rem;"><i class="fa-solid ${curIcon}"></i> ${this.getModeLabel(curMode).toUpperCase()}</span>
+            </div>
+            ${isModeChange ? `
+            <div style="background:#fef3c7;border:1px solid #fde68a;padding:5px 8px;border-radius:6px;margin-bottom:6px;color:#92400e;font-size:0.78rem;font-weight:800;">
+              <i class="fa-solid fa-right-left"></i> Cambio Mezzo: da ${this.getModeLabel(prevMode)} a ${this.getModeLabel(curMode)}!
+            </div>
+            ` : ''}
+            <h4 style="margin:2px 0 4px 0;font-size:1.02rem;color:#0f172a;font-weight:800;">${b.name}</h4>
+            <p style="margin:0 0 3px 0;font-size:0.8rem;color:#64748b;"><i class="fa-solid fa-arrow-down text-danger"></i> Scendi da <strong>${prevCode}</strong> (${this.getModeLabel(prevMode)})</p>
+            <p style="margin:0 0 6px 0;font-size:0.84rem;color:#0f172a;font-weight:700;">
+              <i class="fa-solid ${curIcon}" style="color:${curColor}"></i> <strong>${curVerb}</strong>: ${code}
+            </p>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:0.78rem;">
+              <div style="margin-bottom:4px;color:#0369a1;"><i class="fa-solid fa-signs-post"></i> <strong>Dove salire / Binario:</strong> ${curPlatform}</div>
+              <div style="color:#166534;"><i class="fa-solid fa-ticket"></i> <strong>Biglietto necessario:</strong> ${curTicket.title}</div>
+            </div>
+            <small style="color:#64748b;display:block;">Scendi a <strong>${leg.alightName || ''}</strong> (${leg.stopsCount || 1} fermate)</small>
+          </div>`
         ).addTo(this.geoLayer);
-        m.bindTooltip(`Cambio ${transferNo}: ${prevCode} ➔ ${code}`, { permanent: true, direction: 'top', offset: [0, -36], className: 'geo-change-label geo-change-transfer' });
+        m.bindTooltip(`Cambio ${transferNo}: ${this.getModeLabel(prevMode)} ➔ ${this.getModeLabel(curMode)} (${code})`, { permanent: true, direction: 'top', offset: [0, -36], className: 'geo-change-label geo-change-transfer' });
       }
       this.legMarkers.push(m);
 
@@ -1020,12 +1068,26 @@ class GeoLocatorEngine {
       if (w && w.toStop) {
         const s = w.toStop;
         const sLL = [s.lat_actual || s.lat, s.lng_actual || s.lng];
+        const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+        const curIcon = this.getModeIcon(currentMode);
+        const curVerb = this.getModeVerb(currentMode);
+        const curColor = this.getModeColor(currentMode);
+        const curTicket = this.getTicketAdvice(currentMode);
+        const curPlatform = this.getPlatformAdvice({ boardName: s.name }, currentMode);
         const pin = L.divIcon({
-          html: `<div class="serving-departure-nav-pin" style="background:#16a34a;color:#fff;border:3px solid #fff;border-radius:50%;width:46px;height:46px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(22,163,74,0.8),0 0 0 8px rgba(22,163,74,0.25);font-size:1.35rem;animation:pulse-nav-pin 2s infinite;"><i class="fa-solid ${modeIcon}"></i></div>`,
+          html: `<div class="serving-departure-nav-pin" style="background:${curColor};color:#fff;border:3px solid #fff;border-radius:50%;width:46px;height:46px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px ${curColor}cc,0 0 0 8px ${curColor}33;font-size:1.35rem;animation:pulse-nav-pin 2s infinite;"><i class="fa-solid ${curIcon}"></i></div>`,
           className: 'serving-dep-pin-wrapper', iconSize: [46, 46], iconAnchor: [23, 46]
         });
         this.depMarker = L.marker(sLL, { icon: pin, zIndexOffset: 3000 }).bindPopup(
-          `<div style="min-width:220px;padding:4px;"><span style="background:#16a34a;color:#fff;padding:4px 10px;border-radius:6px;font-weight:800;font-size:0.76rem;"><i class="fa-solid fa-location-dot"></i> FERMATA PIU' VICINA</span><h4 style="margin:4px 0 2px;font-size:1.05rem;color:#0f172a;font-weight:800;">${s.name}</h4></div>`
+          `<div style="min-width:240px;padding:6px;">
+            <span style="background:${curColor};color:#fff;padding:3px 8px;border-radius:5px;font-weight:800;font-size:0.72rem;display:inline-block;margin-bottom:6px;"><i class="fa-solid fa-location-dot"></i> FERMATA PIÙ VICINA</span>
+            <h4 style="margin:2px 0 4px;font-size:1.05rem;color:#0f172a;font-weight:800;">${s.name}</h4>
+            <p style="margin:0 0 6px;font-size:0.84rem;color:#0f172a;font-weight:700;"><i class="fa-solid ${curIcon}" style="color:${curColor}"></i> ${curVerb}</p>
+            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:0.78rem;">
+              <div style="margin-bottom:3px;color:#0369a1;"><i class="fa-solid fa-signs-post"></i> <strong>Dove salire:</strong> ${curPlatform}</div>
+              <div style="color:#166534;"><i class="fa-solid fa-ticket"></i> <strong>Biglietto:</strong> ${curTicket.title}</div>
+            </div>
+          </div>`
         ).addTo(this.geoLayer);
         this.legMarkers.push(this.depMarker);
       }
@@ -1383,6 +1445,126 @@ class GeoLocatorEngine {
   }
 
   /* ==========================================================================
+     METODI DI SUPPORTO MULTI-MODALE (PULLMAN, TRENI, TRAM, TAXI, AEREI)
+     ========================================================================== */
+
+  getTransitMode(leg) {
+    if (!leg) return (typeof getActiveMode === 'function' ? getActiveMode() : 'pullman');
+    if (leg.mode) return leg.mode;
+    if (leg.line && leg.line.mode) return leg.line.mode;
+
+    const code = ((leg.line && (leg.line.code || leg.line.name)) || '').toLowerCase();
+    const name = ((leg.line && leg.line.name) || '').toLowerCase();
+    const all = code + ' ' + name;
+    if (/freccia|italo|treno|intercity|regionale|\br\b|\brv\b|fs\b|rfi|eurocity|rail/.test(all)) return 'train';
+    if (/volo|flight|aereo|ryanair|ita\b|easyjet|air/.test(all)) return 'flight';
+    if (/taxi|ncc|radiotaxi/.test(all)) return 'taxi';
+    if (/tram|metro|metropolitana/.test(all)) return 'tram';
+    return (typeof getActiveMode === 'function' ? getActiveMode() : 'pullman');
+  }
+
+  getModeLabel(mode) {
+    const labels = { pullman: 'Pullman', train: 'Treno', flight: 'Aereo', taxi: 'Taxi', tram: 'Tram' };
+    return labels[mode] || 'Pullman';
+  }
+
+  getModeVerb(mode) {
+    const verbs = {
+      pullman: 'Stai prendendo il Pullman',
+      train: 'Stai prendendo il Treno',
+      flight: 'Stai prendendo il Volo',
+      taxi: 'Stai prendendo il Taxi',
+      tram: 'Stai prendendo il Tram'
+    };
+    return verbs[mode] || 'Stai prendendo il Mezzo';
+  }
+
+  getModeIcon(mode) {
+    const icons = { pullman: 'fa-bus', train: 'fa-train', flight: 'fa-plane', taxi: 'fa-taxi', tram: 'fa-train-tram' };
+    return icons[mode] || 'fa-bus';
+  }
+
+  getModeColor(mode) {
+    const colors = { pullman: '#0284c7', train: '#dc2626', flight: '#0284c7', taxi: '#d97706', tram: '#059669' };
+    return colors[mode] || '#0284c7';
+  }
+
+  getTicketAdvice(mode) {
+    switch (mode) {
+      case 'train':
+        return {
+          mode: 'train',
+          title: 'Biglietto Ferroviario (Trenitalia / Italo)',
+          badge: 'Biglietto Treno',
+          desc: 'Biglietto Regionale FS / Frecce Trenitalia o Italo.',
+          howToBuy: 'Acquistabile alle emettitrici automatiche in stazione, all\'app Trenitalia / Italo, sul sito FS o nelle tabaccherie convenzionate PUNTOLIS. Ricordati di convalidare prima di salire sul regionale.',
+          icon: 'fa-train',
+          color: '#dc2626'
+        };
+      case 'flight':
+        return {
+          mode: 'flight',
+          title: 'Biglietto Aereo & Carta d\'Imbarco',
+          badge: 'Biglietto Aereo',
+          desc: 'Prenotazione del volo con check-in online completato.',
+          howToBuy: 'Effettua il check-in online dall\'app o sito della compagnia aerea e salva la carta d\'imbarco QR sullo smartphone prima dei controlli di sicurezza.',
+          icon: 'fa-plane-departure',
+          color: '#0284c7'
+        };
+      case 'tram':
+        return {
+          mode: 'tram',
+          title: 'Biglietto Rete Urbana Tram / Metro',
+          badge: 'Biglietto Tram / Metro',
+          desc: 'Biglietto orario per la rete urbana cittadina.',
+          howToBuy: 'Acquistabile alle emettitrici in fermata, tabaccherie o tramite contactless tap & go direttamente ai varchi o a bordo.',
+          icon: 'fa-train-tram',
+          color: '#059669'
+        };
+      case 'taxi':
+        return {
+          mode: 'taxi',
+          title: 'Tariffa Taxi a Tassametro',
+          badge: 'Tariffa Taxi',
+          desc: 'Corsa con calcolo a tassametro o tariffa fissa urbana.',
+          howToBuy: 'Pagamento a fine corsa direttamente al tassista a bordo (contanti, carta di credito o POS bancomat).',
+          icon: 'fa-taxi',
+          color: '#d97706'
+        };
+      case 'pullman':
+      default:
+        return {
+          mode: 'pullman',
+          title: 'Biglietto Pullman / Autolinee TPL',
+          badge: 'Biglietto Pullman',
+          desc: 'Biglietto Corsa Singola o Extraurbano Regionale TPL.',
+          howToBuy: 'Acquistabile dal Portafoglio Biglietti dell\'app ItaliaBus, a bordo dall\'autista, in tabaccheria o nelle edicole autorizzate.',
+          icon: 'fa-ticket',
+          color: '#0284c7'
+        };
+    }
+  }
+
+  getPlatformAdvice(leg, mode) {
+    if (leg && leg.platform) {
+      return leg.platform;
+    }
+    switch (mode) {
+      case 'train':
+        return 'Binario 1 / 2 FS (controlla i monitor partenze RFI in stazione)';
+      case 'flight':
+        return 'Terminal Partenze / Gate Imbarco (indicato sui monitor aeroportuali)';
+      case 'tram':
+        return 'Banchina Fermata Tram (in direzione indicata)';
+      case 'taxi':
+        return 'Posteggio Taxi Ufficiale / Piazzale esterno stazione';
+      case 'pullman':
+      default:
+        return 'Banchina Bus / Corsia Fermata su strada';
+    }
+  }
+
+  /* ==========================================================================
      PANNELLO ITINERARIO TRASCINABILE PASSO-PASSO
      ========================================================================== */
 
@@ -1390,12 +1572,17 @@ class GeoLocatorEngine {
     if (!this.panel || !this.activeItinerary) return;
     const it = this.activeItinerary;
     const legs = it.legs || [];
-    const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
-    const vehIcon = mode === 'flight' ? 'fa-plane' : (mode === 'train' ? 'fa-train' : (mode === 'taxi' ? 'fa-taxi' : (mode === 'tram' ? 'fa-train-tram' : 'fa-bus')));
     const dest = it.destinationStop;
 
+    const rideLegs = legs.filter(l => l.type === 'ride');
+    const distinctModes = Array.from(new Set(rideLegs.map(l => this.getTransitMode(l))));
+    const isMultiModal = distinctModes.length > 1;
+
     const steps = [];
-    for (const leg of legs) {
+    let lastRideMode = null;
+
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
       if (leg.type === 'walk') {
         let terrain = '';
         if (leg.elevGain != null && Math.abs(leg.elevGain) >= 5) {
@@ -1405,19 +1592,119 @@ class GeoLocatorEngine {
         }
         const mins = Math.max(1, Math.round((leg.seconds || leg.meters / 1.35) / 60));
         const dirWord = leg.isOrigin ? 'Cammina' : 'Scendi e cammina';
-        steps.push(`<i class="fa-solid fa-person-walking text-primary"></i> <strong>${dirWord} ${leg.meters} m</strong> (~${mins} min)${terrain} fino a <strong>${leg.toName}</strong>.`);
+        steps.push(`
+          <div class="geo-step-body">
+            <div class="geo-step-main-text">
+              <i class="fa-solid fa-person-walking text-primary"></i> <strong>${dirWord} ${leg.meters} m</strong> (~${mins} min)${terrain} fino a <strong>${leg.toName}</strong>.
+            </div>
+          </div>
+        `);
       } else {
+        const legMode = this.getTransitMode(leg);
+        const legIcon = this.getModeIcon(legMode);
+        const legVerb = this.getModeVerb(legMode);
+        const legColor = this.getModeColor(legMode);
+        const legTicket = this.getTicketAdvice(legMode);
+        const legPlatform = leg.platform || this.getPlatformAdvice(leg, legMode);
+        const isModeChange = lastRideMode && lastRideMode !== legMode;
+        const prevModeLabel = lastRideMode ? this.getModeLabel(lastRideMode) : null;
+        lastRideMode = legMode;
+
         const code = leg.line ? (leg.line.code || leg.line.name || 'Mezzo') : 'Mezzo';
         const lname = leg.line && leg.line.name ? leg.line.name : '';
         const nstops = leg.stopsCount || 1;
-        steps.push(`<i class="fa-solid ${vehIcon}" style="color:${leg.line && leg.line.color ? leg.line.color : '#0284c7'}"></i> <strong>Prendi ${code}</strong>${lname ? ` <small>(${lname})</small>` : ''} e <strong>scendi a ${leg.alightName}</strong> <small>(${nstops} ferma${nstops === 1 ? 'ta' : 'te'})</small>.`);
+
+        let changeBanner = '';
+        if (isModeChange) {
+          changeBanner = `
+            <div class="geo-intermodal-alert">
+              <i class="fa-solid fa-right-left"></i>
+              <span><strong>CAMBIO MEZZO / INTERSCAMBIO:</strong> Stai passando da <strong>${prevModeLabel}</strong> a <strong>${this.getModeLabel(legMode)}</strong>!</span>
+            </div>
+          `;
+        }
+
+        steps.push(`
+          <div class="geo-step-body">
+            ${changeBanner}
+            <div class="geo-step-mode-header">
+              <span class="geo-step-mode-pill" style="background:${legColor}; color:#fff;">
+                <i class="fa-solid ${legIcon}"></i> ${legVerb.toUpperCase()}
+              </span>
+              <span class="geo-step-line-name" style="color:${legColor}; font-weight:800;">${code}</span>
+            </div>
+            <div class="geo-step-main-text" style="margin:6px 0;">
+              Sali su <strong>${code}</strong>${lname ? ` <small>(${lname})</small>` : ''} e <strong>scendi a ${leg.alightName}</strong> <small>(${nstops} ferma${nstops === 1 ? 'ta' : 'te'})</small>.
+            </div>
+            <div class="geo-step-details-grid">
+              <div class="geo-step-platform-box">
+                <i class="fa-solid fa-signs-post text-primary"></i>
+                <div>
+                  <strong>Dove salire / Binario:</strong>
+                  <span>${legPlatform} presso <em>${leg.boardName}</em></span>
+                </div>
+              </div>
+              <div class="geo-step-ticket-box">
+                <i class="fa-solid fa-ticket text-success"></i>
+                <div>
+                  <strong>Biglietto richiesto:</strong>
+                  <span>${legTicket.title}</span>
+                  <small style="display:block; color:#64748b; margin-top:2px;">${legTicket.howToBuy}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        `);
       }
     }
-    steps.push(`<i class="fa-solid fa-flag-checkered text-success"></i> <strong>Sei arrivato a ${dest ? dest.name : 'destinazione'}.</strong>`);
+
+    steps.push(`
+      <div class="geo-step-body">
+        <div class="geo-step-main-text" style="color:#16a34a; font-weight:800;">
+          <i class="fa-solid fa-flag-checkered text-success"></i> Sei arrivato a <strong>${dest ? dest.name : 'destinazione'}</strong>.
+        </div>
+      </div>
+    `);
 
     const stepsHtml = steps.map((s, i) =>
-      `<li class="geo-step-item"><span class="geo-step-num">${i + 1}</span><span class="geo-step-text">${s}</span></li>`
+      `<li class="geo-step-item"><span class="geo-step-num">${i + 1}</span>${s}</li>`
     ).join('');
+
+    // Costruisci il box riepilogativo Biglietti
+    const ticketsGuideHtml = distinctModes.map(m => {
+      const t = this.getTicketAdvice(m);
+      return `
+        <div class="geo-ticket-guide-item" style="border-left: 3px solid ${t.color};">
+          <div class="geo-tgi-head">
+            <span class="geo-tgi-badge" style="background:${t.color}; color:#fff;"><i class="fa-solid ${t.icon}"></i> ${t.badge}</span>
+            <strong>${t.title}</strong>
+          </div>
+          <p class="geo-tgi-desc">${t.desc}</p>
+          <div class="geo-tgi-buy"><i class="fa-solid fa-cart-shopping"></i> <strong>Come fare il biglietto:</strong> ${t.howToBuy}</div>
+        </div>
+      `;
+    }).join('');
+
+    const ticketsGuideBox = `
+      <div class="geo-tickets-guide-box">
+        <div class="geo-tickets-guide-head">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-ticket-simple" style="color:#0284c7; font-size:1.1rem;"></i>
+            <strong>Guida Biglietti & Titoli di Viaggio</strong>
+          </div>
+          ${isMultiModal ? '<span class="geo-multi-badge">Biglietti Separati</span>' : ''}
+        </div>
+        ${isMultiModal ? `
+          <div class="geo-tickets-multi-note">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Questo percorso prevede <strong>${distinctModes.map(m => this.getModeLabel(m)).join(' + ')}</strong>: assicurati di avere i rispettivi biglietti per ciascuna tratta prima di salire.</span>
+          </div>
+        ` : ''}
+        <div class="geo-tickets-guide-list">
+          ${ticketsGuideHtml}
+        </div>
+      </div>
+    `;
 
     const transfersBadge = it.transfers > 0
       ? `<span class="geo-transfers-badge"><i class="fa-solid fa-arrows-turn-right"></i> ${it.transfers} cambio${it.transfers > 1 ? 'i' : ''}</span>`
@@ -1426,6 +1713,8 @@ class GeoLocatorEngine {
     const totalWalkTxt = it.totalWalkMeters >= 1000 ? (it.totalWalkMeters / 1000).toFixed(1) + ' km' : it.totalWalkMeters + ' m';
     const boardName = this.nearestStop ? this.nearestStop.name : '';
     const gmapsUrl = this.buildGmapsTransitUrl(refLatLng, dest);
+    const mainMode = distinctModes[0] || 'pullman';
+    const vehIcon = this.getModeIcon(mainMode);
 
     this.panel.innerHTML = `
       <div class="geo-panel-drag-header" id="geoPanelDragHeader">
@@ -1434,6 +1723,7 @@ class GeoLocatorEngine {
           <div class="geo-panel-badge-row">
             <span class="geo-panel-top-badge"><i class="fa-solid fa-route"></i> ITINERARIO</span>
             ${transfersBadge}
+            ${distinctModes.map(m => `<span class="geo-mode-pill-mini" style="background:${this.getModeColor(m)}; color:#fff;"><i class="fa-solid ${this.getModeIcon(m)}"></i> ${this.getModeLabel(m)}</span>`).join('')}
           </div>
           <h3 class="geo-panel-title">Verso <strong>${dest ? dest.name : 'Destinazione'}</strong></h3>
         </div>
@@ -1454,7 +1744,9 @@ class GeoLocatorEngine {
 
         <ol class="geo-steps-list" id="geoStepsList">${stepsHtml}</ol>
 
-        <div class="geo-departures-wrapper" style="margin-top:12px;">
+        ${ticketsGuideBox}
+
+        <div class="geo-departures-wrapper" style="margin-top:14px;">
           <div class="geo-departures-title" style="font-weight:800; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
             <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${boardName}</strong>
           </div>
@@ -1506,9 +1798,15 @@ class GeoLocatorEngine {
     const dest = routeInfo.destinationStop;
     const lines = routeInfo.servingLines || [];
     const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
-    const isTrain = mode === 'train';
     const isFlight = mode === 'flight';
+    const isTrain = mode === 'train';
     const isTaxi = mode === 'taxi';
+
+    const modeVerb = this.getModeVerb(mode);
+    const modeColor = this.getModeColor(mode);
+    const modeIcon = this.getModeIcon(mode);
+    const ticketAdvice = this.getTicketAdvice(mode);
+    const platformAdvice = (lines[0] && (lines[0].platform || lines[0].binario || lines[0].track)) || this.getPlatformAdvice({ boardName: dep.name }, mode);
 
     const distFromUserMeters = this.haversine(refLatLng, [dep.lat_actual || dep.lat, dep.lng_actual || dep.lng]);
     const distTxt = distFromUserMeters >= 1000 
@@ -1535,6 +1833,7 @@ class GeoLocatorEngine {
         <div class="geo-panel-title-area">
           <div class="geo-panel-badge-row">
             <span class="geo-panel-top-badge"><i class="fa-solid fa-circle-check"></i> FERMATA CONSIGLIATA</span>
+            <span class="geo-mode-pill-mini" style="background:${modeColor}; color:#fff;"><i class="fa-solid ${modeIcon}"></i> ${this.getModeLabel(mode).toUpperCase()}</span>
           </div>
           <h3 class="geo-panel-title">${headTitle}</h3>
         </div>
@@ -1549,6 +1848,11 @@ class GeoLocatorEngine {
       </div>
 
       <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
+        <div class="geo-mode-notice-banner" style="background:${modeColor}15; border:1px solid ${modeColor}40; color:${modeColor}; padding:8px 12px; border-radius:8px; margin-bottom:12px; font-size:0.86rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+          <i class="fa-solid ${modeIcon}"></i>
+          <span>${modeVerb.toUpperCase()}</span>
+        </div>
+
         <div class="geo-stats-grid">
           <div class="geo-stat-card" style="border-left:4px solid #16a34a;">
             <span class="geo-stat-label"><i class="fa-solid fa-person-walking-arrow-right text-success"></i> Fermata da Raggiungere</span>
@@ -1577,6 +1881,25 @@ class GeoLocatorEngine {
             <span class="geo-stat-label"><i class="fa-solid fa-route"></i> Linee da Questa Fermata</span>
             <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">${lineBadgesHtml || '<span class="text-muted">Tutte le linee attive</span>'}</div>
             <small class="text-muted" style="margin-top:4px;">${lines[0]?.name || 'Transito orari regolari'}</small>
+          </div>
+        </div>
+
+        <!-- Box Indicazioni Salita & Biglietto -->
+        <div class="geo-step-details-grid" style="margin:12px 0;">
+          <div class="geo-step-platform-box">
+            <i class="fa-solid fa-signs-post text-primary"></i>
+            <div>
+              <strong>Dove salire / Binario:</strong>
+              <span>${platformAdvice} presso <em>${dep.name}</em></span>
+            </div>
+          </div>
+          <div class="geo-step-ticket-box">
+            <i class="fa-solid fa-ticket text-success"></i>
+            <div>
+              <strong>Biglietto necessario:</strong>
+              <span>${ticketAdvice.title}</span>
+              <small style="display:block; color:#64748b; margin-top:2px;">${ticketAdvice.howToBuy}</small>
+            </div>
           </div>
         </div>
 

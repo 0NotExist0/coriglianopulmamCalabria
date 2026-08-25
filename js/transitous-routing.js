@@ -85,22 +85,34 @@
     _code: function (l) {
       var rs = l.routeShortName || l.tripShortName || '';
       if (rs) return String(rs);
-      var m = l.mode || '';
-      if (m === 'BUS') return 'Bus';
+      var m = (l.mode || '').toUpperCase();
+      if (/HIGHSPEED/.test(m)) return 'Frecciarossa / AV';
+      if (/RAIL|LONG_DISTANCE|TRAIN/.test(m)) return 'Treno FS';
+      if (m === 'BUS') return 'Pullman / Bus';
       if (m === 'SUBWAY') return 'Metro';
       if (m === 'TRAM') return 'Tram';
-      if (/RAIL|LONG_DISTANCE/.test(m)) return 'Treno';
+      if (/PLANE|AIR|FLIGHT/.test(m)) return 'Volo Aereo';
       return 'Linea';
+    },
+
+    _mode: function (l) {
+      var m = (l.mode || '').toUpperCase();
+      if (/RAIL|LONG_DISTANCE|HIGHSPEED|TRAIN/.test(m)) return 'train';
+      if (/PLANE|AIR|FLIGHT/.test(m)) return 'flight';
+      if (/TAXI/.test(m)) return 'taxi';
+      if (/TRAM|SUBWAY|METRO/.test(m)) return 'tram';
+      return 'pullman';
     },
 
     _color: function (l) {
       if (l.routeColor) return (String(l.routeColor)[0] === '#') ? l.routeColor : ('#' + l.routeColor);
-      var m = l.mode || '';
+      var m = (l.mode || '').toUpperCase();
       if (/HIGHSPEED|LONG_DISTANCE/.test(m)) return '#dc2626';
-      if (/RAIL/.test(m)) return '#b91c1c';
+      if (/RAIL|TRAIN/.test(m)) return '#b91c1c';
       if (m === 'SUBWAY') return '#7c3aed';
       if (m === 'TRAM') return '#059669';
       if (m === 'BUS') return '#0284c7';
+      if (/PLANE|AIR/.test(m)) return '#0284c7';
       return '#0284c7';
     },
 
@@ -135,17 +147,28 @@
             coords: coords, meters: meters, seconds: seconds, elevGain: null
           });
         } else {
+          var legMode = this._mode(l);
+          var track = (l.from && (l.from.track || l.from.platform || l.from.departureTrack))
+            ? ('Binario ' + (l.from.track || l.from.platform || l.from.departureTrack))
+            : (legMode === 'train' ? 'Binario 1 / 2 (verifica monitor FS)' : (legMode === 'flight' ? 'Terminal Partenze / Gate' : (legMode === 'tram' ? 'Banchina Tram' : (legMode === 'taxi' ? 'Posteggio Taxi' : 'Banchina Bus'))));
           var nStops = (l.intermediateStops ? l.intermediateStops.length + 1 : 1);
           totalRide += meters; rideStops += nStops; rideCount++;
           legs.push({
             type: 'ride',
-            line: { code: this._code(l), name: l.routeLongName || l.headsign || l.displayName || '', color: this._color(l) },
-            boardStop: { id: 'tt_b' + i, name: (l.from && l.from.name) || 'Fermata', lat: l.from.lat, lng: l.from.lon },
-            alightStop: { id: 'tt_a' + i, name: (l.to && l.to.name) || 'Fermata', lat: l.to.lat, lng: l.to.lon },
-            boardName: (l.from && l.from.name) || 'Fermata',
-            alightName: (l.to && l.to.name) || 'Fermata',
+            mode: legMode,
+            line: {
+              code: this._code(l),
+              name: l.routeLongName || l.headsign || l.displayName || (legMode === 'train' ? 'Treno Regionale / AV' : 'Linea'),
+              color: this._color(l),
+              mode: legMode
+            },
+            boardStop: { id: 'tt_b' + i, name: (l.from && l.from.name) || 'Stazione / Fermata', lat: l.from.lat, lng: l.from.lon },
+            alightStop: { id: 'tt_a' + i, name: (l.to && l.to.name) || 'Stazione / Fermata', lat: l.to.lat, lng: l.to.lon },
+            boardName: (l.from && l.from.name) || 'Stazione / Fermata',
+            alightName: (l.to && l.to.name) || 'Stazione / Fermata',
             coords: coords, stopsCount: nStops, meters: meters,
-            agency: l.agencyName || ''
+            agency: l.agencyName || (legMode === 'train' ? 'Trenitalia / RFI' : 'Autolinee'),
+            platform: track
           });
         }
       }

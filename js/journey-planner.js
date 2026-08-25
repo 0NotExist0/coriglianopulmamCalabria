@@ -412,16 +412,20 @@ class JourneyPlanner {
         rideStops += (aIdx - bIdx);
         const boardStop = index.stopsById.get(lg.boardId);
         const alightStop = index.stopsById.get(lg.alightId);
+        const mode = (L.ref && L.ref.mode) || index.modeKey || 'pullman';
+        const platform = (L.ref && (L.ref.platform || L.ref.binario || L.ref.track)) || (mode === 'train' ? 'Binario 1 / 2 (verifica tabellone FS)' : (mode === 'flight' ? 'Terminal Partenze / Gate' : (mode === 'tram' ? 'Banchina Tram' : (mode === 'taxi' ? 'Posteggio Taxi' : 'Banchina Bus'))));
         out.push({
           type: 'ride',
-          line: L.ref,
+          mode: mode,
+          line: Object.assign({}, L.ref, { mode: mode }),
           boardStop, alightStop,
           boardName: boardStop ? boardStop.name : 'Fermata',
           alightName: alightStop ? alightStop.name : 'Fermata',
           coords,
           stopsCount: aIdx - bIdx,
           seqIds: seq,
-          meters: Math.round(meters)
+          meters: Math.round(meters),
+          platform: platform
         });
       }
     }

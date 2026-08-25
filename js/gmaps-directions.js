@@ -156,20 +156,35 @@ window.GMAPS_CONFIG = window.GMAPS_CONFIG || {
           totalRide += meters;
           rideStops += (td.num_stops || 1);
           rideCount++;
+
+          var vt = (line.vehicle && (line.vehicle.type || line.vehicle.name) ? String(line.vehicle.type || line.vehicle.name) : '').toUpperCase();
+          var legMode = 'pullman';
+          if (/RAIL|TRAIN|HEAVY_RAIL|HIGH_SPEED|INTERCITY|COMMUTER/.test(vt)) legMode = 'train';
+          else if (/PLANE|AIR|FLIGHT/.test(vt)) legMode = 'flight';
+          else if (/TAXI/.test(vt)) legMode = 'taxi';
+          else if (/TRAM|SUBWAY|METRO|LIGHT_RAIL/.test(vt)) legMode = 'tram';
+
+          var track = (dep.platform || (td.departure_stop && td.departure_stop.platform))
+            ? ('Binario ' + (dep.platform || td.departure_stop.platform))
+            : (legMode === 'train' ? 'Binario 1 / 2 (verifica tabellone RFI)' : (legMode === 'flight' ? 'Terminal Partenze / Gate' : (legMode === 'tram' ? 'Banchina Tram' : (legMode === 'taxi' ? 'Posteggio Taxi' : 'Banchina Bus'))));
+
           legs.push({
             type: "ride",
+            mode: legMode,
             line: {
-              code: line.short_name || line.name || "Mezzo",
-              name: line.name || (td.headsign ? ("➔ " + td.headsign) : "Linea"),
-              color: line.color || "#0284c7"
+              code: line.short_name || line.name || (legMode === 'train' ? 'Treno FS' : 'Mezzo'),
+              name: line.name || (td.headsign ? ("➔ " + td.headsign) : (legMode === 'train' ? 'Linea Ferroviaria' : 'Linea')),
+              color: line.color || (legMode === 'train' ? '#dc2626' : '#0284c7'),
+              mode: legMode
             },
-            boardStop: { id: "g_board_" + i, name: dep.name || "Fermata", lat: boardLL[0], lng: boardLL[1] },
-            alightStop: { id: "g_alight_" + i, name: arr.name || "Fermata", lat: arrLL[0], lng: arrLL[1] },
-            boardName: dep.name || "Fermata",
-            alightName: arr.name || "Fermata",
+            boardStop: { id: "g_board_" + i, name: dep.name || "Stazione / Fermata", lat: boardLL[0], lng: boardLL[1] },
+            alightStop: { id: "g_alight_" + i, name: arr.name || "Stazione / Fermata", lat: arrLL[0], lng: arrLL[1] },
+            boardName: dep.name || "Stazione / Fermata",
+            alightName: arr.name || "Stazione / Fermata",
             coords: coords,
             stopsCount: td.num_stops || 1,
-            meters: Math.round(meters)
+            meters: Math.round(meters),
+            platform: track
           });
         }
       }

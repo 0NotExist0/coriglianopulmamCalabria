@@ -995,22 +995,43 @@ class TransitMapEngine {
       mapWrapper.appendChild(banner);
     }
 
+    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
+    const modeVerbs = {
+      pullman: 'Stai prendendo il Pullman',
+      train: 'Stai prendendo il Treno',
+      flight: 'Stai prendendo il Volo',
+      taxi: 'Stai prendendo il Taxi',
+      tram: 'Stai prendendo il Tram'
+    };
+    const ticketAdvice = {
+      pullman: 'Biglietto Autolinee TPL (a bordo, tabacchi o app)',
+      train: 'Biglietto FS Trenitalia / Italo (in stazione o app)',
+      flight: 'Carta d\'imbarco con check-in online',
+      taxi: 'Tariffa tassametro (pagamento a bordo)',
+      tram: 'Biglietto orario rete urbana'
+    };
+    const modeIcons = { pullman: 'fa-bus', train: 'fa-train', flight: 'fa-plane', taxi: 'fa-taxi', tram: 'fa-train-tram' };
+
     const bannerColor = customColor || line?.color || '#0284c7';
     const lineCode = line?.code || dep?.lineCode || "Corsa";
     const lineName = line?.name || dep?.lineName || "Tracciato Selezionato";
     const destName = dep?.destination || (stops[stops.length - 1]?.name) || "Destinazione";
     const schedTime = dep ? `${String(dep.scheduledTime.getHours()).padStart(2, '0')}:${String(dep.scheduledTime.getMinutes()).padStart(2, '0')}` : "--:--";
-    const platform = dep?.platform || "Banchina Standard";
+    const platform = dep?.platform || (currentMode === 'train' ? 'Binario 1 / 2 FS (verifica tabellone)' : 'Banchina Bus Standard');
+    const verb = modeVerbs[currentMode] || 'Stai prendendo il Mezzo';
+    const ticketTxt = ticketAdvice[currentMode] || 'Biglietto di viaggio';
+    const icon = modeIcons[currentMode] || 'fa-bus';
 
     banner.innerHTML = `
       <div class="route-banner-header">
         <div class="route-banner-tag" style="background:${bannerColor}">
-          <i class="fa-solid fa-route"></i>
+          <i class="fa-solid ${icon}"></i>
           <strong>${lineCode}</strong>
         </div>
         <div class="route-banner-info">
-          <h4>${lineName}</h4>
-          <p><i class="fa-solid fa-flag-checkered"></i> Per <strong>${destName}</strong> &bull; Orario: <strong>${schedTime}</strong> &bull; <strong>${platform}</strong></p>
+          <h4>${lineName} &bull; <small style="color:${bannerColor}; font-weight:800;">${verb.toUpperCase()}</small></h4>
+          <p><i class="fa-solid fa-flag-checkered"></i> Per <strong>${destName}</strong> &bull; Orario: <strong>${schedTime}</strong> &bull; <i class="fa-solid fa-signs-post"></i> <strong>${platform}</strong></p>
+          <small style="color:var(--text-muted, #64748b); display:block; margin-top:2px;"><i class="fa-solid fa-ticket text-success"></i> <strong>Biglietto:</strong> ${ticketTxt}</small>
         </div>
         <button class="btn-close-route-banner" onclick="window.transitMap.clearHighlightedRoute()" title="Chiudi dettaglio percorso">
           <i class="fa-solid fa-xmark"></i>
