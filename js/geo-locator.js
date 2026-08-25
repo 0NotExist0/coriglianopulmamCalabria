@@ -1524,6 +1524,16 @@ class GeoLocatorEngine {
       } else if (startLL) {
         map.flyTo(startLL, 15, { animate: true, duration: 1.2 });
       }
+
+      // Scansione automatica Radar POI lungo il percorso (Benzinai, Autogrill, Autovelox)
+      if (window.radarEngine && all.length >= 2) {
+        window.radarEngine.scanPOIsAlongRoute(all).then(() => {
+          const radarContainer = document.getElementById("geoRadarBordoWrap");
+          if (radarContainer && window.radarEngine) {
+            radarContainer.innerHTML = window.radarEngine.generateRadarItinerarySectionHtml();
+          }
+        });
+      }
     } catch (e) {}
 
     setTimeout(() => {
@@ -2563,6 +2573,10 @@ class GeoLocatorEngine {
 
         ${ticketsGuideBox}
 
+        <div id="geoRadarBordoWrap">
+          ${window.radarEngine ? window.radarEngine.generateRadarItinerarySectionHtml() : ''}
+        </div>
+
         ${!it.isCar ? `
         <div class="geo-departures-wrapper" style="margin-top:14px;">
           <div class="geo-departures-title" style="font-weight:800; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
@@ -3134,6 +3148,11 @@ class GeoLocatorEngine {
 
     this.updateNavigationProgress();
     this.followUser();
+
+    // Rilevamento Limiti di Velocità & Avvisi Radar di Prossimità
+    if (window.radarEngine && this.userLatLng) {
+      window.radarEngine.detectCurrentSpeedLimit(this.userLatLng);
+    }
   }
 
   /* La camera segue l'utente (pan) senza combattere con le sue interazioni */

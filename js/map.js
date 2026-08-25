@@ -146,6 +146,10 @@ class TransitMapEngine {
     this.walkingRouteLayer = L.featureGroup().addTo(this.map);
     this.userLocationLayer = L.featureGroup().addTo(this.map);
 
+    if (window.radarEngine) {
+      window.radarEngine.setMap(this.map);
+    }
+
     // Controllo GPS nativo sulla mappa
     const LocateControl = L.Control.extend({
       options: { position: 'topleft' },
