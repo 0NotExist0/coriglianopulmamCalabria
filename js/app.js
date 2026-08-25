@@ -903,10 +903,10 @@ class AppController {
         sec.classList.toggle("active", sec.id === `section-${tabId}`);
       });
 
-      // Nascondi la barra regione/città/fermata sulla mappa GPS, mostrala nelle altre sezioni
+      // Barra regione/città/fermata nascosta su tutte le schede (partenze, cerca, scioperi, biglietti, mappa)
       const regBar = document.getElementById("regionSelectorBar") || document.querySelector(".region-selector-bar");
       if (regBar) {
-        regBar.style.display = (tabId === "map") ? "none" : "block";
+        regBar.style.display = "none";
       }
 
       // Scroll fluido in alto al cambio scheda su mobile

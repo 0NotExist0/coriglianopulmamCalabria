@@ -1135,17 +1135,6 @@ button:active,
 }
 
 .region-selector-bar {
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
-  padding: clamp(10px, 1.5vw, 14px) 0;
-  box-shadow: var(--shadow-sm);
-  position: relative;
-  z-index: 10;
-}
-
-/* Nasconde automaticamente la barra selettori regione/città/fermata quando si è sulla mappa GPS */
-body:has(#section-map.active) .region-selector-bar,
-#section-map.active ~ .region-selector-bar {
   display: none !important;
 }
 
