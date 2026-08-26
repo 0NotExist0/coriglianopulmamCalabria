@@ -58,75 +58,10 @@ window.onPremiumClick = function() {
 // Stato iniziale (ultimo valore noto), poi Unity lo aggiorna con la verifica reale.
 try { window._premiumUnlocked = (localStorage.getItem('premium_unlocked') === 'true'); } catch (e) { window._premiumUnlocked = false; }
 
-// --- SBLOCCO PREMIUM CON CODICE RISERVATO (solo per il proprietario) ---
-// Il codice vero e' impostato in Unity (WebViewManager). L'app invia il codice
-// digitato a Unity, che lo confronta e sblocca il premium (niente pubblicita').
-// Fallback per test nel browser: window.DEV_UNLOCK_CODE (vuoto = disattivato).
-window.DEV_UNLOCK_CODE = window.DEV_UNLOCK_CODE || "";
-
-function _setUnlockMsg(text, ok) {
-  var el = document.getElementById('devUnlockMsg');
-  if (!el) return;
-  el.textContent = text || '';
-  el.className = 'cz-unlock-msg' + (text ? (ok ? ' ok' : ' err') : '');
-}
-
-window.submitUnlockCode = function() {
-  var input = document.getElementById('devUnlockInput');
-  var code = input ? (input.value || '').trim() : '';
-  if (!code) { _setUnlockMsg('Inserisci un codice.', false); return; }
-
-  // 1) Verifica nativa in Unity (il codice resta nascosto nel codice nativo)
-  if (window.invokeUnity && window.invokeUnity('unlock_premium|' + code)) {
-    _setUnlockMsg('Verifica in corso...', true);
-    return; // Unity richiamera' window.premiumCodeResult(true/false)
-  }
-
-  // 2) Fallback browser/test: confronto con un codice locale (se impostato)
-  if (window.DEV_UNLOCK_CODE && code === window.DEV_UNLOCK_CODE) {
-    window.premiumCodeResult(true);
-  } else {
-    window.premiumCodeResult(false);
-  }
-};
-
-// Chiamata da Unity (o dal fallback) con l'esito della verifica del codice.
-window.premiumCodeResult = function(ok) {
-  if (ok) {
-    if (typeof window.unlockPremium === 'function') window.unlockPremium();
-    _setUnlockMsg('Premium sbloccato! Pubblicità disattivate.', true);
-    var input = document.getElementById('devUnlockInput');
-    if (input) input.value = '';
-  } else {
-    _setUnlockMsg('Codice non valido.', false);
-  }
-};
-
-// Rivela il campo codice toccando 5 volte la firma nel pannello Personalizza.
-(function () {
-  function bindSignature() {
-    var sig = document.getElementById('czSignature');
-    if (!sig) return;
-    var taps = 0, timer = null;
-    sig.style.cursor = 'default';
-    sig.addEventListener('click', function () {
-      taps++;
-      clearTimeout(timer);
-      timer = setTimeout(function () { taps = 0; }, 1200);
-      if (taps >= 5) {
-        taps = 0;
-        var row = document.getElementById('devUnlockRow');
-        if (row) {
-          row.style.display = 'block';
-          var input = document.getElementById('devUnlockInput');
-          if (input) input.focus();
-        }
-      }
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindSignature);
-  else bindSignature();
-})();
+// --- PREMIUM: gestito dall'ACCOUNT (Firebase) e dall'acquisto in-app (IAP) ---
+// Il vecchio "codice segreto" (5 tap sulla firma) e' stato RIMOSSO. Ora il premium
+// dipende dal profilo account (users/{uid}.premium in account.js) e dall'abbonamento
+// verificato presso lo store (unlockPremium/lockPremium).
 // -------------------------
 /**
  * ITALIABUS & MOBILITÀ ITALIA - MAIN APP CONTROLLER

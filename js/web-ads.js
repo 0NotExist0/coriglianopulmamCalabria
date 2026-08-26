@@ -112,4 +112,14 @@ window.ADSENSE_CONFIG = window.ADSENSE_CONFIG || {
     // Altrimenti siamo nella versione WEB/repo -> Google AdSense.
     WebAds.showInterstitial();
   };
+
+  // Caricamento dinamico dello script AdSense SOLO sul web (fuori dall'app Unity).
+  // Serve per la verifica del sito su AdSense e per gli annunci automatici.
+  // IMPORTANTE: NON viene caricato dentro l'app nativa, perche' uno <script> esterno
+  // nell'HTML statico ritardava l'evento 'load' della WebView (che restava invisibile
+  // = schermo azzurro). Iniettandolo qui, e solo su web, l'app nativa non dipende piu'
+  // da risorse esterne per avviarsi.
+  if (!inUnity() && window.ADSENSE_CONFIG && window.ADSENSE_CONFIG.client) {
+    try { ensureAdSenseScript(); } catch (e) {}
+  }
 })();

@@ -35,9 +35,12 @@
   <meta property="og:title" content="ItaliaRun & Mobilità Italia | Orari, Timer Live e Percorsi">
   <meta property="og:description" content="ItaliaRun: Orari in tempo reale con timer a scalare, mappa interattiva e navigatore per tutte le regioni d'Italia.">
 
-  <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2046132491347242"
-       crossorigin="anonymous"></script>
+  <!-- Google AdSense: NON caricato staticamente qui.
+       Lo script veniva scaricato all'avvio e su file:// (app nativa) bloccava
+       l'evento 'load' della WebView, che restava invisibile (schermo azzurro).
+       Ora viene iniettato dinamicamente da js/web-ads.js SOLO sul web (fuori
+       dall'app Unity): la verifica AdSense e gli annunci web continuano a funzionare,
+       mentre l'app nativa non dipende piu' da risorse esterne per avviarsi. -->
 
   <style>
     .region-selector-bar {
@@ -106,12 +109,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=5.10">
-  <link rel="stylesheet" href="css/tickets.css?v=5.10">
-  <link rel="stylesheet" href="css/map.css?v=5.10">
-  <link rel="stylesheet" href="css/themes.css?v=5.10">
-  <link rel="stylesheet" href="css/responsive.css?v=5.10">
-  <link rel="stylesheet" href="css/select.css?v=5.10">
+  <link rel="stylesheet" href="css/style.css?v=5.16">
+  <link rel="stylesheet" href="css/tickets.css?v=5.16">
+  <link rel="stylesheet" href="css/map.css?v=5.16">
+  <link rel="stylesheet" href="css/themes.css?v=5.16">
+  <link rel="stylesheet" href="css/responsive.css?v=5.16">
+  <link rel="stylesheet" href="css/select.css?v=5.16">
+  <link rel="stylesheet" href="css/account.css?v=5.16">
 </head>
 <body>
 
@@ -267,6 +271,12 @@
           <i class="fa-solid fa-wallet"></i> I Miei Biglietti
           <span class="nav-badge-pill" id="walletBadgeCount" style="display: none;">0</span>
         </a>
+        <a href="#" class="nav-link acc-nav-link" id="accNavDesktop" onclick="if(window.openAccount){window.openAccount();}return false;">
+          <i class="acc-nav-icon fa-solid fa-right-to-bracket"></i> <span class="acc-nav-label">Accedi</span>
+        </a>
+        <a href="#" class="nav-link acc-owner-nav" id="accOwnerNavDesktop" style="display:none;color:#7c3aed;font-weight:700;" onclick="if(window.accountSystem){window.accountSystem.openAdmin();}return false;">
+          <i class="fa-solid fa-users-viewfinder"></i> Utenti Online
+        </a>
       </nav>
 
       <!-- Header Actions -->
@@ -368,6 +378,12 @@
       <a href="#" class="nav-link" data-tab="tickets"><i class="fa-solid fa-wallet"></i> Portafoglio Biglietti</a>
       
       <hr style="margin: 15px 0; border-color: var(--border-color);">
+      <a href="#" class="nav-link acc-nav-link" id="accNavDrawer" onclick="if(window.openAccount){window.openAccount();}return false;">
+        <i class="acc-nav-icon fa-solid fa-right-to-bracket"></i> <span class="acc-nav-label">Accedi</span>
+      </a>
+      <a href="#" class="nav-link acc-owner-nav" id="accOwnerNavDrawer" style="display:none;color:#7c3aed;font-weight:700;" onclick="if(window.accountSystem){window.accountSystem.openAdmin();}return false;">
+        <i class="fa-solid fa-users-viewfinder"></i> Utenti Online
+      </a>
       <a href="#" id="btnPremium" class="nav-link" onclick="return onPremiumClick();" style="color: #eab308; font-weight: bold;">
         <i class="fa-solid fa-crown"></i> <span id="btnPremiumLabel">Sblocca Pass Premium</span><span id="btnPremiumPrice"></span>
       </a>
@@ -470,17 +486,7 @@
         <i class="fa-solid fa-rotate-left"></i> Ripristina Predefinito
       </button>
 
-      <!-- Codice sblocco riservato (nascosto: si rivela toccando 5 volte la firma) -->
-      <div id="devUnlockRow" class="cz-unlock-row" style="display:none;">
-        <div class="cz-group-title"><i class="fa-solid fa-key"></i> Codice Sblocco</div>
-        <div class="cz-unlock-input-wrap">
-          <input type="password" id="devUnlockInput" class="cz-unlock-input" placeholder="Inserisci il codice" autocomplete="off" inputmode="text" />
-          <button type="button" class="btn btn-primary btn-sm" id="devUnlockBtn" onclick="window.submitUnlockCode()">
-            <i class="fa-solid fa-unlock"></i> Sblocca
-          </button>
-        </div>
-        <div id="devUnlockMsg" class="cz-unlock-msg"></div>
-      </div>
+      <!-- Codice segreto RIMOSSO: il premium ora si gestisce dall'account (Accedi). -->
 
       <div class="cz-signature" id="czSignature" title="">
         Design & Sviluppo <strong>0Not_Exist0</strong><br>
@@ -1376,25 +1382,32 @@
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/data.js?v=5.10"></script>
-  <script src="js/data-normalize.js?v=5.10"></script>
-  <script src="js/realtime-engine.js?v=5.10"></script>
-  <script src="js/notifications.js?v=5.10"></script>
-  <script src="js/live-board.js?v=5.10"></script>
-  <script src="js/search.js?v=5.10"></script>
-  <script src="js/booking.js?v=5.10"></script>
-  <script src="js/map.js?v=5.10"></script>
-  <script src="js/strikes.js?v=5.10"></script>
-  <script src="js/app.js?v=5.10"></script>
-  <script src="js/web-ads.js?v=5.10"></script>
-  <script src="js/customizer.js?v=5.10"></script>
-  <script src="js/journey-planner.js?v=5.10"></script>
-  <script src="js/gmaps-directions.js?v=5.10"></script>
-  <script src="js/transitous-routing.js?v=5.10"></script>
-  <script src="js/radar-engine.js?v=5.10"></script>
-  <script src="js/geo-locator.js?v=5.10"></script>
-  <script src="js/select-enhancer.js?v=5.10"></script>
-  <script src="js/alerts-scheduler.js?v=5.10"></script>
+  <script src="js/data.js?v=5.16"></script>
+  <script src="js/data-normalize.js?v=5.16"></script>
+  <script src="js/realtime-engine.js?v=5.16"></script>
+  <script src="js/notifications.js?v=5.16"></script>
+  <script src="js/live-board.js?v=5.16"></script>
+  <script src="js/search.js?v=5.16"></script>
+  <script src="js/booking.js?v=5.16"></script>
+  <script src="js/map.js?v=5.16"></script>
+  <script src="js/strikes.js?v=5.16"></script>
+  <script src="js/app.js?v=5.16"></script>
+  <script src="js/web-ads.js?v=5.16"></script>
+  <script src="js/customizer.js?v=5.16"></script>
+  <script src="js/journey-planner.js?v=5.16"></script>
+  <script src="js/gmaps-directions.js?v=5.16"></script>
+  <script src="js/transitous-routing.js?v=5.16"></script>
+  <script src="js/radar-engine.js?v=5.16"></script>
+  <script src="js/geo-locator.js?v=5.16"></script>
+  <script src="js/select-enhancer.js?v=5.16"></script>
+  <script src="js/alerts-scheduler.js?v=5.16"></script>
+
+  <!-- Account (Firebase) — SDK bundlato in LOCALE (niente CDN esterno, avvio affidabile) -->
+  <script src="vendor/firebase/firebase-app-compat.js?v=5.16"></script>
+  <script src="vendor/firebase/firebase-auth-compat.js?v=5.16"></script>
+  <script src="vendor/firebase/firebase-database-compat.js?v=5.16"></script>
+  <script src="js/firebase-config.js?v=5.16"></script>
+  <script src="js/account.js?v=5.16"></script>
 
 </body>
 </html>
