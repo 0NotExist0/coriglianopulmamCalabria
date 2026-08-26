@@ -132,12 +132,39 @@ class TransitMapEngine {
       scrollWheelZoom: true
     });
 
-    // Tile Layer moderno e pulito
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 19
-    }).addTo(this.map);
+    // Basemap GRATUITI senza API key (i tile CARTO ora richiedono una chiave).
+    // L'utente sceglie la modalità dal selettore in alto a sinistra sulla mappa.
+    const osmAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+    const esriAttr = 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>';
+    const _bm = {
+      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        subdomains: 'abc', maxZoom: 19, attribution: osmAttr }),
+      imagery: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19, attribution: esriAttr }),
+      esriLabels: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19, attribution: '' }),
+      lightGray: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 16, attribution: esriAttr }),
+      topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        subdomains: 'abc', maxZoom: 17, attribution: osmAttr + ' &copy; <a href="https://opentopomap.org/">OpenTopoMap</a> (CC-BY-SA)' }),
+      darkGray: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 16, attribution: esriAttr })
+    };
+    // Satellite = immagini + etichette (nomi città/strade) sopra.
+    const satellite = L.layerGroup([_bm.imagery, _bm.esriLabels]);
+    this._baseMaps = {
+      '🗺️ Mappa': _bm.osm,
+      '🛰️ Satellite': satellite,
+      '🛣️ Strade': _bm.lightGray,
+      '⛰️ Rilievo': _bm.topo,
+      '🌙 Scuro': _bm.darkGray
+    };
+    const savedBase = (typeof safeStorageGet === 'function') ? safeStorageGet('italiabus_basemap', '🗺️ Mappa') : '🗺️ Mappa';
+    (this._baseMaps[savedBase] || _bm.osm).addTo(this.map);
+    L.control.layers(this._baseMaps, null, { position: 'topleft', collapsed: true }).addTo(this.map);
+    this.map.on('baselayerchange', (e) => {
+      if (typeof safeStorageSet === 'function') safeStorageSet('italiabus_basemap', e.name);
+    });
 
     this.routeLinesLayer = L.featureGroup().addTo(this.map);
     this.stopMarkersLayer = L.featureGroup().addTo(this.map);
