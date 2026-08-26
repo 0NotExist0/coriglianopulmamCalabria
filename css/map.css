@@ -69,6 +69,7 @@
   min-height: 320px;
   background-color: #e5e7eb;
   z-index: 1;
+  position: relative;
 }
 
 /* Custom Stop Markers */
@@ -528,13 +529,38 @@
   .leaflet-map-canvas {
     height: 440px;
   }
-  
+
   .map-floating-route-banner {
     left: 10px;
     right: 10px;
     top: 60px;
     padding: 10px 12px;
   }
+
+  /* --- Controlli mappa COMPATTI su mobile ---
+     Prima i pulsanti "a capo" formavano pile altissime (~250px) che seppellivano
+     la mappa. Ora ogni gruppo e' una SOLA riga scorrevole in orizzontale. */
+  .map-quick-buttons,
+  .radar-toggles-wrap {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .map-quick-buttons::-webkit-scrollbar,
+  .radar-toggles-wrap::-webkit-scrollbar { display: none; }
+  .map-btn-pill,
+  .btn-radar-pill { flex: 0 0 auto; }
+
+  .map-control-panel { gap: 8px; margin-bottom: 8px; }
+  .map-radar-bar { flex-wrap: nowrap; gap: 8px; padding: 8px 10px; }
+  .radar-toggles-wrap { min-width: 0; flex: 1 1 auto; }
+  .radar-live-speed-hud { flex: 0 0 auto; }
+
+  /* Pannello camera: piccolo e ancorato in alto a destra SOPRA la mappa. */
+  .geo-nav-controls { top: 8px; right: 8px; max-width: 150px; }
 }
 
 /* ==========================================================================

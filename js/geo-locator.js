@@ -3224,7 +3224,10 @@ class GeoLocatorEngine {
   ensureNavControls() {
     let el = document.getElementById('geoNavControls');
     if (el) return el;
-    const wrapper = document.querySelector('.transit-map-wrapper');
+    // Aggancia i controlli camera ALLA MAPPA (non al wrapper che contiene anche i
+    // pulsanti in alto): cosi' il pannello resta sopra la mappa e non si sovrappone
+    // ai controlli su schermi piccoli.
+    const wrapper = document.getElementById('leafletTransitMap') || document.querySelector('.transit-map-wrapper');
     if (!wrapper) return null;
     el = document.createElement('div');
     el.id = 'geoNavControls';
@@ -3246,6 +3249,10 @@ class GeoLocatorEngine {
       </button>
     `;
     wrapper.appendChild(el);
+    // Evita che trascinare/scrollare sul pannello muova la mappa sottostante.
+    if (window.L && L.DomEvent) {
+      try { L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); } catch (e) {}
+    }
     return el;
   }
 

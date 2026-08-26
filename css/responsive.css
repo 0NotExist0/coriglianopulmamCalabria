@@ -535,20 +535,48 @@ img, svg, video, .leaflet-map-canvas {
     gap: 8px;
   }
 
+  /* Controlli mappa COMPATTI: UNA sola riga scorrevole in orizzontale.
+     Prima i pulsanti andavano "a capo" formando pile alte ~250px che
+     seppellivano la mappa su schermi piccoli. */
   .map-quick-buttons {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 6px;
+    justify-content: flex-start;
+    padding-bottom: 2px;
+  }
+  .map-quick-buttons::-webkit-scrollbar { display: none; }
+
+  .map-btn-pill {
+    flex: 0 0 auto;
+    min-height: 40px;
+    font-size: 0.78rem;
+    padding: 6px 12px;
     justify-content: center;
   }
 
-  .map-btn-pill {
-    flex: 1 1 auto;
-    min-height: 40px;
-    font-size: 0.78rem;
-    padding: 6px 10px;
-    justify-content: center;
+  /* Barra radar compatta: toggle in UNA riga scorrevole, HUD limite accanto. */
+  .map-radar-bar {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 8px 10px;
   }
+  .radar-toggles-wrap {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .radar-toggles-wrap::-webkit-scrollbar { display: none; }
+  .btn-radar-pill { flex: 0 0 auto; }
+  .radar-live-speed-hud { flex: 0 0 auto; }
 
   .map-live-status-pill {
     justify-content: center;
