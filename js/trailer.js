@@ -83,19 +83,21 @@
     var el = document.querySelector(sel);
     if (!el) { scrim("dark"); return; }
     try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) {}
-    await wait(650); if (!alive()) return;
+    await wait(800); if (!alive()) return;
+    // Correzione fine: porta il centro dell'elemento al centro dello schermo.
+    try {
+      var rc = el.getBoundingClientRect();
+      var delta = (rc.top + rc.height / 2) - (window.innerHeight / 2);
+      if (Math.abs(delta) > 40) { window.scrollBy({ top: delta, behavior: "smooth" }); await wait(600); if (!alive()) return; }
+    } catch (e) {}
     var r = el.getBoundingClientRect();
     var pad = padding == null ? 10 : padding;
     scrim("off");
     els.hole.style.left = Math.max(6, r.left - pad) + "px";
     els.hole.style.top = Math.max(6, r.top - pad) + "px";
-    els.hole.style.width = (r.width + pad * 2) + "px";
+    els.hole.style.width = Math.min(window.innerWidth - 12, r.width + pad * 2) + "px";
     els.hole.style.height = (r.height + pad * 2) + "px";
     els.hole.classList.add("show");
-    // leggero "pop" dell'elemento
-    spotEl = el;
-    spotPrev = { transition: el.style.transition, transform: el.style.transform };
-    el.style.transition = "transform .5s cubic-bezier(.16,1,.3,1)";
   }
 
   function focusHTML(html) { els.focus.innerHTML = html; els.focus.classList.add("show"); }
@@ -159,6 +161,9 @@
       this.playing = true;
       build();
       document.body.classList.add("trailer-mode");
+      // Chiudi eventuali pannelli aperti (account, tendine) e torna in cima, per un trailer pulito.
+      try { if (window.accountSystem && window.accountSystem.close) window.accountSystem.close(); } catch (e) {}
+      try { window.scrollTo({ top: 0, behavior: "auto" }); } catch (e) {}
       this._saved = {
         tab: (app() && app().currentTab) || "map",
         mode: (app() && app().currentMode) || "pullman",
@@ -199,7 +204,7 @@
       var steps = els.focus.querySelectorAll(".tf-step");
       for (var s = 0; s < steps.length; s++) { steps[s].classList.add("in"); await wait(420); if (!alive()) return; }
       await wait(2600); if (!alive()) return;
-      caption("Nessun pensiero", "Ogni cambio spiegato passo-passo", "Indicazioni a prova di scimmia, dall'inizio alla fine");
+      caption("Nessun pensiero", "Ogni cambio spiegato passo-passo", "Indicazioni chiare e precise, dall'inizio alla fine");
       await wait(3200); if (!alive()) return;
       hideCaption(); clearFocus(); await wait(500); if (!alive()) return;
 
@@ -211,19 +216,25 @@
       hideCaption(); clearFocus(); await wait(500); if (!alive()) return;
 
       // ===== 4) MAPPA LIVE DI TUTTA ITALIA =====
-      scrim("off");
+      // Porto la MAPPA REALE al centro e la metto in spotlight (il resto scuro):
+      // così si vede bene mentre vola sull'Italia e cambia modalità.
+      if (app()) app().switchTab("map");
+      await wait(600);
       var m = tmap();
+      await spotlight("#leafletTransitMap", 6); if (!alive()) return;
+      if (m) { try { m.map.invalidateSize(); m.map.setView([42.5, 12.5], 5); } catch (e) {} }
       caption("In tempo reale", "Mappa GPS di tutta Italia", "Fermate, linee e mezzi dal vivo");
+      await wait(900); if (!alive()) return;
       if (m) {
-        m.map.flyTo([45.4642, 9.1900], 12, { duration: 2.3 }); await wait(2700); if (!alive()) return;
-        m.map.flyTo([41.9028, 12.4964], 12, { duration: 2.5 }); await wait(2700); if (!alive()) return;
-        m.map.flyTo([39.2986, 16.2540], 11, { duration: 2.5 }); await wait(2400); if (!alive()) return;
+        m.map.flyTo([45.4642, 9.1900], 11, { duration: 2.3 }); await wait(2600); if (!alive()) return;   // Milano
+        m.map.flyTo([41.9028, 12.4964], 11, { duration: 2.5 }); await wait(2600); if (!alive()) return;   // Roma
+        m.map.flyTo([39.2986, 16.2540], 11, { duration: 2.5 }); await wait(2300); if (!alive()) return;   // Calabria
       } else { await wait(6000); }
-      hideCaption(); await wait(300);
-      caption("Come vuoi tu", "Satellite, strade, rilievo, scuro", "");
+      hideCaption(); await wait(300); if (!alive()) return;
+      caption("Come vuoi tu", "Satellite, strade, rilievo, scuro", "Scegli la vista che preferisci");
       var bases = ["🛰️ Satellite", "⛰️ Rilievo", "🌙 Scuro", "🗺️ Mappa"];
-      for (var b = 0; b < bases.length; b++) { setBasemap(bases[b]); await wait(1300); if (!alive()) return; }
-      hideCaption(); await wait(400); if (!alive()) return;
+      for (var b = 0; b < bases.length; b++) { setBasemap(bases[b]); await wait(1600); if (!alive()) return; }
+      hideCaption(); clearSpot(); await wait(400); if (!alive()) return;
 
       // ===== 5) RADAR DI BORDO =====
       var bar = document.getElementById("mapRadarBar");

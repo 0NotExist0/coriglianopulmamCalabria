@@ -107,5 +107,16 @@
 body.trailer-mode .acc-owner-nav,
 body.trailer-mode #customizerToggleBtn{ display:none !important; }
 
+/* ...e nascondi i pannelli/tendine che potrebbero restare aperti e sporcare la scena */
+body.trailer-mode .geo-route-panel,
+body.trailer-mode #geoNavControls,
+body.trailer-mode .geo-nav-controls,
+body.trailer-mode .map-dest-dropdown,
+body.trailer-mode .customizer-panel,
+body.trailer-mode .customizer-overlay,
+body.trailer-mode .mobile-drawer,
+body.trailer-mode .acc-overlay,
+body.trailer-mode .notification-dropdown{ display:none !important; }
+
 /* Pulsante Play Trailer nella nav (owner) */
 .trailer-nav-link{ color:#0ea5e9 !important; font-weight:700; }
