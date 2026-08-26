@@ -119,14 +119,15 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=5.21">
-  <link rel="stylesheet" href="css/tickets.css?v=5.21">
-  <link rel="stylesheet" href="css/map.css?v=5.21">
-  <link rel="stylesheet" href="css/themes.css?v=5.21">
-  <link rel="stylesheet" href="css/responsive.css?v=5.21">
-  <link rel="stylesheet" href="css/select.css?v=5.21">
-  <link rel="stylesheet" href="css/account.css?v=5.21">
-  <link rel="stylesheet" href="css/ui-settings.css?v=5.21">
+  <link rel="stylesheet" href="css/style.css?v=5.22">
+  <link rel="stylesheet" href="css/tickets.css?v=5.22">
+  <link rel="stylesheet" href="css/map.css?v=5.22">
+  <link rel="stylesheet" href="css/themes.css?v=5.22">
+  <link rel="stylesheet" href="css/responsive.css?v=5.22">
+  <link rel="stylesheet" href="css/select.css?v=5.22">
+  <link rel="stylesheet" href="css/account.css?v=5.22">
+  <link rel="stylesheet" href="css/ui-settings.css?v=5.22">
+  <link rel="stylesheet" href="css/trailer.css?v=5.22">
 </head>
 <body>
 
@@ -288,6 +289,9 @@
         <a href="#" class="nav-link acc-owner-nav" id="accOwnerNavDesktop" style="display:none;color:#7c3aed;font-weight:700;" onclick="if(window.accountSystem){window.accountSystem.openAdmin();}return false;">
           <i class="fa-solid fa-users-viewfinder"></i> Utenti Online
         </a>
+        <a href="#" class="nav-link acc-owner-nav trailer-nav-link" id="accTrailerDesktop" style="display:none;" onclick="if(window.trailer){window.trailer.play();}return false;">
+          <i class="fa-solid fa-clapperboard"></i> Play Trailer
+        </a>
       </nav>
 
       <!-- Header Actions -->
@@ -394,6 +398,9 @@
       </a>
       <a href="#" class="nav-link acc-owner-nav" id="accOwnerNavDrawer" style="display:none;color:#7c3aed;font-weight:700;" onclick="if(window.accountSystem){window.accountSystem.openAdmin();}return false;">
         <i class="fa-solid fa-users-viewfinder"></i> Utenti Online
+      </a>
+      <a href="#" class="nav-link acc-owner-nav trailer-nav-link" id="accTrailerDrawer" style="display:none;" onclick="if(window.trailer){window.trailer.play();}return false;">
+        <i class="fa-solid fa-clapperboard"></i> Play Trailer
       </a>
       <a href="#" id="btnPremium" class="nav-link" onclick="return onPremiumClick();" style="color: #eab308; font-weight: bold;">
         <i class="fa-solid fa-crown"></i> <span id="btnPremiumLabel">Sblocca Pass Premium</span><span id="btnPremiumPrice"></span>
@@ -1393,33 +1400,34 @@
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/data.js?v=5.21"></script>
-  <script src="js/data-normalize.js?v=5.21"></script>
-  <script src="js/realtime-engine.js?v=5.21"></script>
-  <script src="js/notifications.js?v=5.21"></script>
-  <script src="js/live-board.js?v=5.21"></script>
-  <script src="js/search.js?v=5.21"></script>
-  <script src="js/booking.js?v=5.21"></script>
-  <script src="js/map.js?v=5.21"></script>
-  <script src="js/strikes.js?v=5.21"></script>
-  <script src="js/app.js?v=5.21"></script>
-  <script src="js/web-ads.js?v=5.21"></script>
-  <script src="js/customizer.js?v=5.21"></script>
-  <script src="js/journey-planner.js?v=5.21"></script>
-  <script src="js/gmaps-directions.js?v=5.21"></script>
-  <script src="js/transitous-routing.js?v=5.21"></script>
-  <script src="js/radar-engine.js?v=5.21"></script>
-  <script src="js/geo-locator.js?v=5.21"></script>
-  <script src="js/select-enhancer.js?v=5.21"></script>
-  <script src="js/alerts-scheduler.js?v=5.21"></script>
+  <script src="js/data.js?v=5.22"></script>
+  <script src="js/data-normalize.js?v=5.22"></script>
+  <script src="js/realtime-engine.js?v=5.22"></script>
+  <script src="js/notifications.js?v=5.22"></script>
+  <script src="js/live-board.js?v=5.22"></script>
+  <script src="js/search.js?v=5.22"></script>
+  <script src="js/booking.js?v=5.22"></script>
+  <script src="js/map.js?v=5.22"></script>
+  <script src="js/strikes.js?v=5.22"></script>
+  <script src="js/app.js?v=5.22"></script>
+  <script src="js/web-ads.js?v=5.22"></script>
+  <script src="js/customizer.js?v=5.22"></script>
+  <script src="js/journey-planner.js?v=5.22"></script>
+  <script src="js/gmaps-directions.js?v=5.22"></script>
+  <script src="js/transitous-routing.js?v=5.22"></script>
+  <script src="js/radar-engine.js?v=5.22"></script>
+  <script src="js/geo-locator.js?v=5.22"></script>
+  <script src="js/select-enhancer.js?v=5.22"></script>
+  <script src="js/alerts-scheduler.js?v=5.22"></script>
 
   <!-- Account (Firebase) — SDK bundlato in LOCALE (niente CDN esterno, avvio affidabile) -->
-  <script src="vendor/firebase/firebase-app-compat.js?v=5.21"></script>
-  <script src="vendor/firebase/firebase-auth-compat.js?v=5.21"></script>
-  <script src="vendor/firebase/firebase-database-compat.js?v=5.21"></script>
-  <script src="js/firebase-config.js?v=5.21"></script>
-  <script src="js/account.js?v=5.21"></script>
-  <script src="js/ui-settings.js?v=5.21"></script>
+  <script src="vendor/firebase/firebase-app-compat.js?v=5.22"></script>
+  <script src="vendor/firebase/firebase-auth-compat.js?v=5.22"></script>
+  <script src="vendor/firebase/firebase-database-compat.js?v=5.22"></script>
+  <script src="js/firebase-config.js?v=5.22"></script>
+  <script src="js/account.js?v=5.22"></script>
+  <script src="js/ui-settings.js?v=5.22"></script>
+  <script src="js/trailer.js?v=5.22"></script>
 
 </body>
 </html>
