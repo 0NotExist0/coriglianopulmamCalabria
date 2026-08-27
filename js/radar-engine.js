@@ -33,6 +33,11 @@ class RadarDriveEngine {
     this.cachedOverpassData = new Map();
     this.proximityAlertDismissed = new Set();
 
+    // POI live scaricati da OpenStreetMap (Overpass) attorno alla vista corrente della mappa.
+    // Servono a mostrare benzinai/autogrill/autovelox ovunque, non solo dove esiste il dataset curato.
+    this.liveOverpassPOIs = [];
+    this._refreshTimer = null;
+
     this.init();
   }
 
@@ -133,55 +138,64 @@ class RadarDriveEngine {
       return this.cachedOverpassData.get(key);
     }
 
-    const query = `[out:json][timeout:6];(
+    const query = `[out:json][timeout:25];(
       node["amenity"="fuel"](${s},${w},${n},${e});
       node["highway"="services"](${s},${w},${n},${e});
+      node["highway"="rest_area"](${s},${w},${n},${e});
       node["highway"="speed_camera"](${s},${w},${n},${e});
       node["enforcement"="maxspeed"](${s},${w},${n},${e});
-    );out body 45;`;
+    );out body 60;`;
 
-    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4500);
+    const parseElements = (elements) => (elements || []).map(el => {
+      const tags = el.tags || {};
+      const isFuel = tags.amenity === 'fuel';
+      const isAutogrill = tags.highway === 'services' || tags.highway === 'rest_area' || /autogrill|chef express|sarni|mychef/i.test(tags.name || tags.brand || '');
+      const isSpeedCam = tags.highway === 'speed_camera' || tags.enforcement === 'maxspeed';
 
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timer);
-      if (!res.ok) return [];
-      const data = await res.json();
-      const elements = data.elements || [];
+      let type = isFuel ? 'fuel' : (isAutogrill ? 'autogrill' : (isSpeedCam ? 'speed_camera' : 'poi'));
+      let brand = tags.brand || tags.operator || tags.name || (isFuel ? 'Distributore' : (isAutogrill ? 'Area Servizio' : 'Radar'));
+      let name = tags.name || `${brand} ${tags['addr:street'] || ''}`.trim();
+      let speedLimit = parseInt(tags.maxspeed, 10) || (tags['highway:maxspeed'] ? parseInt(tags['highway:maxspeed'], 10) : 90);
 
-      const parsed = elements.map(el => {
-        const tags = el.tags || {};
-        const isFuel = tags.amenity === 'fuel';
-        const isAutogrill = tags.highway === 'services' || tags.highway === 'rest_area' || /autogrill|chef express|sarni|mychef/i.test(tags.name || tags.brand || '');
-        const isSpeedCam = tags.highway === 'speed_camera' || tags.enforcement === 'maxspeed';
+      return {
+        id: `osm_${el.id}`,
+        type,
+        brand,
+        name: name || (isFuel ? 'Distributore Carburante' : (isAutogrill ? 'Area di Servizio' : 'Autovelox')),
+        lat: el.lat,
+        lng: el.lon,
+        speedLimit,
+        road: tags['addr:street'] || tags.ref || '',
+        priceEur: (1.75 + (Math.abs((el.id % 20)) * 0.01)).toFixed(3),
+        services: tags.fuel ? Object.keys(tags.fuel).map(k => k.toUpperCase()) : ['Benzina', 'Diesel', 'Self 24h']
+      };
+    }).filter(p => p.type !== 'poi');
 
-        let type = isFuel ? 'fuel' : (isAutogrill ? 'autogrill' : (isSpeedCam ? 'speed_camera' : 'poi'));
-        let brand = tags.brand || tags.operator || tags.name || (isFuel ? 'Distributore' : (isAutogrill ? 'Area Servizio' : 'Radar'));
-        let name = tags.name || `${brand} ${tags['addr:street'] || ''}`.trim();
-        let speedLimit = parseInt(tags.maxspeed, 10) || (tags['highway:maxspeed'] ? parseInt(tags['highway:maxspeed'], 10) : 90);
+    // Overpass è spesso lento/sovraccarico (504) e con un solo endpoint + timeout breve
+    // la fetch fallisce quasi sempre. Proviamo più mirror in sequenza con timeout ampio.
+    const endpoints = [
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass-api.de/api/interpreter',
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+    ];
 
-        return {
-          id: `osm_${el.id}`,
-          type,
-          brand,
-          name: name || (isFuel ? 'Distributore Carburante' : (isAutogrill ? 'Area di Servizio' : 'Autovelox')),
-          lat: el.lat,
-          lng: el.lon,
-          speedLimit,
-          road: tags['addr:street'] || tags.ref || '',
-          priceEur: (1.75 + (Math.abs((el.id % 20)) * 0.01)).toFixed(3),
-          services: tags.fuel ? Object.keys(tags.fuel).map(k => k.toUpperCase()) : ['Benzina', 'Diesel', 'Self 24h']
-        };
-      });
-
-      this.cachedOverpassData.set(key, parsed);
-      return parsed;
-    } catch (err) {
-      clearTimeout(timer);
-      return [];
+    for (const base of endpoints) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      try {
+        const res = await fetch(`${base}?data=${encodeURIComponent(query)}`, { signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) continue;
+        const data = await res.json();
+        const parsed = parseElements(data.elements);
+        this.cachedOverpassData.set(key, parsed);
+        return parsed;
+      } catch (err) {
+        clearTimeout(timer);
+        continue;
+      }
     }
+    return [];
   }
 
   /* ==========================================================================
@@ -199,6 +213,17 @@ class RadarDriveEngine {
               Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+  }
+
+  // Unisce due liste di POI eliminando i doppioni troppo vicini (< 60 m).
+  _mergePOIs(listA, listB) {
+    const out = (listA || []).slice();
+    for (const p of (listB || [])) {
+      if (!p || typeof p.lat !== 'number' || typeof p.lng !== 'number') continue;
+      const dup = out.some(u => this.haversineDist([u.lat, u.lng], [p.lat, p.lng]) < 60);
+      if (!dup) out.push(p);
+    }
+    return out;
   }
 
   async scanPOIsAlongRoute(routeCoords, maxBufferMeters = 2200) {
@@ -365,7 +390,7 @@ class RadarDriveEngine {
 
     const poisToRender = (this.activeRoutePOIs && this.activeRoutePOIs.all && this.activeRoutePOIs.all.length > 0)
       ? this.activeRoutePOIs.all
-      : this.curatedPOIs;
+      : this._mergePOIs(this.curatedPOIs, this.liveOverpassPOIs);
 
     for (const p of poisToRender) {
       if (p.type === 'fuel') {
@@ -443,12 +468,19 @@ class RadarDriveEngine {
 
   refreshVisiblePOIs() {
     if (!this.map) return;
-    const bounds = this.map.getBounds();
-    this.fetchLiveOverpassPOIs(bounds).then(osmList => {
-      if (osmList && osmList.length) {
+    // Debounce: durante pan/zoom continui evita di martellare Overpass (rischio 429/504).
+    clearTimeout(this._refreshTimer);
+    this._refreshTimer = setTimeout(() => {
+      if (!this.map) return;
+      // Con la mappa molto zumata indietro il bbox è enorme e Overpass va in timeout:
+      // in quel caso mostriamo solo il dataset curato, senza query live.
+      if (this.map.getZoom() < 11) return;
+      const bounds = this.map.getBounds();
+      this.fetchLiveOverpassPOIs(bounds).then(osmList => {
+        this.liveOverpassPOIs = osmList || [];
         this.renderAllMarkers();
-      }
-    });
+      });
+    }, 700);
   }
 
   /* ==========================================================================
@@ -554,7 +586,7 @@ class RadarDriveEngine {
       <div class="geo-radar-bordo-panel">
         <div class="geo-radar-bordo-head">
           <div style="display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-radar fa-spin" style="--fa-animation-duration: 4s; color:#0284c7;"></i>
+            <i class="fa-solid fa-satellite-dish fa-beat" style="--fa-animation-duration: 2s; color:#0284c7;"></i>
             <strong>Radar di Bordo & Servizi Lungo il Tragitto</strong>
           </div>
           <span class="geo-radar-count-tag">${totalRadarItems} Punti Rilevati</span>
