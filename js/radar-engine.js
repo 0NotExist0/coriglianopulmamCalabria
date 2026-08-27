@@ -288,10 +288,16 @@ class RadarDriveEngine {
 
   haversineDist(coord1, coord2) {
     const R = 6371e3; // metri
-    const phi1 = coord1[0] * Math.PI / 180;
-    const phi2 = coord2[0] * Math.PI / 180;
-    const deltaPhi = (coord2[0] - coord1[0]) * Math.PI / 180;
-    const deltaLambda = (coord2[1] - coord1[1]) * Math.PI / 180;
+    // Accetta sia array [lat,lng] sia oggetti Leaflet L.LatLng {lat,lng}: il percorso
+    // (geo-locator) passa un mix dei due, e leggere solo [0]/[1] dava NaN sui LatLng.
+    const la1 = Array.isArray(coord1) ? coord1[0] : coord1.lat;
+    const ln1 = Array.isArray(coord1) ? coord1[1] : coord1.lng;
+    const la2 = Array.isArray(coord2) ? coord2[0] : coord2.lat;
+    const ln2 = Array.isArray(coord2) ? coord2[1] : coord2.lng;
+    const phi1 = la1 * Math.PI / 180;
+    const phi2 = la2 * Math.PI / 180;
+    const deltaPhi = (la2 - la1) * Math.PI / 180;
+    const deltaLambda = (ln2 - ln1) * Math.PI / 180;
     const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
               Math.cos(phi1) * Math.cos(phi2) *
               Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
