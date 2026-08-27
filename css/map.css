@@ -3066,7 +3066,132 @@
   padding: 4px;
 }
 
+/* ==========================================================================
+   MAPPA GPS (SOLO MOBILE): menu laterali -> BARRA ORIZZONTALE in alto
+   --------------------------------------------------------------------------
+   Quando si è sulla scheda "Mappa Live GPS" (body.map-tab-active), su mobile
+   il menu "Mezzi" (modeSidebarDock, da sinistra) e il drawer hamburger
+   (mobileDrawer, da destra) NON si aprono più come pannelli verticali sul
+   lato, ma scendono dall'alto come barra orizzontale a tutta larghezza.
+   Motivo: da verticali la barra di ricerca destinazione (z-index 1000)
+   "spuntava" sopra il menu Mezzi (z-index 999) e stava male.
+   Attivo solo <= 768px; su desktop resta tutto invariato.
+   ========================================================================== */
+@media (max-width: 768px) {
+
+  /* Le barre si ancorano SOTTO l'header (alto 58px su mobile, vedi
+     responsive.css .app-header). --map-menu-top = altezza header. */
+  body.map-tab-active {
+    --map-menu-top: 58px;
+  }
+
+  /* Lo scrim del menu Mezzi parte sotto l'header (così l'header resta acceso
+     e cliccabile) e copre la barra ricerca destinazione (z-index 1000),
+     altrimenti quest'ultima "buca" sopra lo sfondo scurito. */
+  body.map-tab-active .mode-sidebar-overlay {
+    top: var(--map-menu-top);
+    z-index: 1998;
+  }
+
+  /* --- Menu MEZZI come barra orizzontale ancorata SOTTO l'header --- */
+  body.map-tab-active .mode-sidebar-dock {
+    top: var(--map-menu-top);
+    left: 0;
+    right: 0;
+    bottom: auto;
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - var(--map-menu-top) - 8px);
+    max-height: calc(100dvh - var(--map-menu-top) - 8px);
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0 0 18px 18px;
+    /* Chiusa: fuori dallo schermo in alto (oltre l'offset dell'header) */
+    transform: translateY(calc(-100% - var(--map-menu-top)));
+    z-index: 1999;
+  }
+  body.map-tab-active .mode-sidebar-dock.open {
+    transform: translateY(0);
+  }
+  /* Lista mezzi disposta in RIGA scorrevole in orizzontale */
+  body.map-tab-active .mode-sidebar-dock .mode-buttons-list {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    gap: 10px;
+    padding: 14px 12px;
+  }
+  body.map-tab-active .mode-sidebar-dock .btn-mode-card {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 132px;
+  }
+  /* Evita lo scatto orizzontale al tocco (l'hover base fa translateX) */
+  body.map-tab-active .mode-sidebar-dock .btn-mode-card:hover {
+    transform: translateY(-2px);
+  }
+  /* In barra bastano icona + nome: la tagline occuperebbe troppo spazio */
+  body.map-tab-active .mode-sidebar-dock .mode-tagline { display: none; }
+  /* Footer nascosto per compattezza */
+  body.map-tab-active .mode-sidebar-dock .mode-dock-footer { display: none; }
+
+  /* --- Drawer HAMBURGER come barra/sheet orizzontale SOTTO l'header --- */
+  body.map-tab-active .mobile-drawer {
+    top: var(--map-menu-top);
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - var(--map-menu-top) - 8px);
+    max-height: calc(100dvh - var(--map-menu-top) - 8px);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0 0 18px 18px;
+    /* Chiuso: fuori schermo in alto (oltre l'offset dell'header) */
+    transform: translateY(calc(-100% - var(--map-menu-top)));
+    padding: 16px 16px 18px;
+    overflow-y: auto;
+  }
+  body.map-tab-active .mobile-drawer.open {
+    transform: translateY(0);
+  }
+  /* Voci di navigazione su 2 colonne per sfruttare la larghezza */
+  body.map-tab-active .mobile-drawer .drawer-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+}
 
 
 
-
+/* ===== Pannello "Punti di Interesse" (radar POI, apribile) ===== */
+.btn-radar-poi-open{ background:#0284c7 !important; color:#fff !important; border-color:#0284c7 !important; }
+.radar-poi-panel{
+  position:absolute; top:12px; right:12px; z-index:1200;
+  width:min(360px, calc(100% - 24px)); max-height:74%;
+  display:none; flex-direction:column;
+  background:#ffffff; color:#0f172a; border-radius:14px;
+  box-shadow:0 12px 34px rgba(0,0,0,.28); overflow:hidden;
+}
+.rpoi-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:12px 14px; background:#0284c7; color:#fff; }
+.rpoi-title{ font-weight:800; font-size:0.98rem; line-height:1.2; }
+.rpoi-title small{ font-weight:500; opacity:.9; font-size:0.78rem; }
+.rpoi-close{ background:rgba(255,255,255,.2); border:none; color:#fff; width:28px; height:28px; border-radius:8px; cursor:pointer; flex-shrink:0; }
+.rpoi-close:hover{ background:rgba(255,255,255,.35); }
+.rpoi-loading{ padding:20px 16px; color:#475569; font-size:0.88rem; text-align:center; }
+.rpoi-chips{ display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
+.rpoi-chip{ display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; border:1px solid #e2e8f0; color:#334155; border-radius:20px; padding:4px 10px; font-size:0.76rem; font-weight:600; cursor:pointer; }
+.rpoi-chip.active{ background:#0284c7; border-color:#0284c7; color:#fff; }
+.rpoi-chip.active i{ color:#fff !important; }
+.rpoi-list{ overflow-y:auto; padding:6px; }
+.rpoi-item{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:10px; }
+.rpoi-item:hover{ background:#f8fafc; }
+.rpoi-ic{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; }
+.rpoi-txt{ flex:1; min-width:0; cursor:pointer; }
+.rpoi-txt strong{ display:block; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rpoi-txt small{ color:#64748b; font-size:0.76rem; }
+.rpoi-go{ flex-shrink:0; background:#16a34a; color:#fff; border:none; border-radius:9px; padding:7px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
+.rpoi-go:hover{ background:#15803d; }
+@media (max-width:560px){ .radar-poi-panel{ top:8px; right:8px; left:8px; width:auto; max-height:70%; } }

@@ -121,7 +121,7 @@
   <!-- Project Stylesheets -->
   <link rel="stylesheet" href="css/style.css?v=5.25">
   <link rel="stylesheet" href="css/tickets.css?v=5.25">
-  <link rel="stylesheet" href="css/map.css?v=5.25">
+  <link rel="stylesheet" href="css/map.css?v=5.30">
   <link rel="stylesheet" href="css/themes.css?v=5.25">
   <link rel="stylesheet" href="css/responsive.css?v=5.25">
   <link rel="stylesheet" href="css/select.css?v=5.25">
@@ -919,6 +919,12 @@
               <button type="button" class="btn-radar-pill active" id="btnToggleRadarLimits" onclick="window.radarEngine?.toggleLayer('speedLimits')" title="Mostra/Nascondi Limiti di Velocità">
                 <i class="fa-solid fa-gauge-high"></i> <span>Limiti</span>
               </button>
+              <button type="button" class="btn-radar-pill active" id="btnToggleRadarPOI" onclick="window.radarEngine?.toggleLayer('poi')" title="Mostra/Nascondi Ristoranti, Bar, Negozi, Farmacie, Parcheggi…">
+                <i class="fa-solid fa-utensils"></i> <span>Servizi</span>
+              </button>
+              <button type="button" class="btn-radar-pill btn-radar-poi-open" id="btnOpenPOIPanel" onclick="window.radarEngine?.openPOIPanelForView()" title="Apri l'elenco dei Punti di Interesse nella zona / destinazione">
+                <i class="fa-solid fa-list-ul"></i> <span>Punti di Interesse</span>
+              </button>
             </div>
 
             <!-- HUD Limite Velocità Strada & Avviso Prossimità -->
@@ -1417,7 +1423,8 @@
   <script src="js/journey-planner.js?v=5.25"></script>
   <script src="js/gmaps-directions.js?v=5.25"></script>
   <script src="js/transitous-routing.js?v=5.25"></script>
-  <script src="js/radar-engine.js?v=5.29"></script>
+  <script src="js/poi-data.js?v=5.30"></script>
+  <script src="js/radar-engine.js?v=5.30"></script>
   <script src="js/geo-locator.js?v=5.29"></script>
   <script src="js/select-enhancer.js?v=5.25"></script>
   <script src="js/alerts-scheduler.js?v=5.25"></script>

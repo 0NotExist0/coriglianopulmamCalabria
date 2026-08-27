@@ -7,18 +7,53 @@
  * 4. Limiti di velocità della strada (50, 70, 90, 110, 130 km/h) e avvisi di prossimità
  */
 
+/* Categorie POI (tutta Italia). type = retrocompat con il vecchio sistema. */
+const POI_CACHE_VER = 'v1';
+const POI_CACHE_TTL = 14 * 24 * 60 * 60 * 1000; // 14 giorni
+const POI_CATS = {
+  fu: { type: 'fuel',         label: 'Carburante',      sing: 'Distributore',      icon: 'fa-gas-pump',       color: '#0284c7' },
+  ri: { type: 'poi',          label: 'Ristoranti',      sing: 'Ristorante',        icon: 'fa-utensils',       color: '#ea580c' },
+  ba: { type: 'poi',          label: 'Bar & Caffè',     sing: 'Bar / Caffè',       icon: 'fa-mug-hot',        color: '#a16207' },
+  sm: { type: 'poi',          label: 'Spesa & Market',  sing: 'Supermercato',      icon: 'fa-cart-shopping',  color: '#16a34a' },
+  fa: { type: 'poi',          label: 'Farmacie',        sing: 'Farmacia',          icon: 'fa-plus',           color: '#e11d48' },
+  bk: { type: 'poi',          label: 'Banche & ATM',    sing: 'Banca / ATM',       icon: 'fa-euro-sign',      color: '#475569' },
+  os: { type: 'poi',          label: 'Ospedali',        sing: 'Ospedale',          icon: 'fa-hospital',       color: '#be123c' },
+  ho: { type: 'poi',          label: 'Hotel',           sing: 'Hotel',             icon: 'fa-bed',            color: '#7c3aed' },
+  pk: { type: 'poi',          label: 'Parcheggi',       sing: 'Parcheggio',        icon: 'fa-square-parking', color: '#2563eb' },
+  av: { type: 'speed_camera', label: 'Autovelox',       sing: 'Autovelox',         icon: 'fa-camera-retro',   color: '#dc2626' },
+  ag: { type: 'autogrill',    label: 'Autogrill & Aree',sing: 'Area di Servizio',  icon: 'fa-utensils',       color: '#ea580c' }
+};
+
 class RadarDriveEngine {
+  static poiCatFromTags(tags) {
+    const a = tags.amenity, sh = tags.shop, hw = tags.highway, to = tags.tourism;
+    if (a === 'fuel') return 'fu';
+    if (hw === 'services' || hw === 'rest_area' || /autogrill|chef express|sarni|mychef|autostello/i.test(tags.name || tags.brand || '')) return 'ag';
+    if (hw === 'speed_camera' || tags.enforcement === 'maxspeed') return 'av';
+    if (a === 'restaurant' || a === 'fast_food') return 'ri';
+    if (a === 'bar' || a === 'cafe') return 'ba';
+    if (sh === 'supermarket' || sh === 'bakery') return 'sm';
+    if (a === 'pharmacy') return 'fa';
+    if (a === 'bank') return 'bk';
+    if (a === 'hospital') return 'os';
+    if (to === 'hotel') return 'ho';
+    if (a === 'parking') return 'pk';
+    return null;
+  }
+
   constructor() {
     this.map = null;
     this.fuelLayer = null;
     this.autogrillLayer = null;
     this.speedCamLayer = null;
     this.speedLimitsLayer = null;
+    this.poiLayer = null; // ristoranti, bar, negozi, farmacie, banche, ospedali, hotel, parcheggi…
 
     this.showFuel = true;
     this.showAutogrill = true;
     this.showSpeedCam = true;
     this.showSpeedLimits = true;
+    this.showPOI = true;
 
     this.activeRouteCoords = null;
     this.activeRoutePOIs = {
@@ -47,6 +82,7 @@ class RadarDriveEngine {
     this.autogrillLayer = L.layerGroup();
     this.speedCamLayer = L.layerGroup();
     this.speedLimitsLayer = L.layerGroup();
+    this.poiLayer = L.layerGroup();
 
     // Dataset Nazionale Curato & Istantaneo per Autostrade (A1, A2, A14, A4) e Statali (SS106, SS18, SS107, GRA, ecc.)
     this.curatedPOIs = this._buildCuratedPOIDatabase();
@@ -60,6 +96,7 @@ class RadarDriveEngine {
     if (this.showAutogrill && !this.map.hasLayer(this.autogrillLayer)) this.autogrillLayer.addTo(this.map);
     if (this.showSpeedCam && !this.map.hasLayer(this.speedCamLayer)) this.speedCamLayer.addTo(this.map);
     if (this.showSpeedLimits && !this.map.hasLayer(this.speedLimitsLayer)) this.speedLimitsLayer.addTo(this.map);
+    if (this.showPOI && !this.map.hasLayer(this.poiLayer)) this.poiLayer.addTo(this.map);
 
     this.renderAllMarkers();
 
@@ -123,79 +160,38 @@ class RadarDriveEngine {
       // Roma GRA & Napoli
       { id: 'v_gra_01', type: 'speed_camera', name: 'Autovelox Fisso GRA Roma Aurelia/Pisana', lat: 41.8620, lng: 12.3710, speedLimit: 90, kind: 'Fisso Tutor Anulare', road: 'A90 GRA Roma' },
       { id: 'a_gra_01', type: 'autogrill', brand: 'Autogrill', name: 'Autogrill Casilina Est GRA', lat: 41.8640, lng: 12.5980, services: ['Ristoro 24h', 'Bar', 'Market'], road: 'A90 GRA Roma' }
-    ].concat(this._expandEmbeddedPOIs(this._embeddedCalabriaPOIs()));
+    ].concat(this._expandEmbeddedPOIs(window.POI_EMBEDDED || []));
   }
 
-  /* Dataset REALE (OpenStreetMap) per Corigliano-Rossano e corridoio SS106 Jonica,
-     incorporato staticamente: così i marker della zona ci sono SEMPRE, anche offline
-     o quando Overpass è irraggiungibile. Formato compatto: t=tipo(f/s/a), la/ln=lat/lng,
-     b=brand, n=nome, sl=limite km/h. */
-  _embeddedCalabriaPOIs() {
-    return [
-      {t:'f',la:39.7248,ln:16.41131,b:'Q8'},
-      {t:'f',la:39.67443,ln:16.50817,b:'Fulgoroil'},
-      {t:'f',la:39.52656,ln:16.45616,b:'Tamoil'},
-      {t:'f',la:39.9186,ln:16.58522,b:'Api-Ip',n:'IP'},
-      {t:'f',la:39.70331,ln:16.30085,b:'Tamoil'},
-      {t:'f',la:39.63747,ln:16.52787,b:'IP'},
-      {t:'f',la:39.57215,ln:16.36512,b:'Energy Fornaro'},
-      {t:'f',la:39.64108,ln:16.38519,b:'Ludoil',n:'Stazione di servizio Ludoil'},
-      {t:'f',la:39.5847,ln:16.4332,b:'Api-Ip'},
-      {t:'f',la:39.86882,ln:16.53347,b:'Esso'},
-      {t:'f',la:39.63647,ln:16.51943,b:'LP Carburanti'},
-      {t:'f',la:39.72983,ln:16.50547,b:'Distributore'},
-      {t:'f',la:39.61159,ln:16.63103,b:'Esso'},
-      {t:'f',la:39.80979,ln:16.48944,b:'IP'},
-      {t:'f',la:39.77873,ln:16.47196,b:'Esso'},
-      {t:'f',la:39.7609,ln:16.46215,b:'AM Carburanti'},
-      {t:'f',la:39.79332,ln:16.46992,b:'Q8'},
-      {t:'f',la:39.66488,ln:16.4507,b:'Eni'},
-      {t:'f',la:39.77842,ln:16.32401,b:'Agip Eni'},
-      {t:'f',la:39.79284,ln:16.48025,b:'Q8 Easy'},
-      {t:'f',la:39.5468,ln:16.33028,b:'Q8'},
-      {t:'f',la:39.56838,ln:16.45326,b:'Tamoil'},
-      {t:'f',la:39.62679,ln:16.51713,b:'IP'},
-      {t:'f',la:39.664,ln:16.3088,b:'Agip Eni'},
-      {t:'f',la:39.80936,ln:16.40948,b:'Eni'},
-      {t:'f',la:39.64986,ln:16.51953,b:'Tamoil'},
-      {t:'f',la:39.62426,ln:16.51597,b:'Eni'},
-      {t:'f',la:39.78914,ln:16.47801,b:'Tamoil'},
-      {t:'f',la:39.67767,ln:16.50779,b:'IP'},
-      {t:'f',la:39.77695,ln:16.34279,b:'IP'},
-      {t:'f',la:39.63063,ln:16.56503,b:'IP'},
-      {t:'f',la:39.69193,ln:16.45285,b:'Q8'},
-      {t:'f',la:39.93275,ln:16.60114,b:'IP'},
-      {t:'f',la:39.87351,ln:16.53819,b:'Eni'},
-      {t:'f',la:39.6616,ln:16.51306,b:'Q8'},
-      {t:'f',la:39.57664,ln:16.63394,b:'TotalErg'},
-      {t:'f',la:39.6326,ln:16.5071,b:'Esso'},
-      {t:'f',la:39.76965,ln:16.37441,b:'IP'},
-      {t:'f',la:39.78363,ln:16.31796,b:'Tamoil'},
-      {t:'f',la:39.63824,ln:16.49573,b:'Energetiche'},
-      {t:'f',la:39.73074,ln:16.50579,b:'Petrullo Carburanti'},
-      {t:'f',la:39.67447,ln:16.30327,b:'Fratelli Valente'},
-      {t:'s',la:39.85086,ln:16.50872,b:'Autovelox',sl:90},
-      {t:'s',la:39.7239,ln:16.44916,b:'Autovelox',sl:90},
-      {t:'f',la:39.8166,ln:16.48546,b:'IP',n:'L.S. Carburanti'},
-      {t:'f',la:39.61638,ln:16.59862,b:'GR Carburanti'},
-      {t:'s',la:39.68664,ln:16.45237,b:'Autovelox',sl:50},
-      {t:'f',la:39.61162,ln:16.63033,b:'Metano'},
-      {t:'f',la:39.73873,ln:16.47211,b:'Q8'},
-      {t:'f',la:39.61318,ln:16.63917,b:'Conad',n:'Conad Self 24h'},
-      {t:'f',la:39.59915,ln:16.63709,b:'Esso'}
-    ];
-  }
-
+  /* Espande il dataset POI reale incorporato (js/poi-data.js) — formato compatto
+     [cat, lat, lng, nome] — in oggetti POI completi con categoria/tipo/icona. */
   _expandEmbeddedPOIs(list) {
-    return (list || []).map((p, i) => {
-      if (p.t === 's') {
-        return { id: 'osm_cal_s' + i, type: 'speed_camera', name: p.n || 'Autovelox / Postazione Fissa', lat: p.la, lng: p.ln, speedLimit: p.sl || 90, kind: 'Postazione Fissa', road: p.r || 'SS106 Jonica' };
-      }
-      if (p.t === 'a') {
-        return { id: 'osm_cal_a' + i, type: 'autogrill', brand: p.b, name: p.n || p.b, lat: p.la, lng: p.ln, services: ['Ristoro', 'Bar'], road: p.r || 'SS106 Jonica' };
-      }
-      return { id: 'osm_cal_f' + i, type: 'fuel', brand: p.b, name: p.n || p.b, lat: p.la, lng: p.ln, services: ['Benzina', 'Diesel', 'Self 24h'], road: p.r || 'SS106 Jonica / Corigliano-Rossano' };
+    return (list || []).map((r, i) => {
+      const cat = r[0];
+      const meta = POI_CATS[cat] || POI_CATS.ri;
+      const name = r[3] || meta.sing;
+      return {
+        id: 'emb_' + cat + '_' + i,
+        cat,
+        type: meta.type,
+        brand: name,
+        name,
+        lat: r[1],
+        lng: r[2],
+        speedLimit: cat === 'av' ? 90 : undefined,
+        road: '',
+        services: null
+      };
     });
+  }
+
+  /* Categoria di un POI (usa .cat se c'è, altrimenti la deduce dal vecchio .type). */
+  _catOf(p) {
+    if (p.cat && POI_CATS[p.cat]) return p.cat;
+    if (p.type === 'fuel') return 'fu';
+    if (p.type === 'autogrill') return 'ag';
+    if (p.type === 'speed_camera') return 'av';
+    return 'ri';
   }
 
   /* ==========================================================================
@@ -216,38 +212,52 @@ class RadarDriveEngine {
       return this.cachedOverpassData.get(key);
     }
 
+    // Cache persistente in localStorage: una volta scaricata una zona resta disponibile
+    // (anche offline / quando Overpass è giù), su tutta Italia.
+    const lsKey = 'ib_poi_' + POI_CACHE_VER + '_' + key;
+    try {
+      const cached = localStorage.getItem(lsKey);
+      if (cached) {
+        const obj = JSON.parse(cached);
+        if (obj && obj.t && (Date.now() - obj.t) < POI_CACHE_TTL && Array.isArray(obj.p)) {
+          this.cachedOverpassData.set(key, obj.p);
+          return obj.p;
+        }
+      }
+    } catch (e) {}
+
+    // Interroga TUTTE le categorie POI su tutta Italia (benzinai, ristoranti, bar/caffè,
+    // supermercati, farmacie, banche, ospedali, hotel, parcheggi, autogrill, autovelox).
     const query = `[out:json][timeout:25];(
-      node["amenity"="fuel"](${s},${w},${n},${e});
-      node["highway"="services"](${s},${w},${n},${e});
-      node["highway"="rest_area"](${s},${w},${n},${e});
-      node["highway"="speed_camera"](${s},${w},${n},${e});
+      node["amenity"~"^(fuel|restaurant|fast_food|cafe|bar|pharmacy|bank|hospital|parking)$"](${s},${w},${n},${e});
+      node["shop"~"^(supermarket|bakery)$"](${s},${w},${n},${e});
+      node["tourism"="hotel"](${s},${w},${n},${e});
+      node["highway"~"^(services|rest_area|speed_camera)$"](${s},${w},${n},${e});
       node["enforcement"="maxspeed"](${s},${w},${n},${e});
-    );out body 60;`;
+    );out body 250;`;
 
     const parseElements = (elements) => (elements || []).map(el => {
       const tags = el.tags || {};
-      const isFuel = tags.amenity === 'fuel';
-      const isAutogrill = tags.highway === 'services' || tags.highway === 'rest_area' || /autogrill|chef express|sarni|mychef/i.test(tags.name || tags.brand || '');
-      const isSpeedCam = tags.highway === 'speed_camera' || tags.enforcement === 'maxspeed';
-
-      let type = isFuel ? 'fuel' : (isAutogrill ? 'autogrill' : (isSpeedCam ? 'speed_camera' : 'poi'));
-      let brand = tags.brand || tags.operator || tags.name || (isFuel ? 'Distributore' : (isAutogrill ? 'Area Servizio' : 'Radar'));
-      let name = tags.name || `${brand} ${tags['addr:street'] || ''}`.trim();
-      let speedLimit = parseInt(tags.maxspeed, 10) || (tags['highway:maxspeed'] ? parseInt(tags['highway:maxspeed'], 10) : 90);
-
+      const cat = RadarDriveEngine.poiCatFromTags(tags);
+      if (!cat) return null;
+      const meta = POI_CATS[cat];
+      const brand = tags.brand || tags.operator || tags.name || meta.label;
+      const name = tags.name || `${brand} ${tags['addr:street'] || ''}`.trim();
+      const speedLimit = parseInt(tags.maxspeed, 10) || (tags['highway:maxspeed'] ? parseInt(tags['highway:maxspeed'], 10) : 90);
       return {
         id: `osm_${el.id}`,
-        type,
+        cat,
+        type: meta.type,                 // retrocompat: fuel / autogrill / speed_camera / poi
         brand,
-        name: name || (isFuel ? 'Distributore Carburante' : (isAutogrill ? 'Area di Servizio' : 'Autovelox')),
+        name: name || meta.label,
         lat: el.lat,
         lng: el.lon,
         speedLimit,
         road: tags['addr:street'] || tags.ref || '',
-        priceEur: (1.75 + (Math.abs((el.id % 20)) * 0.01)).toFixed(3),
-        services: tags.fuel ? Object.keys(tags.fuel).map(k => k.toUpperCase()) : ['Benzina', 'Diesel', 'Self 24h']
+        priceEur: cat === 'fu' ? (1.75 + (Math.abs((el.id % 20)) * 0.01)).toFixed(3) : null,
+        services: (cat === 'fu' && tags.fuel) ? Object.keys(tags.fuel).map(k => k.toUpperCase()) : null
       };
-    }).filter(p => p.type !== 'poi');
+    }).filter(Boolean);
 
     // Overpass pubblico è molto instabile: un singolo mirror può restare appeso per
     // decine di secondi o rispondere vuoto. Interroghiamo TUTTI i mirror in PARALLELO
@@ -278,7 +288,10 @@ class RadarDriveEngine {
         .catch(() => { remaining--; if (remaining === 0 && !settled) resolve([]); }));
     });
 
-    if (parsed.length) this.cachedOverpassData.set(key, parsed);
+    if (parsed.length) {
+      this.cachedOverpassData.set(key, parsed);
+      try { localStorage.setItem(lsKey, JSON.stringify({ t: Date.now(), p: parsed })); } catch (e) {}
+    }
     return parsed;
   }
 
@@ -477,82 +490,62 @@ class RadarDriveEngine {
     this.autogrillLayer.clearLayers();
     this.speedCamLayer.clearLayers();
     this.speedLimitsLayer.clearLayers();
+    this.poiLayer.clearLayers();
 
     const poisToRender = (this.activeRoutePOIs && this.activeRoutePOIs.all && this.activeRoutePOIs.all.length > 0)
       ? this.activeRoutePOIs.all
       : this._mergePOIs(this.curatedPOIs, this.liveOverpassPOIs);
 
     for (const p of poisToRender) {
-      if (p.type === 'fuel') {
-        const fIcon = L.divIcon({
-          html: `<div class="map-radar-poi-pin pin-fuel" title="${p.brand} - ${p.name}"><i class="fa-solid fa-gas-pump"></i></div>`,
-          className: 'radar-poi-wrapper', iconSize: [32, 32], iconAnchor: [16, 16]
-        });
-        const m = L.marker([p.lat, p.lng], { icon: fIcon, zIndexOffset: 1200 })
-          .bindPopup(`
-            <div class="radar-popup-card">
-              <div class="radar-popup-head" style="background:#0284c7; color:#fff;">
-                <i class="fa-solid fa-gas-pump"></i> <strong>${p.brand || 'Distributore Carburante'}</strong>
-              </div>
-              <div class="radar-popup-body">
-                <h4 style="margin:2px 0 4px; font-size:0.95rem;">${p.name}</h4>
-                <div style="color:#64748b; font-size:0.78rem; margin-bottom:6px;"><i class="fa-solid fa-road"></i> ${p.road || 'Strada'} ${p.roadDistanceKm ? `&bull; <strong>a ${p.roadDistanceKm} km</strong>` : ''}</div>
-                <div class="radar-popup-tags">
-                  ${(p.services || []).map(s => `<span class="radar-tag">${s}</span>`).join('')}
-                </div>
-                ${p.priceEur ? `<div class="radar-popup-price">Prezzo stimato: <strong>€${p.priceEur}/L</strong></div>` : ''}
-              </div>
-            </div>
-          `);
-        this.fuelLayer.addLayer(m);
-      } else if (p.type === 'autogrill') {
-        const aIcon = L.divIcon({
-          html: `<div class="map-radar-poi-pin pin-autogrill" title="${p.name}"><i class="fa-solid fa-mug-hot"></i></div>`,
-          className: 'radar-poi-wrapper', iconSize: [32, 32], iconAnchor: [16, 16]
-        });
-        const m = L.marker([p.lat, p.lng], { icon: aIcon, zIndexOffset: 1300 })
-          .bindPopup(`
-            <div class="radar-popup-card">
-              <div class="radar-popup-head" style="background:#ea580c; color:#fff;">
-                <i class="fa-solid fa-utensils"></i> <strong>${p.brand || 'Area di Servizio / Ristoro'}</strong>
-              </div>
-              <div class="radar-popup-body">
-                <h4 style="margin:2px 0 4px; font-size:0.95rem;">${p.name}</h4>
-                <div style="color:#64748b; font-size:0.78rem; margin-bottom:6px;"><i class="fa-solid fa-road"></i> ${p.road || 'Tratta'} ${p.roadDistanceKm ? `&bull; <strong>a ${p.roadDistanceKm} km</strong>` : ''}</div>
-                <div class="radar-popup-tags">
-                  ${(p.services || []).map(s => `<span class="radar-tag tag-orange">${s}</span>`).join('')}
-                </div>
-              </div>
-            </div>
-          `);
-        this.autogrillLayer.addLayer(m);
-      } else if (p.type === 'speed_camera') {
+      if (typeof p.lat !== 'number' || typeof p.lng !== 'number') continue;
+      const cat = this._catOf(p);
+      const meta = POI_CATS[cat] || POI_CATS.ri;
+      const gmaps = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`;
+      const distTxt = p.roadDistanceKm ? ` &bull; <strong>a ${p.roadDistanceKm} km</strong>` : '';
+
+      // Autovelox: pin dedicato col numero del limite.
+      if (cat === 'av') {
         const limit = p.speedLimit || 90;
         const vIcon = L.divIcon({
-          html: `
-            <div class="map-radar-poi-pin pin-speedcam" title="Autovelox - Limite ${limit} km/h">
-              <span class="speed-cam-limit-val">${limit}</span>
-            </div>
-          `,
+          html: `<div class="map-radar-poi-pin pin-speedcam" title="Autovelox - Limite ${limit} km/h"><span class="speed-cam-limit-val">${limit}</span></div>`,
           className: 'radar-poi-wrapper', iconSize: [34, 34], iconAnchor: [17, 17]
         });
         const m = L.marker([p.lat, p.lng], { icon: vIcon, zIndexOffset: 1600 })
           .bindPopup(`
             <div class="radar-popup-card">
-              <div class="radar-popup-head" style="background:#dc2626; color:#fff;">
-                <i class="fa-solid fa-camera-retro"></i> <strong>Controllo Elettronico della Velocità</strong>
-              </div>
+              <div class="radar-popup-head" style="background:#dc2626; color:#fff;"><i class="fa-solid fa-camera-retro"></i> <strong>Autovelox / Controllo Velocità</strong></div>
               <div class="radar-popup-body">
-                <h4 style="margin:2px 0 4px; font-size:0.95rem;">${p.name}</h4>
-                <div style="font-size:1.05rem; font-weight:800; color:#dc2626; margin:4px 0;">
-                  <span class="speed-limit-sign-inline">${limit}</span> Limite: <strong>${limit} km/h</strong>
-                </div>
-                <small style="color:#64748b; display:block;">Tipologia: ${p.kind || 'Postazione Fissa / Tutor'} ${p.roadDistanceKm ? `&bull; a ${p.roadDistanceKm} km` : ''}</small>
+                <h4 style="margin:2px 0 4px; font-size:0.95rem;">${p.name || 'Postazione'}</h4>
+                <div style="font-size:1.05rem; font-weight:800; color:#dc2626; margin:4px 0;"><span class="speed-limit-sign-inline">${limit}</span> Limite: <strong>${limit} km/h</strong></div>
+                <small style="color:#64748b; display:block;">${p.kind || 'Postazione Fissa / Tutor'}${distTxt}</small>
               </div>
-            </div>
-          `);
+            </div>`);
         this.speedCamLayer.addLayer(m);
+        continue;
       }
+
+      // Tutte le altre categorie: pin colorato per categoria + popup con "Indicazioni".
+      const pin = L.divIcon({
+        html: `<div class="map-radar-poi-pin" title="${(p.brand || meta.sing)}" style="background:${meta.color}"><i class="fa-solid ${meta.icon}"></i></div>`,
+        className: 'radar-poi-wrapper', iconSize: [30, 30], iconAnchor: [15, 15]
+      });
+      const tags = (p.services && p.services.length)
+        ? `<div class="radar-popup-tags">${p.services.map(sv => `<span class="radar-tag">${sv}</span>`).join('')}</div>` : '';
+      const price = p.priceEur ? `<div class="radar-popup-price">Prezzo stimato: <strong>€${p.priceEur}/L</strong></div>` : '';
+      const popup = `
+        <div class="radar-popup-card">
+          <div class="radar-popup-head" style="background:${meta.color}; color:#fff;"><i class="fa-solid ${meta.icon}"></i> <strong>${p.brand || meta.sing}</strong></div>
+          <div class="radar-popup-body">
+            <h4 style="margin:2px 0 4px; font-size:0.95rem;">${p.name || meta.sing}</h4>
+            <div style="color:#64748b; font-size:0.78rem; margin-bottom:6px;">${meta.label}${p.road ? ` &bull; ${p.road}` : ''}${distTxt}</div>
+            ${tags}${price}
+            <a href="${gmaps}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 10px;background:${meta.color};color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:0.82rem;"><i class="fa-solid fa-diamond-turn-right"></i> Indicazioni</a>
+          </div>
+        </div>`;
+      const zoff = cat === 'fu' ? 1200 : (cat === 'ag' ? 1300 : 1000);
+      const m = L.marker([p.lat, p.lng], { icon: pin, zIndexOffset: zoff }).bindPopup(popup);
+      const layer = cat === 'fu' ? this.fuelLayer : (cat === 'ag' ? this.autogrillLayer : this.poiLayer);
+      layer.addLayer(m);
     }
   }
 
@@ -595,6 +588,10 @@ class RadarDriveEngine {
       this.showSpeedLimits = !this.showSpeedLimits;
       const hud = document.getElementById('radarLiveSpeedHUD');
       if (hud) hud.style.display = this.showSpeedLimits ? 'flex' : 'none';
+    } else if (type === 'poi') {
+      this.showPOI = !this.showPOI;
+      if (this.showPOI) this.poiLayer.addTo(this.map);
+      else this.map.removeLayer(this.poiLayer);
     }
 
     this.updateRadarToggleButtonsUI();
@@ -605,11 +602,143 @@ class RadarDriveEngine {
     const btnAutogrill = document.getElementById('btnToggleRadarAutogrill');
     const btnSpeedCam = document.getElementById('btnToggleRadarSpeedCam');
     const btnLimits = document.getElementById('btnToggleRadarLimits');
+    const btnPOI = document.getElementById('btnToggleRadarPOI');
 
     if (btnFuel) btnFuel.classList.toggle('active', this.showFuel);
     if (btnAutogrill) btnAutogrill.classList.toggle('active', this.showAutogrill);
     if (btnSpeedCam) btnSpeedCam.classList.toggle('active', this.showSpeedCam);
     if (btnLimits) btnLimits.classList.toggle('active', this.showSpeedLimits);
+    if (btnPOI) btnPOI.classList.toggle('active', this.showPOI);
+  }
+
+  /* ==========================================================================
+     PANNELLO "PUNTI DI INTERESSE" (apribile) — POI reali attorno a una città/punto,
+     scegliibili per impostare la destinazione. Dati OSM live (tutta Italia) + cache.
+     ========================================================================== */
+
+  openPOIPanelForView() {
+    let lat, lng, title;
+    const gl = window.geoLocator;
+    if (gl && gl.selectedDestination && typeof gl.selectedDestination.lat === 'number') {
+      lat = gl.selectedDestination.lat; lng = gl.selectedDestination.lng;
+      title = gl.selectedDestination.name || 'Destinazione';
+    } else if (this.map) {
+      const c = this.map.getCenter(); lat = c.lat; lng = c.lng; title = 'In questa zona';
+    } else { return; }
+    this.openPOIPanel(lat, lng, title);
+  }
+
+  async openPOIPanel(lat, lng, title, radiusKm = 3.5) {
+    this._panelCenter = [lat, lng];
+    this._renderPOIPanel(null, title, true); // stato di caricamento
+    let live = [];
+    if (this.map && typeof L !== 'undefined') {
+      try {
+        const d = radiusKm / 111;
+        const b = L.latLngBounds([lat - d, lng - d * 1.4], [lat + d, lng + d * 1.4]);
+        live = await this.fetchLiveOverpassPOIs(b);
+      } catch (e) {}
+    }
+    const near = (this.curatedPOIs || []).filter(p => this.haversineDist([lat, lng], [p.lat, p.lng]) <= radiusKm * 1000);
+    const all = this._mergePOIs(near, live);
+    all.forEach(p => { p._distM = Math.round(this.haversineDist([lat, lng], [p.lat, p.lng])); });
+    all.sort((a, b) => a._distM - b._distM);
+    this._panelPOIs = all;
+    this._renderPOIPanel(all, title, false);
+  }
+
+  _poiPanelEl() {
+    let el = document.getElementById('radarPOIPanel');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'radarPOIPanel';
+      el.className = 'radar-poi-panel';
+      const host = document.querySelector('.transit-map-wrapper') || document.querySelector('#section-map') || document.body;
+      host.appendChild(el);
+    }
+    return el;
+  }
+
+  _renderPOIPanel(pois, title, loading) {
+    const el = this._poiPanelEl();
+    el.style.display = 'flex';
+    const head = `
+      <div class="rpoi-head">
+        <div class="rpoi-title"><i class="fa-solid fa-location-dot"></i> Punti di Interesse<br><small>${title || ''}</small></div>
+        <button type="button" class="rpoi-close" onclick="window.radarEngine.closePOIPanel()" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+      </div>`;
+    if (loading) {
+      el.innerHTML = head + `<div class="rpoi-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Carico i punti di interesse da OpenStreetMap…</div>`;
+      return;
+    }
+    if (!pois || !pois.length) {
+      el.innerHTML = head + `<div class="rpoi-loading">Nessun punto trovato qui ora (OpenStreetMap non raggiungibile). Riprova tra poco.</div>`;
+      return;
+    }
+    // conteggi per categoria (per i chip filtro)
+    const counts = {};
+    pois.forEach(p => { const c = this._catOf(p); counts[c] = (counts[c] || 0) + 1; });
+    const order = ['fu', 'ri', 'ba', 'sm', 'fa', 'bk', 'os', 'ho', 'pk', 'ag', 'av'];
+    const chips = [`<button type="button" class="rpoi-chip active" data-cat="all" onclick="window.radarEngine._poiPanelFilter('all',this)">Tutti (${pois.length})</button>`]
+      .concat(order.filter(c => counts[c]).map(c => {
+        const m = POI_CATS[c];
+        return `<button type="button" class="rpoi-chip" data-cat="${c}" onclick="window.radarEngine._poiPanelFilter('${c}',this)"><i class="fa-solid ${m.icon}" style="color:${m.color}"></i> ${m.label} (${counts[c]})</button>`;
+      }));
+    const items = pois.map((p, i) => {
+      const c = this._catOf(p); const m = POI_CATS[c];
+      const dist = p._distM != null ? (p._distM < 1000 ? p._distM + ' m' : (p._distM / 1000).toFixed(1) + ' km') : '';
+      return `
+        <div class="rpoi-item" data-cat="${c}">
+          <div class="rpoi-ic" style="background:${m.color}"><i class="fa-solid ${m.icon}"></i></div>
+          <div class="rpoi-txt" onclick="window.radarEngine._poiFocus(${i})" role="button" tabindex="0">
+            <strong>${p.name || m.sing}</strong>
+            <small>${m.label}${dist ? ' · ' + dist : ''}</small>
+          </div>
+          <button type="button" class="rpoi-go" onclick="window.radarEngine._poiRoute(${i})" title="Imposta come destinazione e traccia il percorso"><i class="fa-solid fa-diamond-turn-right"></i> Vai</button>
+        </div>`;
+    }).join('');
+    el.innerHTML = head +
+      `<div class="rpoi-chips">${chips.join('')}</div>` +
+      `<div class="rpoi-list">${items}</div>`;
+  }
+
+  _poiPanelFilter(cat, btn) {
+    const el = document.getElementById('radarPOIPanel');
+    if (!el) return;
+    el.querySelectorAll('.rpoi-chip').forEach(b => b.classList.toggle('active', b === btn));
+    el.querySelectorAll('.rpoi-item').forEach(it => {
+      it.style.display = (cat === 'all' || it.getAttribute('data-cat') === cat) ? 'flex' : 'none';
+    });
+  }
+
+  _poiFocus(i) {
+    const p = this._panelPOIs && this._panelPOIs[i];
+    if (!p) return;
+    if (window.geoLocator && typeof window.geoLocator.focusStepLocation === 'function') window.geoLocator.focusStepLocation(p.lat, p.lng);
+    else if (this.map) this.map.setView([p.lat, p.lng], 16);
+  }
+
+  _poiRoute(i) {
+    const p = this._panelPOIs && this._panelPOIs[i];
+    if (!p) return;
+    const gl = window.geoLocator;
+    const name = p.name || (POI_CATS[this._catOf(p)] || {}).sing || 'Punto';
+    if (gl && typeof gl.selectDestination === 'function') {
+      gl.selectDestination({
+        id: 'poi_' + i, uniqueKey: 'poi_' + i, name,
+        area: p.road || '', region: (gl.currentRegion || ''),
+        lat: p.lat, lng: p.lng, isMainHub: false, isStop: true,
+        stop: { id: 'poi_' + i, name, lat: p.lat, lng: p.lng }
+      }, true);
+    } else {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=transit`, '_blank');
+    }
+    this.closePOIPanel();
+  }
+
+  closePOIPanel() {
+    const el = document.getElementById('radarPOIPanel');
+    if (el) el.style.display = 'none';
   }
 
   /* ==========================================================================
