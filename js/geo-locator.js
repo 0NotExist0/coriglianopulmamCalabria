@@ -608,7 +608,29 @@ class GeoLocatorEngine {
     if (mode === 'train') return { cat: isHub ? 'Stazione AV / Principale' : 'Stazione Ferroviaria', icon: 'fa-train' };
     if (mode === 'tram') return { cat: 'Fermata Tranviaria', icon: 'fa-train-tram' };
     if (mode === 'taxi') return { cat: 'Posteggio Taxi / Hub', icon: 'fa-taxi' };
-    return { cat: isHub ? 'Autostazione / Hub Principale' : 'Comune Servito', icon: isHub ? 'fa-bus-simple' : 'fa-location-dot' };
+    return { cat: isHub ? '🚌 Autostazioni & Hub' : '🏙️ Città & Comuni', icon: isHub ? 'fa-bus-simple' : 'fa-location-dot' };
+  }
+
+  /* Categoria/icona per i risultati a livello di VIA / FERMATA (non comune). */
+  _destCatIconVia(mode) {
+    if (mode === 'flight') return { cat: '🛫 Scali & Terminal', icon: 'fa-plane' };
+    if (mode === 'train') return { cat: '🚉 Stazioni & Fermate', icon: 'fa-train' };
+    if (mode === 'tram') return { cat: '🚋 Fermate Tranviarie', icon: 'fa-train-tram' };
+    if (mode === 'taxi') return { cat: '🚕 Posteggi & Vie', icon: 'fa-taxi' };
+    return { cat: '📍 Vie & Fermate', icon: 'fa-location-dot' };
+  }
+
+  /* Etichetta leggibile di una fermata/via (senza "Fermata NNNN - " e senza il comune finale). */
+  _stopLabel(s) {
+    const STREET = /^(via|viale|v\.?le|piazza|p\.?zza|p\.?za|corso|c\.?so|largo|vico|vicolo|strada|s\.?da|localit|contrada|c\.?da|salita|traversa|rotonda|rotatoria|bivio|svincolo|piazzale|p\.?le|lungomare|stazione|terminal|autostazione)/i;
+    // Se è tutto MAIUSCOLO (dati GTFS) lo rende leggibile in Maiuscolo/minuscolo.
+    const pretty = (str) => /[a-zàèéìòùç]/.test(str) ? str
+      : str.toLowerCase().replace(/([a-zàèéìòùç])([a-zàèéìòùç']*)/g, (m, a, b) => a.toUpperCase() + b);
+    const addr = (s.address || '').trim();
+    if (addr && STREET.test(addr)) return pretty(addr);
+    let n = (s.name || '').replace(/^\s*fermata\s+\d+\s*[-–]\s*/i, '').trim();
+    n = n.split(' - ')[0].trim();
+    return pretty(n || addr || (s.name || '').trim() || 'Fermata');
   }
 
   searchDestinations(filterQuery = "", maxLimit = 35) {
@@ -642,10 +664,39 @@ class GeoLocatorEngine {
         lat: rep.lat,
         lng: rep.lng,
         isMainHub: g.hub,
+        isStop: false,
         stopsCount: g.stops.length,
         category: cat,
         icon: icon,
         stop: rep
+      };
+    };
+
+    // Voce a livello di VIA/FERMATA (indirizzo specifico dentro un comune).
+    const makeStopItem = (s) => {
+      if (LN) LN.assign(s);
+      const comune = (LN && s._comune) || (s.area || '').split('(')[0].split(' - ')[0].trim();
+      const prov = (LN && s._prov) || '';
+      const regId = (LN && s._comuneRegion) || s.region || currentRegion;
+      const { cat, icon } = this._destCatIconVia(mode);
+      return {
+        id: s.id,
+        uniqueKey: `dests_${s.id}`,
+        name: this._stopLabel(s),               // la via / fermata
+        stopName: s.name,
+        area: comune,                           // comune di appartenenza (contesto)
+        prov: prov,
+        region: regId,
+        regionName: this.regionLabel(regId),
+        baseName: norm(comune),
+        ambiguous: false,
+        lat: s.lat,
+        lng: s.lng,
+        isMainHub: !!s.isMainHub,
+        isStop: true,
+        category: cat,
+        icon: icon,
+        stop: s
       };
     };
 
@@ -658,11 +709,11 @@ class GeoLocatorEngine {
       });
       hubs.sort((a, b) => b.stops.length - a.stops.length);
       local.sort((a, b) => a.comune.localeCompare(b.comune, 'it'));
-      const out = hubs.slice(0, 15).concat(local).slice(0, maxLimit).map(makeItem);
+      const out = hubs.slice(0, 12).concat(local).slice(0, maxLimit).map(makeItem);
       return this._markAmbiguity(out);
     }
 
-    // Ricerca per comune (prefisso > contiene) oppure per nome fermata; una voce per comune.
+    // 1) COMUNI/CITTÀ che corrispondono (prefisso > contiene > match su una fermata).
     const scored = [];
     groups.forEach(g => {
       const cn = norm(g.comune);
@@ -670,27 +721,39 @@ class GeoLocatorEngine {
       if (cn === qn) score = 4;
       else if (cn.startsWith(qn)) score = 3;
       else if (cn.indexOf(qn) !== -1) score = 2;
-      else {
-        // match su una fermata specifica del comune
-        for (let i = 0; i < g.stops.length; i++) {
-          const s = g.stops[i];
-          if ((s.name || '').toLowerCase().includes(q) || (s.area || '').toLowerCase().includes(q)) { score = 1; break; }
-        }
-      }
       if (score > 0) scored.push({ g, score });
     });
-
     scored.sort((a, b) => {
       const arA = a.g.region === currentRegion ? 1 : 0;
       const arB = b.g.region === currentRegion ? 1 : 0;
-      if (arA !== arB) return arB - arA;               // regione attiva prima
-      if (b.score !== a.score) return b.score - a.score; // match migliore prima
+      if (arA !== arB) return arB - arA;
+      if (b.score !== a.score) return b.score - a.score;
       const hA = a.g.hub ? 1 : 0, hB = b.g.hub ? 1 : 0;
-      if (hA !== hB) return hB - hA;                    // hub prima
-      return b.g.stops.length - a.g.stops.length;       // più servito prima
+      if (hA !== hB) return hB - hA;
+      return b.g.stops.length - a.g.stops.length;
     });
+    const comuneItems = scored.slice(0, 10).map(x => makeItem(x.g));
 
-    return this._markAmbiguity(scored.slice(0, maxLimit).map(x => makeItem(x.g)));
+    // 2) VIE/FERMATE specifiche che corrispondono al testo (regione attiva prima).
+    //    Deduplica per via+comune così non escono 15 pali della stessa via.
+    const viaItems = [];
+    const seenVia = new Set();
+    for (let pass = 0; pass < 2 && viaItems.length < 30; pass++) {
+      for (let i = 0; i < allStops.length && viaItems.length < 30; i++) {
+        const s = allStops[i];
+        const inActive = (s.region === currentRegion);
+        if ((pass === 0) !== inActive) continue;   // pass 0: regione attiva, pass 1: resto
+        const hay = ((s.name || '') + ' ' + (s.area || '') + ' ' + (s.address || '')).toLowerCase();
+        if (hay.indexOf(q) === -1) continue;
+        const it = makeStopItem(s);
+        const key = norm(it.name) + '|' + norm(it.area);
+        if (seenVia.has(key)) continue;
+        seenVia.add(key);
+        viaItems.push(it);
+      }
+    }
+
+    return this._markAmbiguity(comuneItems.concat(viaItems));
   }
 
   /* ==========================================================================
@@ -707,7 +770,7 @@ class GeoLocatorEngine {
         <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
           <i class="fa-solid fa-circle-question" style="font-size: 1.5rem; margin-bottom: 6px; display: block; opacity: 0.6;"></i>
           Nessuna destinazione trovata per "<strong>${filterQuery}</strong>".<br>
-          <small>Prova a cercare una città, stazione o hub principale.</small>
+          <small>Prova a cercare una città, una via o una fermata.</small>
         </div>
       `;
       return;
@@ -727,10 +790,18 @@ class GeoLocatorEngine {
       items.forEach(dest => {
         const isSel = this.selectedDestination && this.selectedDestination.id === dest.id;
         const regionName = dest.regionName || dest.region || 'Rete Nazionale';
-        // Contesto: "TO · Piemonte" (provincia + regione) per disambiguare gli omonimi.
-        const place = dest.prov ? `${dest.prov} · ${regionName}` : regionName;
-        const regionChip = `<span class="dest-item-region"><i class="fa-solid fa-map-pin"></i> ${place}</span>`;
-        const countTxt = (dest.stopsCount && dest.stopsCount > 1) ? ` <span class="dest-item-count">· ${dest.stopsCount} fermate</span>` : '';
+        // Contesto: per una VIA/fermata mostra "Comune · PROV · Regione"; per un COMUNE
+        // basta "PROV · Regione" (il nome è già il comune). Così gli omonimi si distinguono.
+        let place;
+        if (dest.isStop) {
+          const comuneTxt = dest.area ? dest.area : '';
+          place = [comuneTxt, dest.prov, regionName].filter(Boolean).join(' · ');
+        } else {
+          place = dest.prov ? `${dest.prov} · ${regionName}` : regionName;
+        }
+        const regionChip = `<span class="dest-item-region"><i class="fa-solid ${dest.isStop ? 'fa-location-dot' : 'fa-map-pin'}"></i> ${place}</span>`;
+        const countTxt = (!dest.isStop && dest.stopsCount && dest.stopsCount > 1) ? ` <span class="dest-item-count">· ${dest.stopsCount} fermate</span>` : '';
+        const tag = dest.isStop ? 'Fermata' : (dest.isMainHub ? 'Hub Diretto' : 'Comune');
         html += `
           <div class="dest-dropdown-item ${isSel ? 'active' : ''}" data-dest-key="${dest.uniqueKey}">
             <div class="dest-item-main">
@@ -740,7 +811,7 @@ class GeoLocatorEngine {
                 <span class="dest-item-meta">${regionChip}${countTxt}</span>
               </div>
             </div>
-            <span class="dest-item-tag">${dest.isMainHub ? 'Hub Diretto' : 'Comune'}</span>
+            <span class="dest-item-tag">${tag}</span>
           </div>
         `;
       });
