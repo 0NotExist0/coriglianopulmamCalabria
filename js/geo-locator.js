@@ -576,97 +576,121 @@ class GeoLocatorEngine {
      RICERCA DESTINAZIONI AD ALTE PRESTAZIONI (< 1ms per 50k fermate)
      ========================================================================== */
 
+  /* Raggruppa le fermate per COMUNE ufficiale (via LocalityNormalizer), memoizzato
+     per modalità. Ogni gruppo tiene la fermata "rappresentativa" più sensata
+     (hub/stazione) da usare come destinazione. */
+  _comuneGroups(mode, allStops) {
+    if (this._cg && this._cgMode === mode && this._cgCount === allStops.length) return this._cg;
+    const LN = window.LocalityNormalizer;
+    const STATION = /(stazione|terminal|autostazione|scalo|\bfs\b|aeroporto|capolinea|interscambio|hub)/i;
+    const map = new Map();
+    for (let i = 0; i < allStops.length; i++) {
+      const s = allStops[i];
+      let comune, prov, region, key;
+      if (LN) { LN.assign(s); comune = s._comune; prov = s._prov || ''; region = s._comuneRegion || s.region; key = s._comuneKey; }
+      else { comune = (s.area || s.name || '').split('(')[0].split(' - ')[0].trim(); prov = ''; region = s.region; key = (comune.toLowerCase() + '|' + region); }
+      if (!comune) continue;
+      let g = map.get(key);
+      if (!g) { g = { key, comune, prov, region, hub: false, rep: null, stops: [] }; map.set(key, g); }
+      g.stops.push(s);
+      const isStation = STATION.test(s.name || '') || STATION.test(s.area || '');
+      // rappresentante: preferisci hub, poi stazione/terminal, poi la prima fermata
+      if (s.isMainHub) { g.hub = true; if (!g.rep || !g.repHub) { g.rep = s; g.repHub = true; } }
+      else if (isStation && !g.repHub && !g.repStation) { g.rep = s; g.repStation = true; }
+      else if (!g.rep) { g.rep = s; }
+    }
+    this._cg = map; this._cgMode = mode; this._cgCount = allStops.length;
+    return map;
+  }
+
+  _destCatIcon(mode, isHub) {
+    if (mode === 'flight') return { cat: 'Aeroporto Internazionale / Nazionale', icon: 'fa-plane-departure' };
+    if (mode === 'train') return { cat: isHub ? 'Stazione AV / Principale' : 'Stazione Ferroviaria', icon: 'fa-train' };
+    if (mode === 'tram') return { cat: 'Fermata Tranviaria', icon: 'fa-train-tram' };
+    if (mode === 'taxi') return { cat: 'Posteggio Taxi / Hub', icon: 'fa-taxi' };
+    return { cat: isHub ? 'Autostazione / Hub Principale' : 'Comune Servito', icon: isHub ? 'fa-bus-simple' : 'fa-location-dot' };
+  }
+
   searchDestinations(filterQuery = "", maxLimit = 35) {
     const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const modeData = window.TRANSIT_DATA?.modes?.[mode] || window.TRANSIT_DATA?.modes?.pullman;
     const currentRegion = (typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria");
     const allStops = (modeData?.stops && modeData.stops.length > 0) ? modeData.stops : [];
+    const LN = window.LocalityNormalizer;
+    const norm = (x) => LN ? LN.norm(x) : String(x || '').toLowerCase().trim();
 
     const q = (filterQuery || "").toLowerCase().trim();
-    const results = [];
-    const seen = new Set();
+    const qn = norm(q);
 
-    const formatDest = (s, isHub) => {
-      let cat = 'Fermata Rete Regionale';
-      let icon = 'fa-location-dot';
+    const groups = this._comuneGroups(mode, allStops);
 
-      if (mode === 'flight') {
-        cat = 'Aeroporto Internazionale / Nazionale';
-        icon = 'fa-plane-departure';
-      } else if (mode === 'train') {
-        cat = isHub ? 'Stazione AV / Principale' : 'Stazione Ferroviaria';
-        icon = 'fa-train';
-      } else if (mode === 'tram') {
-        cat = 'Fermata Tranviaria';
-        icon = 'fa-train-tram';
-      } else if (mode === 'taxi') {
-        cat = 'Posteggio Taxi / Hub';
-        icon = 'fa-taxi';
-      } else {
-        cat = isHub ? 'Autostazione / Hub Principale' : 'Fermata Rete Regionale';
-        icon = isHub ? 'fa-bus-simple' : 'fa-location-dot';
-      }
-
-      const regId = s.region || currentRegion;
+    const makeItem = (g) => {
+      const rep = g.rep || g.stops[0];
+      const { cat, icon } = this._destCatIcon(mode, g.hub);
+      const regId = g.region || rep.region || currentRegion;
       return {
-        id: s.id,
-        uniqueKey: `dest_${s.id}`,
-        name: s.name,
-        area: s.area || s.name.split(' - ')[0],
+        id: rep.id,
+        uniqueKey: `destc_${g.key}`,
+        name: g.comune,                         // nome comune ufficiale
+        stopName: rep.name,
+        area: g.comune,
+        prov: g.prov || '',
         region: regId,
         regionName: this.regionLabel(regId),
-        baseName: this._basePlaceName(s),
+        baseName: norm(g.comune),
         ambiguous: false,
-        lat: s.lat,
-        lng: s.lng,
-        isMainHub: isHub,
+        lat: rep.lat,
+        lng: rep.lng,
+        isMainHub: g.hub,
+        stopsCount: g.stops.length,
         category: cat,
         icon: icon,
-        stop: s
+        stop: rep
       };
     };
 
+    // Elenco iniziale (nessuna query): hub principali + comuni della regione attiva.
     if (!q) {
-      // 1. Hubs Principali
-      for (let i = 0; i < allStops.length; i++) {
-        const s = allStops[i];
-        if (s.isMainHub && !seen.has(s.name)) {
-          seen.add(s.name);
-          results.push(formatDest(s, true));
-          if (results.length >= 15) break;
-        }
-      }
-      // 2. Fermate della regione attiva
-      for (let i = 0; i < allStops.length; i++) {
-        const s = allStops[i];
-        if ((s.region === currentRegion || !s.region) && !seen.has(s.name)) {
-          seen.add(s.name);
-          results.push(formatDest(s, !!s.isMainHub));
-          if (results.length >= maxLimit) break;
-        }
-      }
-      return this._markAmbiguity(results);
+      const hubs = [], local = [];
+      groups.forEach(g => {
+        if (g.hub) hubs.push(g);
+        else if (g.region === currentRegion) local.push(g);
+      });
+      hubs.sort((a, b) => b.stops.length - a.stops.length);
+      local.sort((a, b) => a.comune.localeCompare(b.comune, 'it'));
+      const out = hubs.slice(0, 15).concat(local).slice(0, maxLimit).map(makeItem);
+      return this._markAmbiguity(out);
     }
 
-    // Ricerca per nome o area. I risultati della REGIONE ATTIVA hanno priorita'
-    // (evita di scegliere per sbaglio un'omonima in un'altra regione, es.
-    // "Alessandria" -> Alessandria del Carretto in Calabria mentre sei in Piemonte).
-    const inRegion = [];
-    const others = [];
-    for (let i = 0; i < allStops.length; i++) {
-      const s = allStops[i];
-      const n = s.name || '';
-      const a = s.area || '';
-      if (n.toLowerCase().includes(q) || a.toLowerCase().includes(q)) {
-        if (!seen.has(s.name)) {
-          seen.add(s.name);
-          const item = formatDest(s, !!s.isMainHub);
-          if (s.region === currentRegion) inRegion.push(item); else others.push(item);
-          if (inRegion.length + others.length >= maxLimit * 2) break;
+    // Ricerca per comune (prefisso > contiene) oppure per nome fermata; una voce per comune.
+    const scored = [];
+    groups.forEach(g => {
+      const cn = norm(g.comune);
+      let score = 0;
+      if (cn === qn) score = 4;
+      else if (cn.startsWith(qn)) score = 3;
+      else if (cn.indexOf(qn) !== -1) score = 2;
+      else {
+        // match su una fermata specifica del comune
+        for (let i = 0; i < g.stops.length; i++) {
+          const s = g.stops[i];
+          if ((s.name || '').toLowerCase().includes(q) || (s.area || '').toLowerCase().includes(q)) { score = 1; break; }
         }
       }
-    }
-    return this._markAmbiguity(inRegion.concat(others).slice(0, maxLimit));
+      if (score > 0) scored.push({ g, score });
+    });
+
+    scored.sort((a, b) => {
+      const arA = a.g.region === currentRegion ? 1 : 0;
+      const arB = b.g.region === currentRegion ? 1 : 0;
+      if (arA !== arB) return arB - arA;               // regione attiva prima
+      if (b.score !== a.score) return b.score - a.score; // match migliore prima
+      const hA = a.g.hub ? 1 : 0, hB = b.g.hub ? 1 : 0;
+      if (hA !== hB) return hB - hA;                    // hub prima
+      return b.g.stops.length - a.g.stops.length;       // più servito prima
+    });
+
+    return this._markAmbiguity(scored.slice(0, maxLimit).map(x => makeItem(x.g)));
   }
 
   /* ==========================================================================
@@ -703,20 +727,20 @@ class GeoLocatorEngine {
       items.forEach(dest => {
         const isSel = this.selectedDestination && this.selectedDestination.id === dest.id;
         const regionName = dest.regionName || dest.region || 'Rete Nazionale';
-        const areaTxt = (dest.area && dest.area.toLowerCase() !== regionName.toLowerCase()) ? (dest.area + ' · ') : '';
-        const regionChip = dest.ambiguous
-          ? `<span class="dest-item-region amb" title="Nome presente in piu' regioni"><i class="fa-solid fa-location-dot"></i> ${regionName}</span>`
-          : `<span class="dest-item-region"><i class="fa-solid fa-map-pin"></i> ${regionName}</span>`;
+        // Contesto: "TO · Piemonte" (provincia + regione) per disambiguare gli omonimi.
+        const place = dest.prov ? `${dest.prov} · ${regionName}` : regionName;
+        const regionChip = `<span class="dest-item-region"><i class="fa-solid fa-map-pin"></i> ${place}</span>`;
+        const countTxt = (dest.stopsCount && dest.stopsCount > 1) ? ` <span class="dest-item-count">· ${dest.stopsCount} fermate</span>` : '';
         html += `
           <div class="dest-dropdown-item ${isSel ? 'active' : ''}" data-dest-key="${dest.uniqueKey}">
             <div class="dest-item-main">
               <div class="dest-item-icon"><i class="fa-solid ${dest.icon || 'fa-location-dot'}"></i></div>
               <div class="dest-item-text">
                 <span class="dest-item-name">${dest.name}</span>
-                <span class="dest-item-meta">${areaTxt}${regionChip}</span>
+                <span class="dest-item-meta">${regionChip}${countTxt}</span>
               </div>
             </div>
-            <span class="dest-item-tag">${dest.isMainHub ? 'Hub Diretto' : 'Servito'}</span>
+            <span class="dest-item-tag">${dest.isMainHub ? 'Hub Diretto' : 'Comune'}</span>
           </div>
         `;
       });
