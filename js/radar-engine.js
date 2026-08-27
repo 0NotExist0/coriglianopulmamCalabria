@@ -63,6 +63,10 @@ class RadarDriveEngine {
 
     this.renderAllMarkers();
 
+    // Carica subito i POI live attorno alla vista iniziale (prima partivano solo dopo
+    // il primo spostamento manuale della mappa → all'apertura sembrava "vuoto").
+    this.refreshVisiblePOIs();
+
     // Ricarica POI quando la mappa si sposta
     this.map.on('moveend', () => {
       this.refreshVisiblePOIs();
@@ -119,7 +123,79 @@ class RadarDriveEngine {
       // Roma GRA & Napoli
       { id: 'v_gra_01', type: 'speed_camera', name: 'Autovelox Fisso GRA Roma Aurelia/Pisana', lat: 41.8620, lng: 12.3710, speedLimit: 90, kind: 'Fisso Tutor Anulare', road: 'A90 GRA Roma' },
       { id: 'a_gra_01', type: 'autogrill', brand: 'Autogrill', name: 'Autogrill Casilina Est GRA', lat: 41.8640, lng: 12.5980, services: ['Ristoro 24h', 'Bar', 'Market'], road: 'A90 GRA Roma' }
+    ].concat(this._expandEmbeddedPOIs(this._embeddedCalabriaPOIs()));
+  }
+
+  /* Dataset REALE (OpenStreetMap) per Corigliano-Rossano e corridoio SS106 Jonica,
+     incorporato staticamente: così i marker della zona ci sono SEMPRE, anche offline
+     o quando Overpass è irraggiungibile. Formato compatto: t=tipo(f/s/a), la/ln=lat/lng,
+     b=brand, n=nome, sl=limite km/h. */
+  _embeddedCalabriaPOIs() {
+    return [
+      {t:'f',la:39.7248,ln:16.41131,b:'Q8'},
+      {t:'f',la:39.67443,ln:16.50817,b:'Fulgoroil'},
+      {t:'f',la:39.52656,ln:16.45616,b:'Tamoil'},
+      {t:'f',la:39.9186,ln:16.58522,b:'Api-Ip',n:'IP'},
+      {t:'f',la:39.70331,ln:16.30085,b:'Tamoil'},
+      {t:'f',la:39.63747,ln:16.52787,b:'IP'},
+      {t:'f',la:39.57215,ln:16.36512,b:'Energy Fornaro'},
+      {t:'f',la:39.64108,ln:16.38519,b:'Ludoil',n:'Stazione di servizio Ludoil'},
+      {t:'f',la:39.5847,ln:16.4332,b:'Api-Ip'},
+      {t:'f',la:39.86882,ln:16.53347,b:'Esso'},
+      {t:'f',la:39.63647,ln:16.51943,b:'LP Carburanti'},
+      {t:'f',la:39.72983,ln:16.50547,b:'Distributore'},
+      {t:'f',la:39.61159,ln:16.63103,b:'Esso'},
+      {t:'f',la:39.80979,ln:16.48944,b:'IP'},
+      {t:'f',la:39.77873,ln:16.47196,b:'Esso'},
+      {t:'f',la:39.7609,ln:16.46215,b:'AM Carburanti'},
+      {t:'f',la:39.79332,ln:16.46992,b:'Q8'},
+      {t:'f',la:39.66488,ln:16.4507,b:'Eni'},
+      {t:'f',la:39.77842,ln:16.32401,b:'Agip Eni'},
+      {t:'f',la:39.79284,ln:16.48025,b:'Q8 Easy'},
+      {t:'f',la:39.5468,ln:16.33028,b:'Q8'},
+      {t:'f',la:39.56838,ln:16.45326,b:'Tamoil'},
+      {t:'f',la:39.62679,ln:16.51713,b:'IP'},
+      {t:'f',la:39.664,ln:16.3088,b:'Agip Eni'},
+      {t:'f',la:39.80936,ln:16.40948,b:'Eni'},
+      {t:'f',la:39.64986,ln:16.51953,b:'Tamoil'},
+      {t:'f',la:39.62426,ln:16.51597,b:'Eni'},
+      {t:'f',la:39.78914,ln:16.47801,b:'Tamoil'},
+      {t:'f',la:39.67767,ln:16.50779,b:'IP'},
+      {t:'f',la:39.77695,ln:16.34279,b:'IP'},
+      {t:'f',la:39.63063,ln:16.56503,b:'IP'},
+      {t:'f',la:39.69193,ln:16.45285,b:'Q8'},
+      {t:'f',la:39.93275,ln:16.60114,b:'IP'},
+      {t:'f',la:39.87351,ln:16.53819,b:'Eni'},
+      {t:'f',la:39.6616,ln:16.51306,b:'Q8'},
+      {t:'f',la:39.57664,ln:16.63394,b:'TotalErg'},
+      {t:'f',la:39.6326,ln:16.5071,b:'Esso'},
+      {t:'f',la:39.76965,ln:16.37441,b:'IP'},
+      {t:'f',la:39.78363,ln:16.31796,b:'Tamoil'},
+      {t:'f',la:39.63824,ln:16.49573,b:'Energetiche'},
+      {t:'f',la:39.73074,ln:16.50579,b:'Petrullo Carburanti'},
+      {t:'f',la:39.67447,ln:16.30327,b:'Fratelli Valente'},
+      {t:'s',la:39.85086,ln:16.50872,b:'Autovelox',sl:90},
+      {t:'s',la:39.7239,ln:16.44916,b:'Autovelox',sl:90},
+      {t:'f',la:39.8166,ln:16.48546,b:'IP',n:'L.S. Carburanti'},
+      {t:'f',la:39.61638,ln:16.59862,b:'GR Carburanti'},
+      {t:'s',la:39.68664,ln:16.45237,b:'Autovelox',sl:50},
+      {t:'f',la:39.61162,ln:16.63033,b:'Metano'},
+      {t:'f',la:39.73873,ln:16.47211,b:'Q8'},
+      {t:'f',la:39.61318,ln:16.63917,b:'Conad',n:'Conad Self 24h'},
+      {t:'f',la:39.59915,ln:16.63709,b:'Esso'}
     ];
+  }
+
+  _expandEmbeddedPOIs(list) {
+    return (list || []).map((p, i) => {
+      if (p.t === 's') {
+        return { id: 'osm_cal_s' + i, type: 'speed_camera', name: p.n || 'Autovelox / Postazione Fissa', lat: p.la, lng: p.ln, speedLimit: p.sl || 90, kind: 'Postazione Fissa', road: p.r || 'SS106 Jonica' };
+      }
+      if (p.t === 'a') {
+        return { id: 'osm_cal_a' + i, type: 'autogrill', brand: p.b, name: p.n || p.b, lat: p.la, lng: p.ln, services: ['Ristoro', 'Bar'], road: p.r || 'SS106 Jonica' };
+      }
+      return { id: 'osm_cal_f' + i, type: 'fuel', brand: p.b, name: p.n || p.b, lat: p.la, lng: p.ln, services: ['Benzina', 'Diesel', 'Self 24h'], road: p.r || 'SS106 Jonica / Corigliano-Rossano' };
+    });
   }
 
   /* ==========================================================================
@@ -128,6 +204,8 @@ class RadarDriveEngine {
 
   async fetchLiveOverpassPOIs(bounds) {
     if (!bounds || typeof bounds.getSouth !== 'function') return [];
+    // Allarga il riquadro (~40%) così mostriamo anche i POI appena fuori dalla vista.
+    try { if (typeof bounds.pad === 'function') bounds = bounds.pad(0.4); } catch (e) {}
     const s = bounds.getSouth().toFixed(4);
     const w = bounds.getWest().toFixed(4);
     const n = bounds.getNorth().toFixed(4);
@@ -171,31 +249,37 @@ class RadarDriveEngine {
       };
     }).filter(p => p.type !== 'poi');
 
-    // Overpass è spesso lento/sovraccarico (504) e con un solo endpoint + timeout breve
-    // la fetch fallisce quasi sempre. Proviamo più mirror in sequenza con timeout ampio.
+    // Overpass pubblico è molto instabile: un singolo mirror può restare appeso per
+    // decine di secondi o rispondere vuoto. Interroghiamo TUTTI i mirror in PARALLELO
+    // e teniamo la prima risposta con dati (in sequenza un mirror giù bloccava tutto).
     const endpoints = [
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
       'https://overpass.kumi.systems/api/interpreter',
       'https://overpass-api.de/api/interpreter',
-      'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+      'https://overpass.openstreetmap.ru/api/interpreter'
     ];
 
-    for (const base of endpoints) {
+    const attempts = endpoints.map(base => new Promise((resolve, reject) => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
-      try {
-        const res = await fetch(`${base}?data=${encodeURIComponent(query)}`, { signal: controller.signal });
-        clearTimeout(timer);
-        if (!res.ok) continue;
-        const data = await res.json();
-        const parsed = parseElements(data.elements);
-        this.cachedOverpassData.set(key, parsed);
-        return parsed;
-      } catch (err) {
-        clearTimeout(timer);
-        continue;
-      }
-    }
-    return [];
+      const timer = setTimeout(() => controller.abort(), 10000);
+      fetch(`${base}?data=${encodeURIComponent(query)}`, { signal: controller.signal })
+        .then(res => { clearTimeout(timer); if (!res.ok) return reject(new Error('http ' + res.status)); return res.json(); })
+        .then(data => { const parsed = parseElements(data.elements); if (!parsed.length) return reject(new Error('empty')); resolve(parsed); })
+        .catch(err => { clearTimeout(timer); reject(err); });
+    }));
+
+    // "Primo successo con dati": risolve appena un mirror risponde non vuoto, oppure []
+    // se tutti falliscono/vuoti. Non blocca mai oltre il timeout del mirror più lento.
+    const parsed = await new Promise(resolve => {
+      let remaining = attempts.length, settled = false;
+      if (!remaining) return resolve([]);
+      attempts.forEach(p => p
+        .then(v => { if (!settled) { settled = true; resolve(v); } })
+        .catch(() => { remaining--; if (remaining === 0 && !settled) resolve([]); }));
+    });
+
+    if (parsed.length) this.cachedOverpassData.set(key, parsed);
+    return parsed;
   }
 
   /* ==========================================================================
