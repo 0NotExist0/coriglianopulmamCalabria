@@ -67,7 +67,7 @@ class TransitMapEngine {
       }
 
       if (targetStop && this.map) {
-        this.map.flyTo([targetStop.lat_actual || targetStop.lat, targetStop.lng_actual || targetStop.lng], 14, { duration: 1.0 });
+        this.map.flyTo([targetStop.lat_actual || targetStop.lat, targetStop.lng_actual || targetStop.lng], 12, { duration: 1.0 });
       } else {
         const region = getRegionById(regionId);
         if (region && this.map) {
@@ -107,7 +107,7 @@ class TransitMapEngine {
       }
 
       if (targetStop && this.map) {
-        this.map.flyTo([targetStop.lat_actual || targetStop.lat, targetStop.lng_actual || targetStop.lng], 14, { duration: 0.8 });
+        this.map.flyTo([targetStop.lat_actual || targetStop.lat, targetStop.lng_actual || targetStop.lng], 12, { duration: 0.8 });
       } else {
         const region = getRegionById(currentRegion);
         if (region && this.map) {
