@@ -2,7 +2,7 @@
 <html lang="it" data-theme="light" data-palette="mare">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -45,12 +45,9 @@
   <meta property="og:title" content="ItaliaRun & Mobilità Italia | Orari, Timer Live e Percorsi">
   <meta property="og:description" content="ItaliaRun: Orari in tempo reale con timer a scalare, mappa interattiva e navigatore per tutte le regioni d'Italia.">
 
-  <!-- Google AdSense: NON caricato staticamente qui.
-       Lo script veniva scaricato all'avvio e su file:// (app nativa) bloccava
-       l'evento 'load' della WebView, che restava invisibile (schermo azzurro).
-       Ora viene iniettato dinamicamente da js/web-ads.js SOLO sul web (fuori
-       dall'app Unity): la verifica AdSense e gli annunci web continuano a funzionare,
-       mentre l'app nativa non dipende piu' da risorse esterne per avviarsi. -->
+    <!-- Google AdSense -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2046132491347242"
+       crossorigin="anonymous"></script>
 
   <style>
     .region-selector-bar {
@@ -119,15 +116,15 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=5.25">
-  <link rel="stylesheet" href="css/tickets.css?v=5.25">
+  <link rel="stylesheet" href="css/style.css?v=5.27">
+  <link rel="stylesheet" href="css/tickets.css?v=5.27">
   <link rel="stylesheet" href="css/map.css?v=5.30">
-  <link rel="stylesheet" href="css/themes.css?v=5.25">
-  <link rel="stylesheet" href="css/responsive.css?v=5.25">
-  <link rel="stylesheet" href="css/select.css?v=5.25">
-  <link rel="stylesheet" href="css/account.css?v=5.25">
-  <link rel="stylesheet" href="css/ui-settings.css?v=5.25">
-  <link rel="stylesheet" href="css/trailer.css?v=5.25">
+  <link rel="stylesheet" href="css/themes.css?v=5.27">
+  <link rel="stylesheet" href="css/responsive.css?v=5.27">
+  <link rel="stylesheet" href="css/select.css?v=5.27">
+  <link rel="stylesheet" href="css/account.css?v=5.28">
+  <link rel="stylesheet" href="css/ui-settings.css?v=5.27">
+  <link rel="stylesheet" href="css/trailer.css?v=5.27">
 </head>
 <body>
 
@@ -1406,37 +1403,37 @@
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="js/data.js?v=5.25"></script>
-  <script src="js/data-normalize.js?v=5.25"></script>
+  <script src="js/data.js?v=5.27"></script>
+  <script src="js/data-normalize.js?v=5.27"></script>
   <script src="js/comuni-gazetteer.js?v=5.28"></script>
   <script src="js/locality-normalize.js?v=5.28"></script>
-  <script src="js/realtime-engine.js?v=5.25"></script>
-  <script src="js/notifications.js?v=5.25"></script>
-  <script src="js/live-board.js?v=5.25"></script>
-  <script src="js/search.js?v=5.25"></script>
-  <script src="js/booking.js?v=5.25"></script>
-  <script src="js/map.js?v=5.27"></script>
-  <script src="js/strikes.js?v=5.25"></script>
-  <script src="js/app.js?v=5.25"></script>
-  <script src="js/web-ads.js?v=5.25"></script>
-  <script src="js/customizer.js?v=5.25"></script>
-  <script src="js/journey-planner.js?v=5.25"></script>
-  <script src="js/gmaps-directions.js?v=5.25"></script>
-  <script src="js/transitous-routing.js?v=5.25"></script>
-  <script src="js/poi-data.js?v=5.30"></script>
+  <script src="js/realtime-engine.js?v=5.27"></script>
+  <script src="js/notifications.js?v=5.27"></script>
+  <script src="js/live-board.js?v=5.27"></script>
+  <script src="js/search.js?v=5.27"></script>
+  <script src="js/booking.js?v=5.27"></script>
+  <script src="js/map.js?v=5.28"></script>
+  <script src="js/strikes.js?v=5.27"></script>
+  <script src="js/app.js?v=5.27"></script>
+  <script src="js/web-ads.js?v=5.27"></script>
+  <script src="js/customizer.js?v=5.27"></script>
+  <script src="js/journey-planner.js?v=5.27"></script>
+  <script src="js/gmaps-directions.js?v=5.27"></script>
+  <script src="js/transitous-routing.js?v=5.27"></script>
+  <script src="js/poi-data.js?v=5.29"></script>
   <script src="js/radar-engine.js?v=5.30"></script>
   <script src="js/geo-locator.js?v=5.29"></script>
-  <script src="js/select-enhancer.js?v=5.25"></script>
-  <script src="js/alerts-scheduler.js?v=5.25"></script>
+  <script src="js/select-enhancer.js?v=5.27"></script>
+  <script src="js/alerts-scheduler.js?v=5.27"></script>
 
   <!-- Account (Firebase) — SDK bundlato in LOCALE (niente CDN esterno, avvio affidabile) -->
-  <script src="vendor/firebase/firebase-app-compat.js?v=5.25"></script>
-  <script src="vendor/firebase/firebase-auth-compat.js?v=5.25"></script>
-  <script src="vendor/firebase/firebase-database-compat.js?v=5.25"></script>
-  <script src="js/firebase-config.js?v=5.25"></script>
-  <script src="js/account.js?v=5.25"></script>
-  <script src="js/ui-settings.js?v=5.25"></script>
-  <script src="js/trailer.js?v=5.25"></script>
+  <script src="vendor/firebase/firebase-app-compat.js?v=5.27"></script>
+  <script src="vendor/firebase/firebase-auth-compat.js?v=5.27"></script>
+  <script src="vendor/firebase/firebase-database-compat.js?v=5.27"></script>
+  <script src="js/firebase-config.js?v=5.27"></script>
+  <script src="js/account.js?v=5.28"></script>
+  <script src="js/ui-settings.js?v=5.27"></script>
+  <script src="js/trailer.js?v=5.27"></script>
 
 </body>
 </html>

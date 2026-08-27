@@ -138,6 +138,8 @@ class AppController {
       this.renderTariffsSection();
       this.renderAlertsBanner();
       this.notifyLocationChange();
+      // Stato iniziale: la scheda attiva di default è la Mappa GPS
+      document.body.classList.toggle("map-tab-active", this.currentTab === "map");
       this.dismissInitialPreloader();
     } catch (err) {
       console.error("AppController init error:", err);
@@ -837,6 +839,9 @@ class AppController {
       document.querySelectorAll(".app-section").forEach(sec => {
         sec.classList.toggle("active", sec.id === `section-${tabId}`);
       });
+
+      // Solo sulla Mappa GPS (mobile) i menu laterali diventano barra orizzontale
+      document.body.classList.toggle("map-tab-active", tabId === "map");
 
       // Barra regione/città/fermata nascosta su tutte le schede (partenze, cerca, scioperi, biglietti, mappa)
       const regBar = document.getElementById("regionSelectorBar") || document.querySelector(".region-selector-bar");

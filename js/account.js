@@ -18,13 +18,15 @@
   var currentUser = null;
   var currentProfile = null;
   var presenceRef = null, connectedRef = null, adminRef = null, profileRef = null, pendingCreate = null;
+  var sessionId = null; // id univoco di QUESTA scheda/sessione (stabile tra le riconnessioni)
+  var anonInFlight = false; // evita doppioni di login anonimo (ospite)
 
   // ---------- helpers ----------
   function cfg() { return window.ACCOUNT_CONFIG || {}; }
   function ownerEmail() { return (cfg().ownerEmail || "").toLowerCase(); }
   function requireVerified() { return cfg().requireEmailVerified !== false; }
   function isOwner(user) { return !!(user && user.email && user.email.toLowerCase() === ownerEmail()); }
-  function fullyLogged(user) { return !!user && (isOwner(user) || !requireVerified() || user.emailVerified); }
+  function fullyLogged(user) { return !!user && !user.isAnonymous && (isOwner(user) || !requireVerified() || user.emailVerified); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
 
@@ -72,6 +74,7 @@
     username = (username || "").trim();
     if (username.length < 3) { msg("Username di almeno 3 caratteri.", false); return Promise.resolve(); }
     if ((password || "").length < 6) { msg("Password di almeno 6 caratteri.", false); return Promise.resolve(); }
+    clearPresence(); // rimuove la presenza "ospite" finche' siamo ancora anonimi
     busy(true);
     return auth.createUserWithEmailAndPassword((email || "").trim(), password)
       .then(function (cred) {
@@ -95,6 +98,7 @@
 
   function login(email, password) {
     if (!enabled) return notConfigured();
+    clearPresence(); // rimuove la presenza "ospite" finche' siamo ancora anonimi
     busy(true);
     return auth.signInWithEmailAndPassword((email || "").trim(), password)
       .catch(function (e) { msg(authError(e), false); })
@@ -144,9 +148,15 @@
     detachProfile();
     stopAdmin();
 
-    if (!user) { renderNav(); renderModal(); return; }
+    if (!user) { renderNav(); renderModal(); ensureGuestAuth(); return; }
+
+    // Ospite: connesso ma NON autenticato con un account reale (login anonimo).
+    // Lo tracciamo comunque come sessione "non loggata".
+    if (user.isAnonymous) { renderNav(); renderModal(); setPresence(); return; }
+
     // L'owner entra sempre; gli utenti normali devono aver verificato l'email.
-    if (requireVerified() && !user.emailVerified && !isOwner(user)) { renderNav(); renderModal("pending"); return; }
+    // In attesa di verifica compaiono comunque come sessione (ospite con email).
+    if (requireVerified() && !user.emailVerified && !isOwner(user)) { renderNav(); renderModal("pending"); setPresence(); return; }
 
     if (isOwner(user)) startAdmin();
 
@@ -197,26 +207,75 @@
   function watchConnection() {
     connectedRef = db.ref(".info/connected");
     connectedRef.on("value", function (snap) {
-      if (snap.val() === true && fullyLogged(currentUser)) setPresence();
+      if (snap.val() === true && presenceKind()) setPresence();
     });
   }
+  // Se non c'e' nessun contesto auth, entra come ospite (login anonimo) per poter
+  // scrivere la presenza. Richiede che "Anonimo" sia abilitato in Firebase Auth;
+  // se non lo e', fallisce in silenzio e gli ospiti semplicemente non si vedono.
+  function ensureGuestAuth() {
+    if (!enabled || !auth || auth.currentUser || anonInFlight) return;
+    anonInFlight = true;
+    auth.signInAnonymously()
+      .catch(function (e) {
+        console.warn("[account] login ospite non riuscito (abilita 'Anonimo' in Firebase Authentication):", e && e.code);
+      })
+      .then(function () { anonInFlight = false; });
+  }
+  // Che tipo di presenza scrivere per l'utente corrente: "logged", "guest" o null.
+  function presenceKind() {
+    if (!currentUser) return null;
+    return fullyLogged(currentUser) ? "logged" : "guest";
+  }
+  // "mobile" o "desktop": app nativa (WebView) = sempre mobile; altrimenti euristica UA + touch.
+  function deviceType() {
+    try {
+      if (window.Unity) return "mobile"; // WebView Unity (Android) iniettata
+      var ua = navigator.userAgent || "";
+      var mobileUA = /Mobi|Android|iPhone|iPod|iPad|IEMobile|BlackBerry|Opera Mini|Windows Phone|webOS/i.test(ua);
+      var coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+      var touch = (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
+      return (mobileUA || (coarse && touch)) ? "mobile" : "desktop";
+    } catch (e) { return "desktop"; }
+  }
+  // Id di sessione univoco e ordinato cronologicamente (push key) con fallback.
+  function newSessionId() {
+    try { var k = db.ref("presence").push().key; if (k) return k; } catch (e) {}
+    return "s-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
   function setPresence() {
-    if (!currentUser || !fullyLogged(currentUser)) return;
-    presenceRef = db.ref("presence/" + currentUser.uid);
+    var kind = presenceKind();
+    if (!kind) return;
+    if (!sessionId) sessionId = newSessionId();
+    // Una sessione per dispositivo: presence/<uid>/<sessionId>. Cosi' due login dello
+    // stesso account (mobile + desktop) coesistono senza sovrascriversi.
+    presenceRef = db.ref("presence/" + currentUser.uid + "/" + sessionId);
     try { presenceRef.onDisconnect().remove(); } catch (e) {}
-    presenceRef.set({
-      username: (currentProfile && currentProfile.username) || currentUser.displayName || "utente",
-      email: currentUser.email,
-      premium: !!(currentProfile && currentProfile.premium),
-      since: firebase.database.ServerValue.TIMESTAMP
-    });
-    try { db.ref("users/" + currentUser.uid + "/lastOnline").set(firebase.database.ServerValue.TIMESTAMP); } catch (e) {}
+    if (kind === "logged") {
+      presenceRef.set({
+        username: (currentProfile && currentProfile.username) || currentUser.displayName || "utente",
+        email: currentUser.email,
+        premium: !!(currentProfile && currentProfile.premium),
+        device: deviceType(),
+        since: firebase.database.ServerValue.TIMESTAMP
+      });
+      try { db.ref("users/" + currentUser.uid + "/lastOnline").set(firebase.database.ServerValue.TIMESTAMP); } catch (e) {}
+    } else {
+      // ospite: connesso ma non loggato (anonimo) o in attesa di verifica email.
+      presenceRef.set({
+        guest: true,
+        email: currentUser.email || null, // presente solo se in attesa di verifica
+        device: deviceType(),
+        since: firebase.database.ServerValue.TIMESTAMP
+      });
+    }
   }
   function clearPresence() {
     if (presenceRef) {
       try { presenceRef.onDisconnect().cancel(); presenceRef.remove(); } catch (e) {}
       presenceRef = null;
     }
+    sessionId = null; // la prossima presenza (nuovo login) ottiene una sessione nuova
   }
 
   // ---------- pannello owner: utenti online ----------
@@ -356,29 +415,90 @@
     }
   }
 
+  // Estrae l'elenco delle sessioni di un nodo presence/<uid>.
+  // Nuovo formato: { <sessionId>: { ...sessione } }. Vecchio formato (legacy):
+  // { username, email, premium, since } -> trattato come singola sessione.
+  function sessionsOf(node) {
+    var out = [];
+    if (!node || typeof node !== "object") return out;
+    var keys = Object.keys(node);
+    var nested = keys.some(function (k) { return node[k] && typeof node[k] === "object"; });
+    if (nested) {
+      keys.forEach(function (k) { var s = node[k]; if (s && typeof s === "object") out.push(s); });
+    } else {
+      out.push(node); // presenza legacy a nodo singolo
+    }
+    // piu' recente in cima
+    out.sort(function (a, b) { return (b.since || 0) - (a.since || 0); });
+    return out;
+  }
+
+  function deviceChip(s) {
+    var mobile = s && s.device === "mobile";
+    var desktop = s && s.device === "desktop";
+    var icon = mobile ? "fa-mobile-screen-button" : desktop ? "fa-desktop" : "fa-circle-question";
+    var label = mobile ? "Mobile" : desktop ? "Desktop" : "Sconosciuto";
+    var cls = mobile ? "acc-sess-mobile" : desktop ? "acc-sess-desktop" : "acc-sess-unknown";
+    var t = s && s.since ? new Date(s.since).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "";
+    return '<span class="acc-sess ' + cls + '">' +
+      '<i class="fa-solid ' + icon + '"></i> ' + label +
+      (t ? ' <em>da ' + esc(t) + '</em>' : '') +
+    '</span>';
+  }
+
   function renderAdmin(presence) {
     var list = document.getElementById("accAdminList");
     var count = document.getElementById("accOnlineCount");
     if (!list) return;
-    var uids = Object.keys(presence);
-    if (count) count.textContent = uids.length;
-    if (!uids.length) { list.innerHTML = '<p class="acc-note">Nessun utente online in questo momento.</p>'; return; }
-    list.innerHTML = uids.map(function (uid) {
-      var u = presence[uid] || {};
-      var since = u.since ? new Date(u.since).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "";
-      return '<div class="acc-online-row">' +
+
+    var accounts = Object.keys(presence || {}).map(function (uid) {
+      var sessions = sessionsOf(presence[uid]);
+      var head = sessions[0] || {};
+      var guest = !!head.guest || !head.username;
+      return { uid: uid, sessions: sessions, head: head, guest: guest };
+    }).filter(function (a) { return a.sessions.length; });
+
+    // Prima gli account loggati, poi gli ospiti; a parita', chi ha piu' sessioni in cima.
+    accounts.sort(function (x, y) {
+      if (x.guest !== y.guest) return x.guest ? 1 : -1;
+      return y.sessions.length - x.sessions.length;
+    });
+
+    var logged = accounts.filter(function (a) { return !a.guest; }).length;
+    var guests = accounts.length - logged;
+    if (count) count.textContent = accounts.length;
+    if (!accounts.length) { list.innerHTML = '<p class="acc-note">Nessun utente online in questo momento.</p>'; return; }
+
+    var summary = '<p class="acc-admin-summary">' +
+      '<i class="fa-solid fa-user-check"></i> ' + logged + ' loggati' +
+      ' &nbsp;•&nbsp; <i class="fa-solid fa-user-slash"></i> ' + guests + ' non loggati</p>';
+
+    list.innerHTML = summary + accounts.map(function (a) {
+      var head = a.head;
+      var n = a.sessions.length;
+      var chips = a.sessions.map(deviceChip).join("");
+      var name = a.guest ? "Utente non loggato" : (head.username || "utente");
+      return '<div class="acc-online-row' + (n > 1 ? ' acc-online-multi' : '') + (a.guest ? ' acc-online-guest' : '') + '">' +
         '<span class="acc-dot"></span>' +
-        '<span class="acc-online-name">' + esc(u.username || "utente") +
-          (u.premium ? ' <i class="fa-solid fa-crown acc-crown"></i>' : '') + '</span>' +
-        '<span class="acc-online-mail">' + esc(u.email || "") + '</span>' +
-        '<span class="acc-online-since">da ' + esc(since) + '</span>' +
+        '<div class="acc-online-main">' +
+          '<div class="acc-online-top">' +
+            '<span class="acc-online-name">' +
+              (a.guest ? '<i class="fa-solid fa-user-slash acc-guest-ic"></i> ' : '') + esc(name) +
+              (head.premium ? ' <i class="fa-solid fa-crown acc-crown"></i>' : '') + '</span>' +
+            '<span class="acc-online-mail">' + esc(head.email || "") + '</span>' +
+          '</div>' +
+          '<div class="acc-sessions">' + chips + '</div>' +
+        '</div>' +
+        '<span class="acc-sess-count" title="Sessioni attive">' +
+          '<i class="fa-solid fa-layer-group"></i> ' + n +
+        '</span>' +
       '</div>';
     }).join("");
   }
 
   // ---------- open/close + util ----------
   function val(id) { var e = document.getElementById(id); return e ? e.value : ""; }
-  function open() { msg("", true); if (!fullyLogged(currentUser)) _tab = "login"; renderModal(currentUser ? (fullyLogged(currentUser) ? "in" : "pending") : undefined); var m = document.getElementById("accountModal"); if (m) { m.classList.add("open"); m.setAttribute("aria-hidden", "false"); } }
+  function open() { msg("", true); var real = currentUser && !currentUser.isAnonymous; if (!fullyLogged(currentUser)) _tab = "login"; renderModal(real ? (fullyLogged(currentUser) ? "in" : "pending") : undefined); var m = document.getElementById("accountModal"); if (m) { m.classList.add("open"); m.setAttribute("aria-hidden", "false"); } }
   function close() { var m = document.getElementById("accountModal"); if (m) { m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); } }
   function openAdmin() { var m = document.getElementById("accountAdmin"); if (m) { m.classList.add("open"); m.setAttribute("aria-hidden", "false"); } }
   function closeAdmin() { var m = document.getElementById("accountAdmin"); if (m) { m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); } }
