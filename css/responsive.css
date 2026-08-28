@@ -548,6 +548,12 @@ img, svg, video, .leaflet-map-canvas {
     gap: 6px;
     justify-content: flex-start;
     padding-bottom: 2px;
+    /* CRUCIALE: senza min-width:0 il flex item non si restringe sotto la
+       larghezza del contenuto (restava ~800px) e i tasti finivano tagliati
+       fuori dal contenitore invece di scorrere. */
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
   }
   .map-quick-buttons::-webkit-scrollbar { display: none; }
 
@@ -561,10 +567,13 @@ img, svg, video, .leaflet-map-canvas {
 
   /* Barra radar compatta: toggle in UNA riga scorrevole, HUD limite accanto. */
   .map-radar-bar {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
+    justify-content: flex-start;
     gap: 8px;
     padding: 8px 10px;
   }
+  /* I toggle prendono l'intera riga (scorrevole); l'HUD velocità, se presente,
+     va a capo sotto invece di comprimere i toggle a ~140px. */
   .radar-toggles-wrap {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -572,8 +581,10 @@ img, svg, video, .leaflet-map-canvas {
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 1 1 100%;
+    width: 100%;
   }
+  .radar-live-speed-hud { margin-left: auto; }
   .radar-toggles-wrap::-webkit-scrollbar { display: none; }
   .btn-radar-pill { flex: 0 0 auto; }
   .radar-live-speed-hud { flex: 0 0 auto; }
@@ -808,6 +819,21 @@ img, svg, video, .leaflet-map-canvas {
   .info-banner-icon {
     font-size: 1.3rem;
   }
+}
+
+/* ==========================================================================
+   3b. HEADER SU SCHERMI STRETTI — evita che i pulsanti sforino
+   Con 4 pulsanti azione (notifiche, personalizza, tema, menu) + brand + "Mezzi",
+   sotto ~440px l'header sforava e l'hamburger finiva fuori schermo (non cliccabile).
+   Nascondendo il testo "Mezzi" (resta l'icona) e stringendo i gap rientra tutto.
+   ========================================================================== */
+
+@media (max-width: 440px) {
+  .btn-open-modes-text { display: none; }
+  .btn-open-modes { padding: 8px 10px; }
+  .header-actions { gap: 4px; }
+  .brand-title { font-size: 0.98rem; }
+  .brand-logo { min-width: 0; }
 }
 
 /* ==========================================================================

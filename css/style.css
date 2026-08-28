@@ -225,7 +225,14 @@ button, input, select, textarea {
   align-items: center;
   gap: clamp(2px, 0.5vw, 6px);
   flex-shrink: 1;
+  /* Non deve mai spingere le azioni fuori schermo: può rimpicciolirsi e,
+     nei casi estremi (molte voci lunghe), scorre internamente. */
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.desktop-nav::-webkit-scrollbar { display: none; }
 
 .nav-link {
   display: flex;
@@ -1924,6 +1931,18 @@ button:active,
   .footer-grid {
     grid-template-columns: 1.2fr 1fr 1fr 1fr;
     gap: 24px;
+  }
+}
+
+/* Nav troppo larga per gli schermi medi (le voci lunghe di alcune modalità
+   non entrano): sotto i 1300px si passa all'hamburger + drawer, che contiene
+   già tutte le voci. Evita che la nav sfori e mandi le azioni fuori schermo. */
+@media (max-width: 1300px) {
+  .desktop-nav {
+    display: none;
+  }
+  .mobile-menu-toggle {
+    display: block;
   }
 }
 
