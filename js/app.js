@@ -17,6 +17,8 @@ window.invokeUnity = function(msg) {
 function _premiumSet(val) {
   try { localStorage.setItem('premium_unlocked', val ? 'true' : 'false'); } catch (e) {}
   window._premiumUnlocked = !!val;
+  // body.free-user pilota i lucchetti sulle sezioni riservate agli abbonati
+  try { if (document.body) document.body.classList.toggle('free-user', !val); } catch (e) {}
 }
 
 window.unlockPremium = function() {
@@ -57,6 +59,10 @@ window.onPremiumClick = function() {
 
 // Stato iniziale (ultimo valore noto), poi Unity lo aggiorna con la verifica reale.
 try { window._premiumUnlocked = (localStorage.getItem('premium_unlocked') === 'true'); } catch (e) { window._premiumUnlocked = false; }
+try { if (document.body) document.body.classList.toggle('free-user', !window._premiumUnlocked); } catch (e) {}
+
+// Sezioni riservate agli account abbonati (Premium). I free vedono un blocco/upsell.
+window.PREMIUM_TABS = ['search', 'tariffs', 'fleet', 'tickets'];
 
 // --- PREMIUM: gestito dall'ACCOUNT (Firebase) e dall'acquisto in-app (IAP) ---
 // Il vecchio "codice segreto" (5 tap sulla firma) e' stato RIMOSSO. Ora il premium
@@ -802,8 +808,60 @@ class AppController {
   }
 
   // Navigazione tra le sezioni con feedback e preloader asincrono
+  _isPremiumUser() {
+    try { return !!(window._premiumUnlocked || localStorage.getItem('premium_unlocked') === 'true'); }
+    catch (e) { return !!window._premiumUnlocked; }
+  }
+
+  // Mostra il blocco/upsell quando un utente free apre una sezione riservata.
+  _showPremiumLock(tabId) {
+    const NAMES = {
+      search: 'Cerca & Prenota',
+      tariffs: 'Tariffe & Abbonamenti',
+      fleet: 'Flotta Mezzi',
+      tickets: 'Portafoglio Biglietti'
+    };
+    const name = NAMES[tabId] || 'Questa sezione';
+    let ov = document.getElementById('premiumLockOverlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'premiumLockOverlay';
+      ov.className = 'premium-lock-overlay';
+      ov.innerHTML =
+        '<div class="premium-lock-card" role="dialog" aria-modal="true">' +
+        '  <button type="button" class="premium-lock-close" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>' +
+        '  <div class="premium-lock-icon"><i class="fa-solid fa-crown"></i></div>' +
+        '  <h3 class="premium-lock-title">Riservato agli abbonati</h3>' +
+        '  <p class="premium-lock-text"><strong id="premiumLockSection"></strong> è disponibile solo con l\'abbonamento <b>Premium</b>.</p>' +
+        '  <ul class="premium-lock-perks">' +
+        '    <li><i class="fa-solid fa-check"></i> Cerca &amp; Prenota, Tariffe &amp; Abbonamenti, Flotta Mezzi e Portafoglio Biglietti</li>' +
+        '    <li><i class="fa-solid fa-check"></i> Prezzi carburante reali e layout percorso personalizzato</li>' +
+        '    <li><i class="fa-solid fa-check"></i> Nessuna pubblicità</li>' +
+        '  </ul>' +
+        '  <button type="button" class="btn btn-primary premium-lock-cta"><i class="fa-solid fa-crown"></i> Attiva Premium</button>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
+      ov.querySelector('.premium-lock-close').addEventListener('click', () => ov.classList.remove('open'));
+      ov.querySelector('.premium-lock-cta').addEventListener('click', () => {
+        ov.classList.remove('open');
+        if (typeof window.onPremiumClick === 'function') window.onPremiumClick();
+      });
+    }
+    const secEl = ov.querySelector('#premiumLockSection');
+    if (secEl) secEl.textContent = name;
+    ov.classList.add('open');
+    const md = document.getElementById('mobileDrawer'); if (md) md.classList.remove('open');
+  }
+
   switchTab(tabId) {
     if (this.currentTab === tabId && document.querySelector(`.app-section#section-${tabId}.active`)) {
+      return;
+    }
+
+    // Sezioni riservate agli abbonati: i free vedono l'upsell e non entrano.
+    if ((window.PREMIUM_TABS || []).indexOf(tabId) !== -1 && !this._isPremiumUser()) {
+      this._showPremiumLock(tabId);
       return;
     }
 
