@@ -1629,6 +1629,12 @@ class GeoLocatorEngine {
           }
         });
       }
+
+      // Prezzi carburante REALI lungo il percorso (solo AUTO, funzione Premium).
+      // Riempie #geoFuelPricesWrap tramite il proxy Osservaprezzi (api/fuel).
+      if (this.activeItinerary && this.activeItinerary.isCar && window.fuelPrices) {
+        try { window.fuelPrices.renderForRoute(all); } catch (e) {}
+      }
     } catch (e) {}
 
     setTimeout(() => {
@@ -2671,6 +2677,8 @@ class GeoLocatorEngine {
         <div id="geoRadarBordoWrap">
           ${window.radarEngine ? window.radarEngine.generateRadarItinerarySectionHtml() : ''}
         </div>
+
+        ${it.isCar ? '<div id="geoFuelPricesWrap"></div>' : ''}
 
         ${!it.isCar ? `
         <div class="geo-departures-wrapper" style="margin-top:14px;">

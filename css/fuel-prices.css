@@ -1,0 +1,174 @@
+/* ==========================================================================
+   FUEL PRICES — Pannello confronto prezzi carburante (Premium) nel percorso auto
+   Usa le variabili tema di style.css: si adatta da solo a chiaro/scuro.
+   ========================================================================== */
+
+.geo-fuel-panel {
+  margin-top: 14px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+}
+
+.geo-fuel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.geo-fuel-head .gf-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.95rem; color: var(--text-primary, #0f172a);
+}
+.gf-premium {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff; font-size: 0.62rem; font-weight: 800;
+  padding: 2px 7px; border-radius: 999px; letter-spacing: .03em;
+  display: inline-flex; align-items: center; gap: 4px; text-transform: uppercase;
+}
+.gf-count {
+  font-size: 0.72rem; font-weight: 700; color: var(--text-muted, #64748b);
+  background: var(--bg-subtle, #f1f5f9); padding: 3px 9px; border-radius: 999px;
+  white-space: nowrap;
+}
+
+.gf-srcbar { margin-bottom: 8px; }
+.fuel-src {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.72rem; font-weight: 600; color: var(--color-success, #10b981);
+}
+.fuel-src.est { color: var(--color-warning, #f59e0b); }
+
+.gf-sub {
+  font-size: 0.78rem; color: var(--text-secondary, #475569);
+  margin-bottom: 8px;
+}
+
+/* Chip filtro carburante */
+.fuel-chips {
+  display: flex; gap: 7px; overflow-x: auto; padding-bottom: 4px;
+  margin-bottom: 10px; -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+}
+.fuel-chip {
+  flex: 0 0 auto; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  background: var(--bg-subtle, #f1f5f9);
+  color: var(--text-secondary, #475569);
+  font-size: 0.78rem; font-weight: 700;
+  padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+  transition: all .15s ease;
+}
+.fuel-chip:hover { border-color: var(--border-hover, #cbd5e1); }
+.fuel-chip.active {
+  background: var(--fc, #0284c7); border-color: var(--fc, #0284c7);
+  color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--fc, #0284c7) 40%, transparent);
+}
+
+/* Lista stazioni */
+.fuel-station-list { display: flex; flex-direction: column; gap: 9px; }
+
+.fuel-station {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px; padding: 10px 11px;
+  background: var(--bg-main, #f8fafc);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.fuel-station.cheapest {
+  border-color: var(--color-success, #10b981);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success, #10b981) 22%, transparent);
+  background: color-mix(in srgb, var(--color-success, #10b981) 6%, var(--bg-card, #fff));
+}
+
+.fs-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.fs-id { cursor: pointer; min-width: 0; flex: 1; }
+.fs-id strong {
+  display: block; font-size: 0.9rem; color: var(--text-primary, #0f172a);
+  line-height: 1.25; word-break: break-word;
+}
+.fs-badge-cheap {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--color-success, #10b981); color: #fff;
+  font-size: 0.62rem; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+  margin-bottom: 3px; text-transform: uppercase; letter-spacing: .02em;
+}
+.fs-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px;
+  font-size: 0.7rem; color: var(--text-muted, #64748b);
+}
+.fs-meta .fs-brand { font-weight: 800; color: var(--brand-primary, #0284c7); }
+.fs-meta i { opacity: .8; }
+
+.fs-go {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--brand-primary, #0284c7); color: #fff; text-decoration: none;
+  font-size: 0.95rem; box-shadow: 0 2px 8px var(--brand-glow, rgba(2,132,199,.32));
+}
+.fs-go:hover { background: var(--brand-primary-hover, #0369a1); }
+
+/* Pillole prezzo per carburante */
+.fuel-pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.fuel-price-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #fff);
+  border-radius: 9px; padding: 4px 8px; font-size: 0.72rem;
+  color: var(--text-secondary, #475569);
+}
+.fuel-price-pill i { color: var(--fc, #64748b); font-size: 0.8rem; }
+.fuel-price-pill .fp-k { font-weight: 700; }
+.fuel-price-pill .fp-v {
+  font-weight: 800; color: var(--text-primary, #0f172a);
+}
+.fuel-price-pill .fp-v small { font-weight: 600; color: var(--text-muted, #64748b); font-size: 0.82em; }
+.fuel-price-pill .fp-mode {
+  font-size: 0.6rem; text-transform: uppercase; letter-spacing: .02em;
+  color: var(--text-muted, #94a3b8); background: var(--bg-subtle, #f1f5f9);
+  padding: 1px 5px; border-radius: 6px;
+}
+.fuel-price-pill.on {
+  border-color: var(--fc, #0284c7);
+  background: color-mix(in srgb, var(--fc, #0284c7) 10%, var(--bg-card, #fff));
+}
+.fuel-price-pill.on .fp-v { color: var(--fc, #0284c7); }
+
+/* Stati vari */
+.fuel-loading, .fuel-empty {
+  text-align: center; padding: 18px 12px; font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+.fuel-loading i { color: var(--brand-primary, #0284c7); margin-right: 6px; }
+
+/* Card upsell (utente non Premium) */
+.geo-fuel-panel.fuel-locked {
+  position: relative; overflow: hidden;
+  border-style: dashed; border-color: #d97706;
+  background: linear-gradient(180deg, color-mix(in srgb, #f59e0b 8%, var(--bg-card, #fff)), var(--bg-card, #fff));
+}
+.fuel-lock-badge {
+  position: absolute; top: 10px; right: 12px; font-size: 1.05rem; color: #d97706; opacity: .7;
+}
+.fl-title {
+  display: flex; align-items: center; gap: 7px;
+  font-weight: 800; font-size: 0.92rem; color: var(--text-primary, #0f172a); margin-bottom: 6px;
+}
+.fl-title i { color: #d97706; }
+.fl-text { font-size: 0.8rem; color: var(--text-secondary, #475569); margin: 0 0 10px; line-height: 1.45; }
+.fl-preview {
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;
+  filter: blur(2.5px); opacity: .55; pointer-events: none; user-select: none;
+}
+.flp-row {
+  display: flex; justify-content: space-between;
+  background: var(--bg-subtle, #f1f5f9); border-radius: 8px; padding: 7px 10px;
+  font-size: 0.8rem; color: var(--text-secondary, #475569); font-weight: 700;
+}
+.fl-cta { width: 100%; justify-content: center; }
+
+/* Fallback per browser senza color-mix() */
+@supports not (background: color-mix(in srgb, red 10%, white)) {
+  .fuel-station.cheapest { background: var(--bg-card, #fff); }
+  .fuel-chip.active { box-shadow: 0 3px 10px rgba(2,132,199,.35); }
+  .fuel-price-pill.on { background: var(--bg-subtle, #f1f5f9); }
+}

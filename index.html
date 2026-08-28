@@ -45,9 +45,12 @@
   <meta property="og:title" content="ItaliaRun & Mobilità Italia | Orari, Timer Live e Percorsi">
   <meta property="og:description" content="ItaliaRun: Orari in tempo reale con timer a scalare, mappa interattiva e navigatore per tutte le regioni d'Italia.">
 
-    <!-- Google AdSense -->
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2046132491347242"
-       crossorigin="anonymous"></script>
+  <!-- Google AdSense: NON caricato staticamente qui.
+       Lo script veniva scaricato all'avvio e su file:// (app nativa) bloccava
+       l'evento 'load' della WebView, che restava invisibile (schermo azzurro).
+       Ora viene iniettato dinamicamente da js/web-ads.js SOLO sul web (fuori
+       dall'app Unity): la verifica AdSense e gli annunci web continuano a funzionare,
+       mentre l'app nativa non dipende piu' da risorse esterne per avviarsi. -->
 
   <style>
     .region-selector-bar {
@@ -119,6 +122,7 @@
   <link rel="stylesheet" href="css/style.css?v=5.27">
   <link rel="stylesheet" href="css/tickets.css?v=5.27">
   <link rel="stylesheet" href="css/map.css?v=5.30">
+  <link rel="stylesheet" href="css/fuel-prices.css?v=5.31">
   <link rel="stylesheet" href="css/themes.css?v=5.27">
   <link rel="stylesheet" href="css/responsive.css?v=5.27">
   <link rel="stylesheet" href="css/select.css?v=5.27">
@@ -1422,7 +1426,8 @@
   <script src="js/transitous-routing.js?v=5.27"></script>
   <script src="js/poi-data.js?v=5.29"></script>
   <script src="js/radar-engine.js?v=5.30"></script>
-  <script src="js/geo-locator.js?v=5.29"></script>
+  <script src="js/fuel-prices.js?v=5.31"></script>
+  <script src="js/geo-locator.js?v=5.31"></script>
   <script src="js/select-enhancer.js?v=5.27"></script>
   <script src="js/alerts-scheduler.js?v=5.27"></script>
 
