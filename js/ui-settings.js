@@ -13,6 +13,7 @@
   var LS_SCALE = "italiarun_ui_scale";
   var LS_DENSITY = "italiarun_layout_density";
   var LS_ONBOARDED = "italiarun_ui_onboarded";
+  var LS_ITIN = "ib_itin_layout"; // layout pannello itinerario (premium)
 
   var SCALES = [0.8, 0.9, 1.0, 1.1, 1.25, 1.4];
 
@@ -21,6 +22,18 @@
 
   function getScale() { var v = parseFloat(lsGet(LS_SCALE, "1")); return isNaN(v) ? 1 : v; }
   function getDensity() { return lsGet(LS_DENSITY, "comfortable") === "compact" ? "compact" : "comfortable"; }
+
+  function isPremium() {
+    try { return !!(window._premiumUnlocked || localStorage.getItem("premium_unlocked") === "true"); }
+    catch (e) { return !!window._premiumUnlocked; }
+  }
+  function getLayout() { var v = lsGet(LS_ITIN, ""); return (v === "tabs2" || v === "accordion" || v === "tabs3") ? v : "tabs3"; }
+  function setLayout(v) {
+    if (!isPremium()) { if (typeof window.onPremiumClick === "function") window.onPremiumClick(); return; }
+    lsSet(LS_ITIN, v);
+    if (window.geoLocator && typeof window.geoLocator.refreshItineraryLayout === "function") window.geoLocator.refreshItineraryLayout();
+    renderControls();
+  }
 
   function applyScale(v) { root.style.zoom = (v && v !== 1) ? String(v) : ""; }
   function applyDensity(d) { root.setAttribute("data-density", d === "compact" ? "compact" : "comfortable"); }
@@ -71,6 +84,24 @@
     g.querySelector('[data-uis="inc"]').addEventListener("click", function () { stepScale(1); });
     g.querySelectorAll("[data-uis-density]").forEach(function (b) {
       b.addEventListener("click", function () { setDensity(b.getAttribute("data-uis-density")); });
+    });
+
+    // ---- Gruppo: Layout pannello itinerario (Premium) ----
+    var itg = document.createElement("div");
+    itg.className = "cz-group";
+    itg.id = "uisItinGroup";
+    itg.innerHTML =
+      '<div class="cz-group-title"><i class="fa-solid fa-table-columns"></i> Layout pannello percorso' +
+      '  <span class="uis-premium-tag"><i class="fa-solid fa-crown"></i> Premium</span></div>' +
+      '<div class="uis-seg uis-seg-itin">' +
+      '  <button class="uis-seg-btn" type="button" data-uis-itin="tabs3">3 schede</button>' +
+      '  <button class="uis-seg-btn" type="button" data-uis-itin="tabs2">2 schede</button>' +
+      '  <button class="uis-seg-btn" type="button" data-uis-itin="accordion">Sezioni</button>' +
+      '</div>' +
+      '<div class="uis-itin-note"></div>';
+    body.insertBefore(itg, g.nextSibling);
+    itg.querySelectorAll("[data-uis-itin]").forEach(function (b) {
+      b.addEventListener("click", function () { setLayout(b.getAttribute("data-uis-itin")); });
     });
   }
 
@@ -128,12 +159,30 @@
     document.querySelectorAll("[data-uis-density]").forEach(function (b) {
       b.classList.toggle("active", b.getAttribute("data-uis-density") === d);
     });
+
+    // Layout itinerario
+    var itg = document.getElementById("uisItinGroup");
+    if (itg) {
+      var premium = isPremium();
+      var lay = getLayout();
+      itg.classList.toggle("uis-locked", !premium);
+      itg.querySelectorAll("[data-uis-itin]").forEach(function (b) {
+        b.classList.toggle("active", premium && b.getAttribute("data-uis-itin") === lay);
+      });
+      var note = itg.querySelector(".uis-itin-note");
+      if (note) note.innerHTML = premium
+        ? "Come organizzare il pannello del percorso: 3 schede (Percorso / Carburante / Servizi), 2 schede (Viaggio / Carburante) o sezioni apribili."
+        : '<i class="fa-solid fa-crown"></i> Con <b>Premium</b> scegli il layout. In versione free il pannello è a 2 schede con i prezzi carburante bloccati.';
+    }
   }
 
   function init() {
     applyAll(); // rinforza l'applicazione (lo script inline in <head> l'ha già fatto senza flash)
     injectCustomizerControls();
     renderControls();
+    // Riallinea lo stato (soprattutto premium) ogni volta che si aprono le impostazioni
+    var czBtn = document.getElementById("customizerToggleBtn");
+    if (czBtn) czBtn.addEventListener("click", function () { setTimeout(renderControls, 30); });
     if (lsGet(LS_ONBOARDED, "") !== "1") {
       // primo avvio: lascia caricare l'app, poi proponi la scelta
       setTimeout(openOnboard, 700);

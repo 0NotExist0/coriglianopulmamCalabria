@@ -688,7 +688,7 @@ class RadarDriveEngine {
       const c = this._catOf(p); const m = POI_CATS[c];
       const dist = p._distM != null ? (p._distM < 1000 ? p._distM + ' m' : (p._distM / 1000).toFixed(1) + ' km') : '';
       return `
-        <div class="rpoi-item" data-cat="${c}">
+        <div class="rpoi-item" data-cat="${c}" data-idx="${i}">
           <div class="rpoi-ic" style="background:${m.color}"><i class="fa-solid ${m.icon}"></i></div>
           <div class="rpoi-txt" onclick="window.radarEngine._poiFocus(${i})" role="button" tabindex="0">
             <strong>${p.name || m.sing}</strong>
@@ -700,6 +700,58 @@ class RadarDriveEngine {
     el.innerHTML = head +
       `<div class="rpoi-chips">${chips.join('')}</div>` +
       `<div class="rpoi-list">${items}</div>`;
+
+    // Integra i prezzi carburante reali sui benzinai elencati (Premium).
+    this._enrichPOIFuelPrices();
+  }
+
+  /* Aggiunge ai benzinai del pannello Punti di Interesse i prezzi reali
+     (Premium) o un lucchetto (free), abbinandoli alla stazione Osservaprezzi
+     più vicina tramite window.fuelPrices. */
+  _enrichPOIFuelPrices() {
+    const el = document.getElementById('radarPOIPanel');
+    if (!el || !window.fuelPrices) return;
+    const fuelItems = Array.prototype.slice.call(el.querySelectorAll('.rpoi-item[data-cat="fu"]'));
+    if (!fuelItems.length) return;
+
+    const premium = window.fuelPrices.isPremium && window.fuelPrices.isPremium();
+    if (!premium) {
+      fuelItems.forEach(it => {
+        const txt = it.querySelector('.rpoi-txt');
+        if (!txt || txt.querySelector('.rpoi-price')) return;
+        const b = document.createElement('div');
+        b.className = 'rpoi-price locked';
+        b.innerHTML = '<i class="fa-solid fa-lock"></i> Prezzi Premium';
+        txt.appendChild(b);
+      });
+      return;
+    }
+
+    const center = this._panelCenter;
+    if (!center) return;
+    const panelPOIs = this._panelPOIs || [];
+    window.fuelPrices.pricesNear(center[0], center[1], 4).then(stations => {
+      if (!stations || !stations.length) return;
+      fuelItems.forEach(it => {
+        const txt = it.querySelector('.rpoi-txt');
+        if (!txt || txt.querySelector('.rpoi-price')) return;
+        const idx = parseInt(it.getAttribute('data-idx'), 10);
+        const poi = panelPOIs[idx];
+        if (!poi || typeof poi.lat !== 'number') return;
+        const near = window.fuelPrices.nearest(stations, poi.lat, poi.lng);
+        if (!near || near.distM > 700) return; // troppo lontano: nessun abbinamento affidabile
+        const bf = near.station.byFuel || {};
+        const chips = ['Benzina', 'Diesel', 'GPL', 'Metano']
+          .filter(k => bf[k])
+          .map(k => `<span title="${k}${bf[k].self ? ' self' : ' servito'}">${k.slice(0, 4)} €${bf[k].price.toFixed(3)}</span>`)
+          .join('');
+        if (!chips) return;
+        const div = document.createElement('div');
+        div.className = 'rpoi-price';
+        div.innerHTML = chips;
+        txt.appendChild(div);
+      });
+    }).catch(() => {});
   }
 
   _poiPanelFilter(cat, btn) {

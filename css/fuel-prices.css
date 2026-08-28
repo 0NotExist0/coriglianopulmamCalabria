@@ -166,6 +166,91 @@
 }
 .fl-cta { width: 100%; justify-content: center; }
 
+/* ==========================================================================
+   LAYOUT PANNELLO ITINERARIO — tab (3/2) e sezioni collassabili
+   ========================================================================== */
+
+.geo-itin-sections { margin-top: 4px; }
+
+/* Barra tab */
+.geo-itab-bar {
+  display: flex; gap: 6px; margin-bottom: 12px;
+  background: var(--bg-subtle, #f1f5f9);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px; padding: 4px;
+  position: sticky; top: 0; z-index: 4;
+}
+.geo-itab-btn {
+  flex: 1 1 0; min-width: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 6px; border: none; background: transparent; border-radius: 9px;
+  color: var(--text-secondary, #475569); font-size: 0.8rem; font-weight: 800;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .15s ease, color .15s ease;
+}
+.geo-itab-btn i { font-size: 0.92rem; flex: 0 0 auto; }
+.geo-itab-btn span { overflow: hidden; text-overflow: ellipsis; }
+.geo-itab-btn.active {
+  background: var(--bg-card, #fff); color: var(--brand-primary, #0284c7);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.10);
+}
+.geo-itab-btn:not(.active):hover { color: var(--text-primary, #0f172a); }
+.geo-itab-pane { animation: geoItabFade .18s ease; }
+@keyframes geoItabFade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* Sezioni collassabili */
+.geo-acc {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+  background: var(--bg-card, #fff);
+}
+.geo-acc-head {
+  width: 100%; cursor: pointer; border: none; background: var(--bg-subtle, #f1f5f9);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 12px 14px; font-size: 0.86rem; font-weight: 800;
+  color: var(--text-primary, #0f172a); text-align: left;
+}
+.geo-acc-head > span { display: inline-flex; align-items: center; gap: 8px; }
+.geo-acc-head > span i { color: var(--brand-primary, #0284c7); }
+.geo-acc-chev { transition: transform .2s ease; color: var(--text-muted, #64748b); font-size: 0.8rem; }
+.geo-acc.open .geo-acc-chev { transform: rotate(180deg); }
+.geo-acc-body { display: none; padding: 10px 12px; }
+.geo-acc.open .geo-acc-body { display: block; }
+
+/* Selettore layout nelle Impostazioni (Personalizza) */
+.uis-premium-tag {
+  background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff;
+  font-size: 0.58rem; font-weight: 800; padding: 2px 6px; border-radius: 999px;
+  margin-left: 6px; text-transform: uppercase; letter-spacing: .03em; vertical-align: middle;
+}
+.uis-seg-itin { flex-wrap: wrap; }
+#uisItinGroup.uis-locked .uis-seg { opacity: .5; }
+.uis-itin-note {
+  font-size: 0.72rem; color: var(--text-muted, #64748b); margin-top: 6px; line-height: 1.35;
+}
+.uis-itin-note .fa-crown { color: #d97706; }
+
+@media (max-width: 380px) {
+  .geo-itab-btn span { display: none; } /* solo icone su schermi molto stretti */
+  .geo-itab-btn { padding: 9px 4px; }
+}
+
+/* Prezzi carburante nel pannello Punti di Interesse */
+.rpoi-price {
+  margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px;
+}
+.rpoi-price span {
+  background: var(--bg-subtle, #f1f5f9);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px; padding: 1px 6px;
+  font-size: 0.66rem; font-weight: 800; color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+}
+.rpoi-price.locked {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: #d97706; font-size: 0.66rem; font-weight: 800;
+}
+
 /* Fallback per browser senza color-mix() */
 @supports not (background: color-mix(in srgb, red 10%, white)) {
   .fuel-station.cheapest { background: var(--bg-card, #fff); }

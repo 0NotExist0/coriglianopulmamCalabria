@@ -1632,6 +1632,7 @@ class GeoLocatorEngine {
 
       // Prezzi carburante REALI lungo il percorso (Premium), su OGNI tipo di
       // percorso. Riempie #geoFuelPricesWrap tramite il proxy Osservaprezzi (api/fuel).
+      this._fuelRouteCoords = all; // servono per ri-popolare al cambio layout
       if (window.fuelPrices) {
         try { window.fuelPrices.renderForRoute(all); } catch (e) {}
       }
@@ -2314,8 +2315,128 @@ class GeoLocatorEngine {
      PANNELLO ITINERARIO TRASCINABILE PASSO-PASSO
      ========================================================================== */
 
+  /* ==========================================================================
+     LAYOUT PANNELLO ITINERARIO — 3 tab / 2 tab / sezioni collassabili.
+     Premium sceglie dalle impostazioni (localStorage 'ib_itin_layout').
+     Free: forzato a 2 tab, con la scheda Carburante bloccata (upsell) / stima.
+     ========================================================================== */
+
+  _isPremium() {
+    try { return !!(window._premiumUnlocked || localStorage.getItem('premium_unlocked') === 'true'); }
+    catch (e) { return !!window._premiumUnlocked; }
+  }
+
+  _effectiveLayout() {
+    if (!this._isPremium()) return 'tabs2';
+    let v = '';
+    try { v = localStorage.getItem('ib_itin_layout') || ''; } catch (e) {}
+    return (v === 'tabs2' || v === 'accordion') ? v : 'tabs3';
+  }
+
+  refreshItineraryLayout() {
+    if (this.panel && this.panel.classList.contains('open') && this.activeItinerary) {
+      this.renderItineraryPanel(this._lastRefLatLng);
+      // Il template lascia #geoFuelPricesWrap vuoto (riempito async): ri-popolalo
+      // coi prezzi, altrimenti la scheda Carburante resterebbe vuota dopo il cambio.
+      if (window.fuelPrices && this._fuelRouteCoords) {
+        try { window.fuelPrices.renderForRoute(this._fuelRouteCoords); } catch (e) {}
+      }
+    }
+  }
+
+  setItineraryTab(key) {
+    this._itinTab = key;
+    const c = document.getElementById('geoItinSections');
+    if (!c) return;
+    c.querySelectorAll('.geo-itab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === key));
+    c.querySelectorAll('.geo-itab-pane').forEach(p => { p.style.display = (p.dataset.pane === key) ? '' : 'none'; });
+  }
+
+  _applyItineraryLayout() {
+    const c = document.getElementById('geoItinSections');
+    if (!c) return;
+    const mode = this._effectiveLayout();
+    c.setAttribute('data-layout', mode);
+
+    const get = n => c.querySelector('[data-isec="' + n + '"]');
+    const percorso = get('percorso'), carburante = get('carburante'), servizi = get('servizi');
+    if (!percorso || !carburante || !servizi) return;
+
+    // Stacca le sezioni grezze e ricostruisce il contenitore.
+    [percorso, carburante, servizi].forEach(el => { if (el.parentNode) el.parentNode.removeChild(el); });
+    c.innerHTML = '';
+
+    const M = {
+      percorso: { icon: 'fa-diamond-turn-right', label: 'Percorso' },
+      carburante: { icon: 'fa-gas-pump', label: 'Carburante' },
+      servizi: { icon: 'fa-satellite-dish', label: 'Servizi' },
+      viaggio: { icon: 'fa-route', label: 'Viaggio' }
+    };
+
+    if (mode === 'accordion') {
+      const makeAcc = (key, el, open) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'geo-acc' + (open ? ' open' : '');
+        const head = document.createElement('button');
+        head.type = 'button'; head.className = 'geo-acc-head';
+        head.innerHTML = '<span><i class="fa-solid ' + M[key].icon + '"></i> ' + M[key].label + '</span><i class="fa-solid fa-chevron-down geo-acc-chev"></i>';
+        head.addEventListener('click', () => wrap.classList.toggle('open'));
+        const body = document.createElement('div');
+        body.className = 'geo-acc-body';
+        body.appendChild(el);
+        wrap.appendChild(head); wrap.appendChild(body);
+        return wrap;
+      };
+      c.appendChild(makeAcc('percorso', percorso, true));
+      c.appendChild(makeAcc('carburante', carburante, false));
+      c.appendChild(makeAcc('servizi', servizi, false));
+      return;
+    }
+
+    // Modalità a TAB (tabs3 / tabs2)
+    const pane = (key, els) => {
+      const p = document.createElement('div');
+      p.className = 'geo-itab-pane'; p.dataset.pane = key;
+      els.forEach(e => p.appendChild(e));
+      return p;
+    };
+    let tabs;
+    if (mode === 'tabs2') {
+      tabs = [
+        { key: 'viaggio', meta: M.viaggio, pane: pane('viaggio', [percorso, servizi]) },
+        { key: 'carburante', meta: M.carburante, pane: pane('carburante', [carburante]) }
+      ];
+    } else {
+      tabs = [
+        { key: 'percorso', meta: M.percorso, pane: pane('percorso', [percorso]) },
+        { key: 'carburante', meta: M.carburante, pane: pane('carburante', [carburante]) },
+        { key: 'servizi', meta: M.servizi, pane: pane('servizi', [servizi]) }
+      ];
+    }
+
+    let active = this._itinTab;
+    if (!tabs.some(t => t.key === active)) active = tabs[0].key;
+    this._itinTab = active;
+
+    const bar = document.createElement('div');
+    bar.className = 'geo-itab-bar';
+    tabs.forEach(t => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'geo-itab-btn' + (t.key === active ? ' active' : '');
+      b.dataset.tab = t.key;
+      b.innerHTML = '<i class="fa-solid ' + t.meta.icon + '"></i> <span>' + t.meta.label + '</span>';
+      b.addEventListener('click', () => this.setItineraryTab(t.key));
+      bar.appendChild(b);
+      t.pane.style.display = (t.key === active) ? '' : 'none';
+    });
+    c.appendChild(bar);
+    tabs.forEach(t => c.appendChild(t.pane));
+  }
+
   renderItineraryPanel(refLatLng) {
     if (!this.panel || !this.activeItinerary) return;
+    this._lastRefLatLng = refLatLng; // per re-render al cambio layout
     const it = this.activeItinerary;
     const legs = it.legs || [];
     const dest = it.destinationStop;
@@ -2661,34 +2782,44 @@ class GeoLocatorEngine {
       <div class="geo-panel-scroll-body" id="geoPanelScrollBody">
         ${optionsSelectorHtml}
         ${optionNoticeHtml}
-        ${carDashboardBox}
 
-        <div class="geo-summary-bar">
-          ${it.isCar 
-            ? `<small class="text-muted"><i class="fa-solid fa-car"></i> Guida in Auto &bull; ${(it.totalDistanceKm || 0).toFixed(1)} km &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>`
-            : `<small class="text-muted"><i class="fa-solid ${vehIcon}"></i> ${it.rideCount} mezzo${it.rideCount === 1 ? '' : 'i'} &bull; <i class="fa-solid fa-person-walking"></i> ${totalWalkTxt} a piedi &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>`
-          }
-        </div>
+        <div class="geo-itin-sections" id="geoItinSections">
 
-        <ol class="geo-steps-list" id="geoStepsList">${stepsHtml}</ol>
+          <div data-isec="percorso">
+            <div class="geo-summary-bar">
+              ${it.isCar
+                ? `<small class="text-muted"><i class="fa-solid fa-car"></i> Guida in Auto &bull; ${(it.totalDistanceKm || 0).toFixed(1)} km &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>`
+                : `<small class="text-muted"><i class="fa-solid ${vehIcon}"></i> ${it.rideCount} mezzo${it.rideCount === 1 ? '' : 'i'} &bull; <i class="fa-solid fa-person-walking"></i> ${totalWalkTxt} a piedi &bull; <i class="fa-solid fa-clock"></i> ${this.formatDuration(it.totalSeconds)}</small>`
+              }
+            </div>
 
-        ${ticketsGuideBox}
+            <ol class="geo-steps-list" id="geoStepsList">${stepsHtml}</ol>
 
-        <div id="geoFuelPricesWrap"></div>
+            ${ticketsGuideBox}
 
-        <div id="geoRadarBordoWrap">
-          ${window.radarEngine ? window.radarEngine.generateRadarItinerarySectionHtml() : ''}
-        </div>
-
-        ${!it.isCar ? `
-        <div class="geo-departures-wrapper" style="margin-top:14px;">
-          <div class="geo-departures-title" style="font-weight:800; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${boardName}</strong>
+            ${!it.isCar ? `
+            <div class="geo-departures-wrapper" style="margin-top:14px;">
+              <div class="geo-departures-title" style="font-weight:800; font-size:0.9rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-clock text-primary"></i> Prossime partenze da <strong>${boardName}</strong>
+              </div>
+              <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
+              <div id="geoVerdict" class="geo-verdict-box" style="margin-top:8px;"></div>
+            </div>
+            ` : ''}
           </div>
-          <div id="geoDeparturesList" class="geo-dep-list-grid"></div>
-          <div id="geoVerdict" class="geo-verdict-box" style="margin-top:8px;"></div>
+
+          <div data-isec="carburante">
+            <div id="geoFuelPricesWrap"></div>
+          </div>
+
+          <div data-isec="servizi">
+            ${carDashboardBox}
+            <div id="geoRadarBordoWrap">
+              ${window.radarEngine ? window.radarEngine.generateRadarItinerarySectionHtml() : ''}
+            </div>
+          </div>
+
         </div>
-        ` : ''}
 
         <div class="geo-footer-actions" style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
           ${!it.isCar ? `
@@ -2715,6 +2846,7 @@ class GeoLocatorEngine {
       </div>
     `;
 
+    this._applyItineraryLayout(); // organizza le sezioni in tab/sezioni secondo la preferenza
     this.panel.classList.add("open");
     this.setupDraggablePanel();
     if (!it.isCar) {

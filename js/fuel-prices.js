@@ -130,10 +130,10 @@
     return pts;
   };
 
-  FuelPricesEngine.prototype._fetchRoute = function (points) {
-    var payload = JSON.stringify({ points: points, mode: 'route' });
+  // Chiamata generica al proxy (prova same-origin /api/fuel su http(s), poi assoluto).
+  FuelPricesEngine.prototype._call = function (bodyObj) {
     var self = this;
-    // Prova prima same-origin (/api/fuel) se siamo su http(s); poi il proxy assoluto.
+    var payload = JSON.stringify(bodyObj);
     var candidates = [];
     try {
       if (location && /^https?:$/.test(location.protocol)) candidates.push('/api/fuel');
@@ -146,6 +146,49 @@
     }
     return attempt(0);
   };
+
+  FuelPricesEngine.prototype._fetchRoute = function (points) {
+    return this._call({ points: points, mode: 'route' });
+  };
+
+  // Stazioni reali attorno a un punto (raggio km) — usato dal pannello Punti di Interesse.
+  FuelPricesEngine.prototype.pricesNear = function (lat, lng, radiusKm) {
+    return this._call({ points: [{ lat: lat, lng: lng }], mode: 'zone', radius: radiusKm || 3 })
+      .then(function (data) {
+        if (!data || !data.success || !data.results) return [];
+        return data.results.map(function (s) {
+          var byFuel = {};
+          (s.fuels || []).forEach(function (f) {
+            var price = (typeof f.price === 'number') ? f.price : parseFloat(f.price);
+            if (!isFinite(price) || price <= 0.2 || price === 1) return;
+            var key = canonFuel(f.name);
+            if (!byFuel[key] || price < byFuel[key].price) byFuel[key] = { price: price, self: !!f.self };
+          });
+          return { id: s.id, name: s.name, brand: s.brand, lat: s.lat, lng: s.lng, updated: s.updated, byFuel: byFuel };
+        }).filter(function (s) { return s.lat != null && Object.keys(s.byFuel).length; });
+      });
+  };
+
+  FuelPricesEngine.prototype._haversine = function (la1, lo1, la2, lo2) {
+    var R = 6371000, r = Math.PI / 180;
+    var dLa = (la2 - la1) * r, dLo = (lo2 - lo1) * r;
+    var a = Math.sin(dLa / 2) * Math.sin(dLa / 2) +
+      Math.cos(la1 * r) * Math.cos(la2 * r) * Math.sin(dLo / 2) * Math.sin(dLo / 2);
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  };
+
+  FuelPricesEngine.prototype.nearest = function (stations, lat, lng) {
+    var best = null, bestD = Infinity;
+    for (var i = 0; i < stations.length; i++) {
+      var s = stations[i];
+      if (s.lat == null) continue;
+      var d = this._haversine(lat, lng, s.lat, s.lng);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best ? { station: best, distM: Math.round(bestD) } : null;
+  };
+
+  FuelPricesEngine.prototype.isPremium = function () { return isPremium(); };
 
   FuelPricesEngine.prototype._post = function (url, payload) {
     var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
