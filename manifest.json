@@ -8,12 +8,9 @@
   "theme_color": "#e8590c",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%230284c7'><rect width='512' height='512' rx='128' fill='%230f172a'/><path d='M128 352c0 17.7 14.3 32 32 32v32c0 17.7 14.3 32 32 32h32c17.7 0 32-14.3 32-32v-32h128v32c0 17.7 14.3 32 32 32h32c17.7 0 32-14.3 32-32v-32c17.7 0 32-14.3 32-32V128c0-70.7-57.3-80-160-80s-160 9.3-160 80v224zm70 20c-16.6 0-30-13.4-30-30s13.4-30 30-30 30 13.4 30 30-13.4 30-30 30zm180 0c-16.6 0-30-13.4-30-30s13.4-30 30-30 30 13.4 30 30-13.4 30-30 30zm30-128H160V128h248v136z' fill='%2338bdf8'/></svg>",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "img/icona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icona-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "categories": ["travel", "transportation", "utilities"]
 }

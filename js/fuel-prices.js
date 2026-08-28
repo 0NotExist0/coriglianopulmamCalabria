@@ -85,12 +85,16 @@
 
   // Punto d'ingresso: chiamato quando si disegna un percorso in auto.
   FuelPricesEngine.prototype.renderForRoute = function (routeCoords) {
+    // Ricorda l'ultimo percorso cosi' il pulsante "Aggiorna"/reload() puo' rifare
+    // la richiesta anche se chiamato senza argomenti.
+    if (routeCoords && routeCoords.length) this._lastRouteCoords = routeCoords;
+
     var el = this.wrapEl();
     if (!el) return;
 
     if (!isPremium()) { el.innerHTML = this._upsellHtml(); return; }
 
-    var pts = this._sample(routeCoords, 18);
+    var pts = this._sample(this._lastRouteCoords, 18);
     if (pts.length < 1) { el.innerHTML = ''; return; }
 
     var reqId = ++this._reqId;
@@ -109,6 +113,13 @@
       if (reqId !== self._reqId) return;
       self._renderEstimated(el);
     });
+  };
+
+  // Ricarica i prezzi usando l'ultimo percorso noto (bottone "Aggiorna"/"Riprova").
+  FuelPricesEngine.prototype.reload = function () {
+    if (this._lastRouteCoords && this._lastRouteCoords.length) {
+      this.renderForRoute(this._lastRouteCoords);
+    }
   };
 
   // Campiona al piu' n punti equidistanti lungo il percorso ([lat,lng] o {lat,lng}).
@@ -380,7 +391,10 @@
           '<div class="gf-title"><i class="fa-solid fa-gas-pump" style="color:' + style.color + '"></i> ' +
             '<strong>Prezzi carburante lungo il percorso</strong> ' +
             '<span class="gf-premium"><i class="fa-solid fa-crown"></i> Premium</span></div>' +
-          '<span class="gf-count">' + this._stations.length + ' distributori</span>' +
+          '<div class="gf-head-right">' +
+            '<span class="gf-count">' + this._stations.length + ' distributori</span>' +
+            '<button type="button" class="gf-refresh" title="Aggiorna i prezzi" onclick="window.fuelPrices.reload()"><i class="fa-solid fa-rotate"></i></button>' +
+          '</div>' +
         '</div>' +
         '<div class="gf-srcbar">' + srcNote + '</div>' +
         '<div class="gf-sub">Ordinati per <strong>' + active + '</strong> (dal più economico). Tocca un carburante per confrontarlo:</div>' +
@@ -398,7 +412,9 @@
       el.innerHTML = '' +
         '<div class="geo-fuel-panel">' +
           '<div class="geo-fuel-head"><div class="gf-title"><i class="fa-solid fa-gas-pump"></i> <strong>Prezzi carburante</strong> <span class="gf-premium"><i class="fa-solid fa-crown"></i> Premium</span></div></div>' +
-          '<div class="fuel-empty"><i class="fa-solid fa-wifi"></i> Prezzi non disponibili ora (Osservaprezzi non raggiungibile). Riprova tra poco con la connessione attiva.</div>' +
+          '<div class="fuel-empty"><i class="fa-solid fa-wifi"></i> Prezzi non disponibili ora (Osservaprezzi non raggiungibile). Controlla la connessione e riprova.' +
+            '<button type="button" class="fuel-retry" onclick="window.fuelPrices.reload()"><i class="fa-solid fa-rotate"></i> Riprova</button>' +
+          '</div>' +
         '</div>';
     }
   };

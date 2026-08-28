@@ -1631,11 +1631,13 @@ class GeoLocatorEngine {
       }
 
       // Prezzi carburante REALI lungo il percorso (Premium), su OGNI tipo di
-      // percorso. Riempie #geoFuelPricesWrap tramite il proxy Osservaprezzi (api/fuel).
-      this._fuelRouteCoords = all; // servono per ri-popolare al cambio layout
-      if (window.fuelPrices) {
-        try { window.fuelPrices.renderForRoute(all); } catch (e) {}
-      }
+      // percorso. Salviamo SOLO le coordinate qui: il fetch vero e proprio parte
+      // da renderItineraryPanel() -> _populateFuelPanel(), quando #geoFuelPricesWrap
+      // esiste davvero nel DOM. drawNavLegs() gira PRIMA di renderItineraryPanel(),
+      // che ricostruisce l'HTML del pannello (svuotando il wrap): chiamare qui il
+      // fetch lo mandava a vuoto (wrap assente o subito sovrascritto) -> pannello
+      // carburante vuoto anche per i premium. (bug "non carica i carburanti").
+      this._fuelRouteCoords = all;
     } catch (e) {}
 
     setTimeout(() => {
@@ -2335,12 +2337,9 @@ class GeoLocatorEngine {
 
   refreshItineraryLayout() {
     if (this.panel && this.panel.classList.contains('open') && this.activeItinerary) {
+      // renderItineraryPanel ricostruisce il DOM e alla fine chiama _populateFuelPanel(),
+      // quindi la scheda Carburante viene ri-popolata da sola dopo il cambio layout.
       this.renderItineraryPanel(this._lastRefLatLng);
-      // Il template lascia #geoFuelPricesWrap vuoto (riempito async): ri-popolalo
-      // coi prezzi, altrimenti la scheda Carburante resterebbe vuota dopo il cambio.
-      if (window.fuelPrices && this._fuelRouteCoords) {
-        try { window.fuelPrices.renderForRoute(this._fuelRouteCoords); } catch (e) {}
-      }
     }
   }
 
@@ -2852,7 +2851,26 @@ class GeoLocatorEngine {
     if (!it.isCar) {
       this.startCountdown();
     }
+
+    // Ora che #geoFuelPricesWrap ESISTE nel DOM (appena ricostruito qui sopra),
+    // avvia il caricamento dei prezzi carburante. Farlo qui (e non in drawNavLegs,
+    // che gira prima) garantisce che il caricamento e i prezzi finiscano nel wrap
+    // giusto sia alla prima apertura sia a ogni riapertura/cambio layout.
+    this._populateFuelPanel();
   }
+
+  // Avvia (o riavvia) il caricamento dei prezzi carburante nel pannello itinerario.
+  // Idempotente e sicuro: non fa nulla se manca il motore, il wrap o le coordinate.
+  _populateFuelPanel() {
+    if (!window.fuelPrices) return;
+    if (!document.getElementById('geoFuelPricesWrap')) return;
+    const coords = this._fuelRouteCoords;
+    if (!coords || !coords.length) return;
+    try { window.fuelPrices.renderForRoute(coords); } catch (e) {}
+  }
+
+  // Ricarica manuale dei prezzi (bottone "Aggiorna" nel pannello carburante).
+  refreshFuelPrices() { this._populateFuelPanel(); }
 
   /* Deep-link a Google Maps con indicazioni in AUTO */
   buildGmapsCarUrl(refLatLng, destStop) {
