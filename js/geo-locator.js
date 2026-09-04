@@ -3887,6 +3887,22 @@ class GeoLocatorEngine {
       };
     }
 
+    // Se è disponibile il modulo Map UX (schermo intero + pannelli flottanti),
+    // delega a lui drag / aggancio-bordo / riduci a icona / ridimensiona, con
+    // posizione e dimensione ricordate. Altrimenti si usa il drag interno qui sotto.
+    if (window.MapUX && typeof window.MapUX.enhance === "function") {
+      window.MapUX.enhance(this.panel, {
+        key: "route",
+        handleSelector: "#geoPanelDragHeader",
+        actionsSelector: ".geo-panel-actions",
+        boundsEl: document.querySelector(".transit-map-wrapper"),
+        icon: "fa-route",
+        label: "Itinerario",
+        resizable: true, minW: 260, minH: 150
+      });
+      return;
+    }
+
     const dragHeader = this.panel.querySelector("#geoPanelDragHeader");
     if (!dragHeader || dragHeader._dragBound) return;
     dragHeader._dragBound = true;
@@ -4167,6 +4183,11 @@ class GeoLocatorEngine {
     el.id = 'geoNavControls';
     el.className = 'geo-nav-controls';
     el.innerHTML = `
+      <div class="mapux-nav-header" id="geoNavDragHeader" title="Trascina per spostare, o trascina a un bordo per ritirarlo">
+        <span class="mapux-nav-title"><i class="fa-solid fa-location-crosshairs"></i> Navigatore</span>
+        <span class="mapux-nav-grip"></span>
+        <span class="mapux-nav-actions geo-panel-actions"></span>
+      </div>
       <div class="geo-nav-modes">
         <button type="button" class="geo-nav-mode-btn" data-mode="auto" onclick="window.geoLocator.setFollowMode('auto')" title="La mappa segue la tua posizione, zoomata">
           <i class="fa-solid fa-location-arrow"></i> Auto
@@ -4201,6 +4222,19 @@ class GeoLocatorEngine {
     // Evita che trascinare/scrollare sul pannello muova la mappa sottostante.
     if (window.L && L.DomEvent) {
       try { L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); } catch (e) {}
+    }
+    // Rendi il pannello camera trascinabile / riducibile a icona / agganciabile
+    // ai bordi tramite il modulo Map UX (se presente).
+    if (window.MapUX && typeof window.MapUX.enhance === "function") {
+      window.MapUX.enhance(el, {
+        key: "nav",
+        handleSelector: "#geoNavDragHeader",
+        actionsSelector: ".mapux-nav-actions",
+        boundsEl: document.getElementById("leafletTransitMap"),
+        icon: "fa-location-arrow",
+        label: "Navigatore",
+        resizable: false
+      });
     }
     return el;
   }
