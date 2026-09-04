@@ -1045,6 +1045,17 @@ class GeoLocatorEngine {
       // Disegna l'itinerario sulla mappa
       this.drawNavLegs(refLatLng);
 
+      // Migliora in BACKGROUND la geometria delle tratte lunghe disegnate come
+      // retta (OSRM) e ridisegna appena pronta: così anche il flusso AUTOMATICO
+      // (GPS + sola destinazione) fa seguire le strade reali senza dover toccare
+      // un'opzione. Non blocca il caricamento: la retta appare subito e in 2-3s
+      // si aggancia alle strade.
+      this.enhanceRideGeometry().then(() => {
+        if (this.currentItineraryOptions && this.currentItineraryOptions[this.activeOptionIndex] === chosen && this.navLegs) {
+          this.drawNavLegs(refLatLng);
+        }
+      });
+
       // Renderizza il pannello con selettore opzioni e indicazioni passo-passo
       this.renderItineraryPanel(refLatLng);
 
