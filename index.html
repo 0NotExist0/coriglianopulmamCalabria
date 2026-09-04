@@ -155,7 +155,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=5.31">
+  <link rel="stylesheet" href="css/style.css?v=5.46">
   <link rel="stylesheet" href="css/tickets.css?v=5.27">
   <link rel="stylesheet" href="css/map.css?v=5.40">
   <link rel="stylesheet" href="css/map-ux.css?v=5.44">
@@ -309,6 +309,7 @@
       </div>
 
       <!-- Desktop Nav -->
+      <div class="desktop-nav-scroll">
       <nav class="desktop-nav">
         <a href="#" class="nav-link" data-tab="live-board">
           <i class="fa-solid fa-clock"></i> Tabellone Live
@@ -343,6 +344,8 @@
           <i class="fa-solid fa-clapperboard"></i> Play Trailer
         </a>
       </nav>
+        <button type="button" class="nav-scroll-cue" aria-label="Scorri il menu" title="Altre voci"><i class="fa-solid fa-angle-right"></i></button>
+      </div>
 
       <!-- Header Actions -->
       <div class="header-actions">
@@ -1609,6 +1612,7 @@
   <script src="js/trailer.js?v=5.27"></script>
   <script src="js/app-footer.js?v=5.37"></script>
 
+  <script src="js/nav-scroll-hint.js?v=5.46"></script>
 </body>
 </html>
 

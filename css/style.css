@@ -5318,3 +5318,34 @@ body.mode-flight {
   }
 }
 
+
+/* ==========================================================================
+   SUGGERIMENTO DI SCORRIMENTO NAV DESKTOP (fade ai bordi + freccia + nudge)
+   Evita che l'ultima voce ("Accedi") resti nascosta senza che l'utente lo sappia.
+   ========================================================================== */
+.desktop-nav-scroll { position: relative; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
+.desktop-nav-scroll::before,
+.desktop-nav-scroll::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 36px; z-index: 2;
+  pointer-events: none; opacity: 0; transition: opacity .2s ease;
+}
+.desktop-nav-scroll::before { left: 0; background: linear-gradient(to right, var(--bg-card), rgba(0,0,0,0)); }
+.desktop-nav-scroll::after  { right: 0; background: linear-gradient(to left, var(--bg-card), rgba(0,0,0,0)); }
+.desktop-nav-scroll.can-left::before { opacity: 1; }
+.desktop-nav-scroll.can-right::after { opacity: 1; }
+.nav-scroll-cue {
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+  z-index: 3; width: 26px; height: 26px; padding: 0; border: none; border-radius: 50%;
+  background: var(--brand-primary, #0284c7); color: #fff; cursor: pointer;
+  display: none; align-items: center; justify-content: center; font-size: 13px;
+  box-shadow: 0 2px 8px var(--brand-glow, rgba(2,132,199,.5));
+}
+.desktop-nav-scroll.can-right .nav-scroll-cue { display: flex; }
+.nav-scroll-cue:hover { filter: brightness(1.08); }
+.nav-scroll-cue.nudge { animation: navCueNudge 1s ease-in-out 3; }
+@keyframes navCueNudge {
+  0%, 100% { transform: translateY(-50%) translateX(0); }
+  50% { transform: translateY(-50%) translateX(4px); }
+}
+.desktop-nav { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { .nav-scroll-cue.nudge { animation: none; } .desktop-nav { scroll-behavior: auto; } }
