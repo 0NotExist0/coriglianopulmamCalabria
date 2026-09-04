@@ -982,10 +982,7 @@ class GeoLocatorEngine {
         }
       }
 
-      this.currentDest = dest;
-      this.currentRefLatLng = refLatLng;
-
-      // Costruisce e cataloga tutte le opzioni di viaggio (Solo Pullman, Più Veloce, Intermodale, etc.)
+      // Costruisce e cataloga tutte le opzioni di viaggio (Solo Pullman, Solo Treni, Solo Tram, Solo Aerei, Solo Diretti, Più Veloce, In Auto, etc.)
       const options = await this.buildItineraryOptions(dest, refLatLng, this.itineraryFilter);
       if (!options || options.length === 0) {
         this.showNoRouteError(dest, refLatLng);
@@ -996,16 +993,43 @@ class GeoLocatorEngine {
 
       // Determina quale opzione selezionare in base al filtro attivo
       let targetIdx = 0;
-      if (this.itineraryFilter === 'pullman') {
+      if (this.itineraryFilter === 'direct') {
+        const dIdx = options.findIndex(o => o.isDirect || (o.itinerary && o.itinerary.transfers === 0 && !o.isCar));
+        targetIdx = dIdx !== -1 ? dIdx : 0;
+      } else if (this.itineraryFilter === 'pullman') {
         const pIdx = options.findIndex(o => o.isPurePullman);
         if (pIdx !== -1) targetIdx = pIdx;
         else {
           const hIdx = options.findIndex(o => o.isPullmanHybrid || o.hasPullman);
           targetIdx = hIdx !== -1 ? hIdx : 0;
         }
+      } else if (this.itineraryFilter === 'train') {
+        const tIdx = options.findIndex(o => o.isPureTrain);
+        if (tIdx !== -1) targetIdx = tIdx;
+        else {
+          const hIdx = options.findIndex(o => o.hasTrain);
+          targetIdx = hIdx !== -1 ? hIdx : 0;
+        }
+      } else if (this.itineraryFilter === 'tram') {
+        const trIdx = options.findIndex(o => o.isPureTram);
+        if (trIdx !== -1) targetIdx = trIdx;
+        else {
+          const hIdx = options.findIndex(o => o.hasTram);
+          targetIdx = hIdx !== -1 ? hIdx : 0;
+        }
+      } else if (this.itineraryFilter === 'flight') {
+        const fIdx = options.findIndex(o => o.isPureFlight);
+        if (fIdx !== -1) targetIdx = fIdx;
+        else {
+          const hIdx = options.findIndex(o => o.hasFlight);
+          targetIdx = hIdx !== -1 ? hIdx : 0;
+        }
       } else if (this.itineraryFilter === 'fastest') {
         const fIdx = options.findIndex(o => o.isFastest);
         targetIdx = fIdx !== -1 ? fIdx : 0;
+      } else if (this.itineraryFilter === 'car') {
+        const cIdx = options.findIndex(o => o.isCar);
+        targetIdx = cIdx !== -1 ? cIdx : 0;
       }
 
       this.activeOptionIndex = targetIdx;
@@ -1037,7 +1061,7 @@ class GeoLocatorEngine {
     };
 
     if (typeof window.withAppLoader === 'function') {
-      await window.withAppLoader(`Calcolo Itinerario per ${dest.name || 'Destinazione'}...`, "Ricerca corse solo pullman, coincidenze e percorsi più veloci...", doRouting, 240);
+      await window.withAppLoader(`Calcolo Itinerario per ${dest.name || 'Destinazione'}...`, "Ricerca corse solo pullman, treni diretti, tram, voli e percorsi più veloci...", doRouting, 240);
     } else {
       await doRouting();
     }
@@ -1103,7 +1127,7 @@ class GeoLocatorEngine {
      ========================================================================== */
 
   /* ==========================================================================
-     COSTRUZIONE ITINERARI & OPZIONI MULTIPLE (Solo Pullman, Più Veloce, etc.)
+     COSTRUZIONE ITINERARI & OPZIONI MULTIPLE (Solo Pullman, Solo Treni, Solo Tram, Solo Aerei, Solo Diretti, etc.)
      ========================================================================== */
 
   formatDuration(sec) {
@@ -1121,6 +1145,194 @@ class GeoLocatorEngine {
     return options[this.activeOptionIndex]?.itinerary || options[0]?.itinerary;
   }
 
+  /* Trova o sintetizza un itinerario diretto (0 cambi) per la modalità specificata (pullman, train, tram, flight) */
+  _findDirectTransitRoute(modeKey, dest, refLatLng) {
+    const TD = window.TRANSIT_DATA;
+    if (!TD || !TD.modes || !TD.modes[modeKey]) return null;
+    const modeData = TD.modes[modeKey];
+    const stops = modeData.stops || [];
+    const lines = modeData.lines || [];
+    if (stops.length === 0) return null;
+
+    const destStopId = dest.id || dest.stop?.id;
+    const destName = (dest.name || '').toLowerCase();
+    const destArea = (dest.area || '').toLowerCase();
+
+    // Trova la fermata di arrivo per questa modalità
+    let targetDestStop = stops.find(s => s.id === destStopId);
+    if (!targetDestStop && dest.lat != null && dest.lng != null) {
+      const maxDestDist = modeKey === 'flight' ? 120000 : 45000;
+      let minD = Infinity;
+      stops.forEach(s => {
+        const sLat = s.lat_actual || s.lat;
+        const sLng = s.lng_actual || s.lng;
+        const d = this.haversine([dest.lat, dest.lng], [sLat, sLng]);
+        if (d < maxDestDist && d < minD) {
+          minD = d;
+          targetDestStop = s;
+        }
+      });
+    }
+    if (!targetDestStop && destName) {
+      targetDestStop = stops.find(s => {
+        const sn = (s.name || '').toLowerCase();
+        const sa = (s.area || '').toLowerCase();
+        return sn.includes(destName) || destName.includes(sn) || (sa && (destArea.includes(sa) || sa.includes(destArea)));
+      });
+    }
+    if (!targetDestStop) return null;
+
+    // Trova la fermata di partenza per questa modalità più vicina a refLatLng
+    let bestOriginStop = null;
+    let minOrigDist = Infinity;
+    const maxOrigDist = modeKey === 'flight' ? 180000 : (modeKey === 'train' ? 65000 : 35000);
+    stops.forEach(s => {
+      const sLat = s.lat_actual || s.lat;
+      const sLng = s.lng_actual || s.lng;
+      const d = this.haversine(refLatLng, [sLat, sLng]);
+      if (d < minOrigDist) {
+        minOrigDist = d;
+        bestOriginStop = s;
+      }
+    });
+    if (!bestOriginStop || bestOriginStop.id === targetDestStop.id) return null;
+    if (minOrigDist > maxOrigDist) return null;
+
+    const oLL = [bestOriginStop.lat_actual || bestOriginStop.lat, bestOriginStop.lng_actual || bestOriginStop.lng];
+    const dLL = [targetDestStop.lat_actual || targetDestStop.lat, targetDestStop.lng_actual || targetDestStop.lng];
+    const walkMeters = this.haversine(refLatLng, oLL);
+    const rideMeters = this.haversine(oLL, dLL);
+
+    // Cerca una linea esistente che contenga entrambe le fermate
+    let matchingLine = null;
+    let legCoords = null;
+    let stopsCount = 1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      const arr = l.stopsIds || l.stops || [];
+      const oi = arr.indexOf(bestOriginStop.id);
+      const di = arr.indexOf(targetDestStop.id);
+      if (oi !== -1 && di !== -1 && oi < di) {
+        matchingLine = l;
+        stopsCount = di - oi;
+        const seq = arr.slice(oi, di + 1);
+        legCoords = [];
+        seq.forEach(sid => {
+          const st = stops.find(x => x.id === sid);
+          if (st) legCoords.push([st.lat_actual || st.lat, st.lng_actual || st.lng]);
+        });
+        break;
+      }
+    }
+
+    // Se non trovata una sequenza esatta ma le stazioni esistono, sintetizza la linea diretta express
+    if (!matchingLine || !legCoords || legCoords.length < 2) {
+      legCoords = [oLL, dLL];
+      stopsCount = Math.max(1, Math.round(rideMeters / (modeKey === 'train' ? 45000 : (modeKey === 'flight' ? 250000 : 15000))));
+
+      let lineCode, lineName, lineOp, lineModel, lineColor, priceBase;
+      if (modeKey === 'train') {
+        const isAV = rideMeters > 70000;
+        lineCode = isAV ? 'FR Direct' : 'REG Diretto';
+        lineName = isAV ? `Frecciarossa AV Diretto: ${bestOriginStop.name} ➔ ${targetDestStop.name}` : `Regionale Diretto FS: ${bestOriginStop.name} ➔ ${targetDestStop.name}`;
+        lineOp = 'Trenitalia Frecciarossa / FS';
+        lineModel = isAV ? 'ETR 1000 Frecciarossa (300 km/h)' : 'Pop / Blues ETR 104';
+        lineColor = '#dc2626';
+        priceBase = Math.max(4.5, Number((rideMeters / 1000 * (isAV ? 0.14 : 0.08)).toFixed(2)));
+      } else if (modeKey === 'flight') {
+        lineCode = 'AZ Direct';
+        lineName = `Volo Diretto: ${bestOriginStop.name} ➔ ${targetDestStop.name}`;
+        lineOp = 'ITA Airways / Volotea / Ryanair';
+        lineModel = 'Airbus A320neo / Boeing 737 MAX';
+        lineColor = '#0284c7';
+        priceBase = Math.max(39.0, Number((40 + rideMeters / 1000 * 0.06).toFixed(2)));
+      } else if (modeKey === 'tram') {
+        lineCode = 'Tram Diretto';
+        lineName = `Tram di Linea: ${bestOriginStop.name} ➔ ${targetDestStop.name}`;
+        lineOp = 'Rete Tranviaria Urbana';
+        lineModel = 'Hitachi Rail Sirio Low-Floor';
+        lineColor = '#059669';
+        priceBase = 1.8;
+      } else {
+        lineCode = 'Pullman Diretto';
+        lineName = `Autolinea Diretta: ${bestOriginStop.name} ➔ ${targetDestStop.name}`;
+        lineOp = bestOriginStop.operatorName || 'Autolinee Nazionali & Regionali TPL';
+        lineModel = 'Iveco Crossway / Setra S 517 HDH';
+        lineColor = '#0284c7';
+        priceBase = Math.max(2.5, Number((rideMeters / 1000 * 0.07 + 1.5).toFixed(2)));
+      }
+
+      matchingLine = {
+        id: `DIRECT_${modeKey.toUpperCase()}_${bestOriginStop.id}_${targetDestStop.id}`,
+        code: lineCode,
+        name: lineName,
+        operator: lineOp,
+        busModel: lineModel,
+        color: lineColor,
+        mode: modeKey,
+        priceBase: priceBase
+      };
+    }
+
+    const avgSpeedMs = modeKey === 'flight' ? 160 : (modeKey === 'train' ? 35 : (modeKey === 'tram' ? 6.5 : 12.5));
+    const rideSec = Math.round(rideMeters / avgSpeedMs);
+    const walkSec = Math.round(walkMeters / 1.35);
+    const totalSeconds = walkSec + rideSec;
+
+    const platform = matchingLine.platform || matchingLine.binario || (modeKey === 'train' ? 'Binario 1 / 2 (verifica monitor FS)' : (modeKey === 'flight' ? 'Terminal Partenze / Gate' : (modeKey === 'tram' ? 'Banchina Tram' : 'Banchina Bus')));
+
+    const legs = [
+      {
+        type: 'walk',
+        isOrigin: true,
+        fromLatLng: refLatLng,
+        toStop: bestOriginStop,
+        toName: bestOriginStop.name,
+        coords: [refLatLng, oLL],
+        meters: Math.round(walkMeters),
+        seconds: walkSec,
+        elevGain: null
+      },
+      {
+        type: 'ride',
+        mode: modeKey,
+        line: Object.assign({}, matchingLine, { mode: modeKey }),
+        boardStop: bestOriginStop,
+        alightStop: targetDestStop,
+        boardName: bestOriginStop.name,
+        alightName: targetDestStop.name,
+        coords: legCoords,
+        stopsCount: stopsCount,
+        meters: Math.round(rideMeters),
+        seconds: rideSec,
+        platform: platform
+      }
+    ];
+
+    return {
+      legs: legs,
+      transfers: 0,
+      rideCount: 1,
+      totalWalkMeters: Math.round(walkMeters),
+      totalRideMeters: Math.round(rideMeters),
+      totalSeconds: totalSeconds,
+      rideStops: stopsCount,
+      destinationStop: targetDestStop,
+      servingLines: [matchingLine],
+      isDirect: true,
+      isPurePullman: modeKey === 'pullman',
+      isPureTrain: modeKey === 'train',
+      isPureTram: modeKey === 'tram',
+      isPureFlight: modeKey === 'flight',
+      hasPullman: modeKey === 'pullman',
+      hasTrain: modeKey === 'train',
+      hasTram: modeKey === 'tram',
+      hasFlight: modeKey === 'flight',
+      source: 'direct_' + modeKey
+    };
+  }
+
   async buildItineraryOptions(dest, refLatLng, preferredFilter = 'all') {
     const destStop = dest.stop || { id: dest.id, name: dest.name, lat: dest.lat, lng: dest.lng };
     const rawOptions = [];
@@ -1136,25 +1348,40 @@ class GeoLocatorEngine {
       }
     }
 
-    // 1) Fallback Locale Diretto (Pullman di linea locale / Calabria)
+    // 1) Ricerca Corse Dirette per ciascuna modalità (Pullman diretto, Treno diretto, Tram diretto, Volo diretto)
+    const directPullman = this._findDirectTransitRoute('pullman', dest, refLatLng);
+    if (directPullman) rawOptions.push(directPullman);
+
+    const directTrain = this._findDirectTransitRoute('train', dest, refLatLng);
+    if (directTrain) rawOptions.push(directTrain);
+
+    const directTram = this._findDirectTransitRoute('tram', dest, refLatLng);
+    if (directTram) rawOptions.push(directTram);
+
+    const directFlight = this._findDirectTransitRoute('flight', dest, refLatLng);
+    if (directFlight) rawOptions.push(directFlight);
+
+    // 2) Fallback Locale Diretto (Pullman di linea locale / Calabria)
     const localFb = this._localDirectFallback(dest, refLatLng);
     if (localFb) {
       rawOptions.push(localFb);
     }
 
-    // 2) Pianificatore Multi-hop Locale (JourneyPlanner RAPTOR con preferenza Pullman)
+    // 3) Pianificatore Multi-hop Locale (JourneyPlanner RAPTOR su pullman, treni, tram)
     if (window.journeyPlanner && destStop.id) {
-      try {
-        const jpPullman = await window.journeyPlanner.plan(refLatLng, destStop, { modeKey: 'pullman' });
-        if (jpPullman && jpPullman.legs && jpPullman.rideCount >= 1) {
-          rawOptions.push(jpPullman);
+      for (const mKey of ['pullman', 'train', 'tram']) {
+        try {
+          const jp = await window.journeyPlanner.plan(refLatLng, destStop, { modeKey: mKey });
+          if (jp && jp.legs && jp.rideCount >= 1) {
+            rawOptions.push(jp);
+          }
+        } catch (e) {
+          console.warn(`journeyPlanner ${mKey} error:`, e);
         }
-      } catch (e) {
-        console.warn("journeyPlanner pullman error:", e);
       }
     }
 
-    // 3) Rete Pubblica Nazionale (Transitous / MOTIS - bus reali, treni, interscambi)
+    // 4) Rete Pubblica Nazionale (Transitous / MOTIS - bus reali, treni, interscambi)
     if (window.transitousRouting && window.transitousRouting.available()) {
       try {
         const ttOptions = await window.transitousRouting.planOptions(refLatLng, destStop, {});
@@ -1166,7 +1393,7 @@ class GeoLocatorEngine {
       }
     }
 
-    // 4) Google Directions (se attivo)
+    // 5) Google Directions (se attivo)
     if (window.gmapsDirections && window.gmapsDirections.available()) {
       try {
         const gIt = await window.gmapsDirections.plan(refLatLng, destStop, {});
@@ -1201,42 +1428,76 @@ class GeoLocatorEngine {
       if (sec < minSec) minSec = sec;
     }
 
-    // Identifica opzioni Solo Pullman (100% bus)
+    // Identifica categorie di opzioni
     const purePullmanList = candidateList.filter(it => {
       const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
       return rideLegs.length > 0 && rideLegs.every(l => this.getTransitMode(l) === 'pullman');
     });
 
-    // Identifica opzioni Intermodali con Pullman (es. Treno -> Pullman)
+    const pureTrainList = candidateList.filter(it => {
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      return rideLegs.length > 0 && rideLegs.every(l => this.getTransitMode(l) === 'train');
+    });
+
+    const pureTramList = candidateList.filter(it => {
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      return rideLegs.length > 0 && rideLegs.every(l => this.getTransitMode(l) === 'tram');
+    });
+
+    const pureFlightList = candidateList.filter(it => {
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      return rideLegs.length > 0 && rideLegs.every(l => this.getTransitMode(l) === 'flight');
+    });
+
     const hybridPullmanList = candidateList.filter(it => {
       const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
       const modes = rideLegs.map(l => this.getTransitMode(l));
       return modes.includes('pullman') && modes.some(m => m !== 'pullman');
     });
 
+    const hybridTrainList = candidateList.filter(it => {
+      const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
+      const modes = rideLegs.map(l => this.getTransitMode(l));
+      return modes.includes('train') && modes.some(m => m !== 'train');
+    });
+
+    const directList = candidateList.filter(it => {
+      return (it.transfers === 0 || it.isDirect) && (it.legs || []).filter(l => l.type === 'ride').length === 1;
+    });
+
     const structuredOptions = [];
+    const addedItineraries = new Set();
 
     // 1. GESTIONE OPZIONE PULLMAN (PURA o con COINCIDENZA)
     if (purePullmanList.length > 0) {
       purePullmanList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
       const bestPullman = purePullmanList[0];
       const isAlsoFastest = bestPullman.totalSeconds <= minSec + 60;
+      const isDir = bestPullman.transfers === 0 || bestPullman.isDirect;
       structuredOptions.push({
         id: 'opt_pullman_pure',
-        title: 'Solo Pullman',
-        badge: '100% Pullman',
-        badgeClass: 'badge-pullman',
+        title: isDir ? 'Pullman Diretto (0 cambi)' : 'Solo Pullman',
+        badge: isDir ? '100% Pullman Diretto' : '100% Pullman',
+        badgeClass: isDir ? 'badge-direct' : 'badge-pullman',
         icon: 'fa-bus',
         color: '#0284c7',
         isPurePullman: true,
+        isPureTrain: false,
+        isPureTram: false,
+        isPureFlight: false,
         hasPullman: true,
+        hasTrain: false,
+        hasTram: false,
+        hasFlight: false,
+        isDirect: isDir,
         isPullmanHybrid: false,
         isFastest: isAlsoFastest,
         durationText: this.formatDuration(bestPullman.totalSeconds),
-        transfersText: bestPullman.transfers === 0 ? 'Diretto (0 cambi)' : `${bestPullman.transfers} cambio${bestPullman.transfers > 1 ? 'i' : ''} bus`,
+        transfersText: isDir ? 'Diretto (0 cambi)' : `${bestPullman.transfers} cambio${bestPullman.transfers > 1 ? 'i' : ''} bus`,
         itinerary: bestPullman,
-        desc: isAlsoFastest ? 'Percorso diretto/solo bus, ottimale anche nei tempi.' : 'Tutto in pullman senza prendere treni.'
+        desc: isAlsoFastest ? 'Percorso diretto/solo bus, ottimale anche nei tempi.' : 'Tutto in pullman senza prendere altri mezzi.'
       });
+      addedItineraries.add(bestPullman);
     } else if (hybridPullmanList.length > 0) {
       hybridPullmanList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
       const bestHybrid = hybridPullmanList[0];
@@ -1248,23 +1509,155 @@ class GeoLocatorEngine {
         icon: 'fa-right-left',
         color: '#d97706',
         isPurePullman: false,
+        isPureTrain: false,
+        isPureTram: false,
+        isPureFlight: false,
         hasPullman: true,
+        hasTrain: true,
+        hasTram: false,
+        hasFlight: false,
+        isDirect: false,
         isPullmanHybrid: true,
         isFastest: bestHybrid.totalSeconds <= minSec + 60,
         durationText: this.formatDuration(bestHybrid.totalSeconds),
         transfersText: `${bestHybrid.transfers} cambi`,
         itinerary: bestHybrid,
-        notice: 'Nessuna corsa 100% Pullman diretta per questa tratta: calcolato cambio con Treno per proseguire con il Pullman.',
+        notice: 'Nessuna corsa 100% Pullman diretta per questa tratta: calcolato cambio per proseguire con il Pullman.',
         desc: 'Cambio con treno per raggiungere la linea pullman di destinazione.'
       });
+      addedItineraries.add(bestHybrid);
     }
 
-    // 2. GESTIONE OPZIONE PIÙ VELOCE (TEMPO MINIMO)
+    // 2. GESTIONE OPZIONE SOLO TRENI (PURA o con COINCIDENZA FS/AV)
+    if (pureTrainList.length > 0) {
+      pureTrainList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
+      const bestTrain = pureTrainList[0];
+      const isAlsoFastest = bestTrain.totalSeconds <= minSec + 60;
+      const isDir = bestTrain.transfers === 0 || bestTrain.isDirect;
+      if (!addedItineraries.has(bestTrain)) {
+        structuredOptions.push({
+          id: 'opt_train_pure',
+          title: isDir ? 'Treno Diretto FS (0 cambi)' : 'Solo Treni FS',
+          badge: isDir ? 'Frecciarossa / FS Diretto' : '100% Ferroviario',
+          badgeClass: isDir ? 'badge-direct' : 'badge-train',
+          icon: 'fa-train',
+          color: '#dc2626',
+          isPurePullman: false,
+          isPureTrain: true,
+          isPureTram: false,
+          isPureFlight: false,
+          hasPullman: false,
+          hasTrain: true,
+          hasTram: false,
+          hasFlight: false,
+          isDirect: isDir,
+          isTrainHybrid: false,
+          isFastest: isAlsoFastest,
+          durationText: this.formatDuration(bestTrain.totalSeconds),
+          transfersText: isDir ? 'Diretto (0 cambi)' : `${bestTrain.transfers} coincidenz${bestTrain.transfers > 1 ? 'e' : 'a'} FS`,
+          itinerary: bestTrain,
+          desc: isDir ? 'Corsa ferroviaria diretta FS / Frecciarossa senza trasbordi.' : 'Tutto in treno (Frecciarossa, Italo, Regionali FS).'
+        });
+        addedItineraries.add(bestTrain);
+      }
+    } else if (hybridTrainList.length > 0) {
+      hybridTrainList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
+      const bestTrainHyb = hybridTrainList[0];
+      if (!addedItineraries.has(bestTrainHyb)) {
+        structuredOptions.push({
+          id: 'opt_train_hybrid',
+          title: 'Treno + Coincidenza',
+          badge: 'Treno + Bus',
+          badgeClass: 'badge-train',
+          icon: 'fa-train',
+          color: '#dc2626',
+          isPurePullman: false,
+          isPureTrain: false,
+          isPureTram: false,
+          isPureFlight: false,
+          hasPullman: true,
+          hasTrain: true,
+          hasTram: false,
+          hasFlight: false,
+          isDirect: false,
+          isFastest: bestTrainHyb.totalSeconds <= minSec + 60,
+          durationText: this.formatDuration(bestTrainHyb.totalSeconds),
+          transfersText: `${bestTrainHyb.transfers} cambi`,
+          itinerary: bestTrainHyb,
+          desc: 'Percorso ferroviario con coincidenza per raggiungere la destinazione.'
+        });
+        addedItineraries.add(bestTrainHyb);
+      }
+    }
+
+    // 3. GESTIONE OPZIONE SOLO TRAM (per reti urbane)
+    if (pureTramList.length > 0) {
+      pureTramList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
+      const bestTram = pureTramList[0];
+      const isDir = bestTram.transfers === 0 || bestTram.isDirect;
+      if (!addedItineraries.has(bestTram)) {
+        structuredOptions.push({
+          id: 'opt_tram_pure',
+          title: isDir ? 'Tram Diretto' : 'Solo Tram & Metro',
+          badge: isDir ? 'Rete Tram Diretta' : '100% Tram Urbano',
+          badgeClass: 'badge-tram',
+          icon: 'fa-train-tram',
+          color: '#059669',
+          isPurePullman: false,
+          isPureTrain: false,
+          isPureTram: true,
+          isPureFlight: false,
+          hasPullman: false,
+          hasTrain: false,
+          hasTram: true,
+          hasFlight: false,
+          isDirect: isDir,
+          isFastest: bestTram.totalSeconds <= minSec + 60,
+          durationText: this.formatDuration(bestTram.totalSeconds),
+          transfersText: isDir ? 'Diretto (0 cambi)' : `${bestTram.transfers} cambi`,
+          itinerary: bestTram,
+          desc: 'Spostamento tramite la rete tranviaria e metropolitana urbana.'
+        });
+        addedItineraries.add(bestTram);
+      }
+    }
+
+    // 4. GESTIONE OPZIONE SOLO AEREI (per collegamenti aerei nazionali/internazionali)
+    if (pureFlightList.length > 0) {
+      pureFlightList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
+      const bestFlight = pureFlightList[0];
+      const isDir = bestFlight.transfers === 0 || bestFlight.isDirect;
+      if (!addedItineraries.has(bestFlight)) {
+        structuredOptions.push({
+          id: 'opt_flight_pure',
+          title: isDir ? 'Volo Diretto' : 'Solo Aereo',
+          badge: isDir ? 'Volo Diretto H24' : '100% Aereo',
+          badgeClass: 'badge-flight',
+          icon: 'fa-plane-departure',
+          color: '#0284c7',
+          isPurePullman: false,
+          isPureTrain: false,
+          isPureTram: false,
+          isPureFlight: true,
+          hasPullman: false,
+          hasTrain: false,
+          hasTram: false,
+          hasFlight: true,
+          isDirect: isDir,
+          isFastest: bestFlight.totalSeconds <= minSec + 60,
+          durationText: this.formatDuration(bestFlight.totalSeconds),
+          transfersText: isDir ? 'Volo Diretto' : `${bestFlight.transfers} scali`,
+          itinerary: bestFlight,
+          desc: 'Collegamento aereo con imbarco al terminal partenze.'
+        });
+        addedItineraries.add(bestFlight);
+      }
+    }
+
+    // 5. GESTIONE OPZIONE PIÙ VELOCE (TEMPO MINIMO)
     candidateList.sort((a, b) => (a.totalSeconds || 1e9) - (b.totalSeconds || 1e9));
     const fastestIt = candidateList[0];
-    const firstAlreadyFastest = structuredOptions.length > 0 && structuredOptions[0].itinerary === fastestIt;
-
-    if (!firstAlreadyFastest && fastestIt) {
+    if (fastestIt && !addedItineraries.has(fastestIt)) {
       const rideLegs = (fastestIt.legs || []).filter(l => l.type === 'ride');
       const modes = Array.from(new Set(rideLegs.map(l => this.getTransitMode(l))));
       const modeLabels = modes.map(m => this.getModeLabel(m)).join(' + ');
@@ -1272,6 +1665,7 @@ class GeoLocatorEngine {
         ? structuredOptions[0].itinerary.totalSeconds - fastestIt.totalSeconds
         : 0;
       const diffTxt = diffSec > 120 ? ` (risparmi ~${Math.round(diffSec / 60)} min)` : '';
+      const isDir = fastestIt.transfers === 0 || fastestIt.isDirect;
 
       structuredOptions.push({
         id: 'opt_fastest',
@@ -1281,22 +1675,29 @@ class GeoLocatorEngine {
         icon: 'fa-bolt',
         color: '#16a34a',
         isPurePullman: modes.length === 1 && modes[0] === 'pullman',
+        isPureTrain: modes.length === 1 && modes[0] === 'train',
+        isPureTram: modes.length === 1 && modes[0] === 'tram',
+        isPureFlight: modes.length === 1 && modes[0] === 'flight',
         hasPullman: modes.includes('pullman'),
-        isPullmanHybrid: modes.includes('pullman') && modes.length > 1,
+        hasTrain: modes.includes('train'),
+        hasTram: modes.includes('tram'),
+        hasFlight: modes.includes('flight'),
+        isDirect: isDir,
         isFastest: true,
         durationText: this.formatDuration(fastestIt.totalSeconds),
-        transfersText: fastestIt.transfers === 0 ? 'Diretto' : `${fastestIt.transfers} cambi (${modeLabels})`,
+        transfersText: isDir ? 'Diretto' : `${fastestIt.transfers} cambi (${modeLabels})`,
         itinerary: fastestIt,
         desc: `Arrivo più rapido a destinazione combinando ${modeLabels}.`
       });
+      addedItineraries.add(fastestIt);
     }
 
-    // 3. OPZIONE AUTO / MACCHINA (con calcolo consumi, costi e HUD 3D rotonde)
+    // 6. OPZIONE AUTO / MACCHINA (con calcolo consumi, costi e HUD 3D rotonde)
     if (drivingRoute && drivingRoute.distance > 0) {
       const distKm = drivingRoute.distance / 1000;
-      const liters = (distKm / 100) * 6.2; // 6.2 L / 100km consumo medio auto
-      const costEur = liters * 1.82; // €1.82 / L
-      const co2Kg = (distKm * 120) / 1000; // 120 g CO2 / km
+      const liters = (distKm / 100) * 6.2;
+      const costEur = liters * 1.82;
+      const co2Kg = (distKm * 120) / 1000;
       const isCarFasterThanTransit = drivingRoute.duration < minSec;
 
       const carItinerary = {
@@ -1339,8 +1740,14 @@ class GeoLocatorEngine {
         color: '#2563eb',
         isCar: true,
         isPurePullman: false,
+        isPureTrain: false,
+        isPureTram: false,
+        isPureFlight: false,
         hasPullman: false,
-        isPullmanHybrid: false,
+        hasTrain: false,
+        hasTram: false,
+        hasFlight: false,
+        isDirect: true,
         isFastest: isCarFasterThanTransit,
         durationText: this.formatDuration(drivingRoute.duration),
         transfersText: `${distKm.toFixed(1)} km &bull; ~${liters.toFixed(1)} L (€${costEur.toFixed(2)})`,
@@ -1349,33 +1756,43 @@ class GeoLocatorEngine {
       });
     }
 
-    // 4. EVENTUALI ALTRE ALTERNATIVE (es. Treno FS o altri percorsi fino a 4 opzioni)
+    // 7. EVENTUALI ALTRE ALTERNATIVE (fino a 8 opzioni complessive)
     for (const it of candidateList) {
-      if (structuredOptions.length >= 5) break;
-      const already = structuredOptions.some(o => o.itinerary === it);
-      if (already) continue;
+      if (structuredOptions.length >= 8) break;
+      if (addedItineraries.has(it)) continue;
 
       const rideLegs = (it.legs || []).filter(l => l.type === 'ride');
       const modes = Array.from(new Set(rideLegs.map(l => this.getTransitMode(l))));
       const isTrainOnly = modes.length === 1 && modes[0] === 'train';
+      const isPullmanOnly = modes.length === 1 && modes[0] === 'pullman';
+      const isTramOnly = modes.length === 1 && modes[0] === 'tram';
+      const isFlightOnly = modes.length === 1 && modes[0] === 'flight';
+      const isDir = it.transfers === 0 || it.isDirect;
       const modeLabels = modes.map(m => this.getModeLabel(m)).join(' + ');
 
       structuredOptions.push({
         id: 'opt_alt_' + structuredOptions.length,
-        title: isTrainOnly ? 'Solo Treno FS' : `Opzione ${modeLabels}`,
-        badge: isTrainOnly ? 'Ferroviario' : 'Alternativa',
-        badgeClass: 'badge-alt',
-        icon: isTrainOnly ? 'fa-train' : 'fa-route',
-        color: isTrainOnly ? '#dc2626' : '#64748b',
-        isPurePullman: modes.length === 1 && modes[0] === 'pullman',
+        title: isTrainOnly ? 'Solo Treno FS' : (isPullmanOnly ? 'Solo Pullman' : `Opzione ${modeLabels}`),
+        badge: isDir ? 'Diretto' : (isTrainOnly ? 'Ferroviario' : 'Alternativa'),
+        badgeClass: isDir ? 'badge-direct' : (isTrainOnly ? 'badge-train' : 'badge-alt'),
+        icon: isTrainOnly ? 'fa-train' : (isPullmanOnly ? 'fa-bus' : 'fa-route'),
+        color: isTrainOnly ? '#dc2626' : (isPullmanOnly ? '#0284c7' : '#64748b'),
+        isPurePullman: isPullmanOnly,
+        isPureTrain: isTrainOnly,
+        isPureTram: isTramOnly,
+        isPureFlight: isFlightOnly,
         hasPullman: modes.includes('pullman'),
-        isPullmanHybrid: modes.includes('pullman') && modes.length > 1,
+        hasTrain: modes.includes('train'),
+        hasTram: modes.includes('tram'),
+        hasFlight: modes.includes('flight'),
+        isDirect: isDir,
         isFastest: false,
         durationText: this.formatDuration(it.totalSeconds),
-        transfersText: it.transfers === 0 ? 'Diretto' : `${it.transfers} cambi`,
+        transfersText: isDir ? 'Diretto (0 cambi)' : `${it.transfers} cambi`,
         itinerary: it,
         desc: `Percorso alternativo (${modeLabels}).`
       });
+      addedItineraries.add(it);
     }
 
     return structuredOptions;
@@ -1386,11 +1803,35 @@ class GeoLocatorEngine {
     if (!this.currentItineraryOptions || this.currentItineraryOptions.length === 0) return;
 
     let targetIdx = 0;
-    if (filter === 'pullman') {
+    if (filter === 'direct') {
+      const dIdx = this.currentItineraryOptions.findIndex(o => o.isDirect || (o.itinerary && o.itinerary.transfers === 0 && !o.isCar));
+      targetIdx = dIdx !== -1 ? dIdx : 0;
+    } else if (filter === 'pullman') {
       const pIdx = this.currentItineraryOptions.findIndex(o => o.isPurePullman);
       if (pIdx !== -1) targetIdx = pIdx;
       else {
         const hIdx = this.currentItineraryOptions.findIndex(o => o.isPullmanHybrid || o.hasPullman);
+        targetIdx = hIdx !== -1 ? hIdx : 0;
+      }
+    } else if (filter === 'train') {
+      const tIdx = this.currentItineraryOptions.findIndex(o => o.isPureTrain);
+      if (tIdx !== -1) targetIdx = tIdx;
+      else {
+        const hIdx = this.currentItineraryOptions.findIndex(o => o.hasTrain);
+        targetIdx = hIdx !== -1 ? hIdx : 0;
+      }
+    } else if (filter === 'tram') {
+      const trIdx = this.currentItineraryOptions.findIndex(o => o.isPureTram);
+      if (trIdx !== -1) targetIdx = trIdx;
+      else {
+        const hIdx = this.currentItineraryOptions.findIndex(o => o.hasTram);
+        targetIdx = hIdx !== -1 ? hIdx : 0;
+      }
+    } else if (filter === 'flight') {
+      const fIdx = this.currentItineraryOptions.findIndex(o => o.isPureFlight);
+      if (fIdx !== -1) targetIdx = fIdx;
+      else {
+        const hIdx = this.currentItineraryOptions.findIndex(o => o.hasFlight);
         targetIdx = hIdx !== -1 ? hIdx : 0;
       }
     } else if (filter === 'fastest') {
@@ -1437,7 +1878,7 @@ class GeoLocatorEngine {
     const destLL = [destObj.lat_actual || destObj.lat, destObj.lng_actual || destObj.lng];
     const busCoords = this.computeBusLegCoords(routeInfo);
     const walkMeters = this.haversine(refLatLng, depLL);
-    if (!busCoords || busCoords.length < 2 || walkMeters > 25000) return null;
+    if (!busCoords || busCoords.length < 2 || walkMeters > 45000) return null;
 
     const rideMeters = this.haversine(depLL, destLL);
     const line = (routeInfo.servingLines && routeInfo.servingLines[0]) || null;
@@ -2464,7 +2905,7 @@ class GeoLocatorEngine {
         const loc = man.location ? `${man.location[0]}, ${man.location[1]}` : 'null, null';
 
         if (isRoundabout) {
-          const rotondaSvg = this.generateRoundabout3DSvg(man.exit || 2, man.modifier, step.name);
+          const rotondaSvg = this.generateRoundabout3DSvg(man.exit || 2, man.modifier, step.name, man.exitTotal, man.bearingBefore, man.bearingAfter);
           steps.push(`
             <div class="geo-step-body geo-step-car-roundabout" onclick="window.geoLocator.focusStepLocation(${loc})" role="button" tabindex="0" title="Clicca per centrare la rotonda sulla mappa">
               ${rotondaSvg}
@@ -2691,17 +3132,29 @@ class GeoLocatorEngine {
     if (this.currentItineraryOptions && this.currentItineraryOptions.length > 0) {
       const filterPills = `
         <div class="geo-itinerary-filter-pills">
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'all' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('all')">
+            <i class="fa-solid fa-layer-group"></i> Tutte (${this.currentItineraryOptions.length})
+          </button>
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'direct' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('direct')">
+            <i class="fa-solid fa-bolt-lightning"></i> Solo Diretti (0 cambi)
+          </button>
           <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'pullman' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('pullman')">
             <i class="fa-solid fa-bus"></i> Solo Pullman
+          </button>
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'train' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('train')">
+            <i class="fa-solid fa-train"></i> Solo Treni
+          </button>
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'tram' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('tram')">
+            <i class="fa-solid fa-train-tram"></i> Solo Tram
+          </button>
+          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'flight' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('flight')">
+            <i class="fa-solid fa-plane-departure"></i> Solo Aerei
           </button>
           <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'fastest' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('fastest')">
             <i class="fa-solid fa-bolt"></i> Più Veloce
           </button>
           <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'car' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('car')">
             <i class="fa-solid fa-car-side"></i> In Auto (3D)
-          </button>
-          <button type="button" class="geo-filter-pill ${this.itineraryFilter === 'all' ? 'active' : ''}" onclick="window.geoLocator.setItineraryFilter('all')">
-            <i class="fa-solid fa-layer-group"></i> Tutte (${this.currentItineraryOptions.length})
           </button>
         </div>
       `;
@@ -2813,6 +3266,8 @@ class GeoLocatorEngine {
 
           <div data-isec="servizi">
             ${carDashboardBox}
+            ${it.isCar ? this.generateSpeedConsumptionPanel(it) : ''}
+            ${!it.isCar ? this.generateCrowdingPanel(it) : ''}
             <div id="geoRadarBordoWrap">
               ${window.radarEngine ? window.radarEngine.generateRadarItinerarySectionHtml() : ''}
             </div>
@@ -3713,6 +4168,12 @@ class GeoLocatorEngine {
             type: man.type || 'turn',
             modifier: man.modifier || 'straight',
             exit: man.exit || (isRoundabout ? 2 : 1),
+            // Stima del numero totale di uscite: OSRM elenca un'intersezione per ogni
+            // braccio attraversato dall'ingresso fino alla nostra uscita (inclusa).
+            exitTotal: isRoundabout ? Math.max(man.exit || 1, (s.intersections || []).length) : null,
+            // Bearing reali (per il posizionamento accurato dell'uscita in modalità Premium)
+            bearingBefore: (typeof man.bearing_before === 'number') ? man.bearing_before : null,
+            bearingAfter: (typeof man.bearing_after === 'number') ? man.bearing_after : null,
             location: man.location ? [man.location[1], man.location[0]] : null
           },
           coords: s.geometry && s.geometry.coordinates ? s.geometry.coordinates.map(c => [c[1], c[0]]) : null
@@ -3733,29 +4194,89 @@ class GeoLocatorEngine {
     }
   }
 
-  generateRoundabout3DSvg(exitNumber, modifier, stepName) {
-    const exit = parseInt(exitNumber, 10) || 2;
-    
-    let pathD = "";
-    let exitAngleText = "2ª Uscita (Prosegui Dritto)";
-    let laneAdvice = "Occupa la corsia centrale / destra";
+  generateRoundabout3DSvg(exitNumber, modifier, stepName, totalExits, bearingBefore, bearingAfter) {
+    // Numero di uscite disegnate: DINAMICO. Almeno quella da imboccare, almeno il
+    // totale rilevato da OSRM (intersezioni attraversate), minimo 3 per leggibilità.
+    const exit = Math.max(1, parseInt(exitNumber, 10) || 2);
+    let nExits = Math.max(exit, parseInt(totalExits, 10) || 0, 3);
+    nExits = Math.min(nExits, 12);        // tetto di sicurezza per il rendering
+    nExits = Math.max(nExits, exit);      // non meno bracci dell'uscita da prendere
 
-    if (exit === 1) {
-      pathD = "M 160 195 Q 160 145 195 130 Q 235 125 255 105 L 290 105";
-      exitAngleText = "1ª Uscita (A Destra)";
-      laneAdvice = "Resta sulla corsia esterna destra prima di entrare";
-    } else if (exit === 2) {
-      pathD = "M 160 195 Q 160 145 210 130 Q 240 100 200 65 Q 175 50 160 40 L 160 15";
-      exitAngleText = "2ª Uscita (Prosegui Dritto)";
-      laneAdvice = "Occupa la corsia centrale / destra e mantieni la traiettoria";
-    } else if (exit === 3) {
-      pathD = "M 160 195 Q 160 145 210 130 Q 240 95 190 60 Q 140 45 100 70 Q 75 90 65 105 L 30 105";
-      exitAngleText = "3ª Uscita (A Sinistra)";
-      laneAdvice = "Entra dalla corsia interna/sinistra, poi disimpegnati a destra prima dell'uscita 3";
+    // Geometria della rotonda (viewBox 320x224). Ingresso in basso (270°),
+    // uscite distribuite uniformemente in senso antiorario (marcia a destra).
+    const cx = 160, cy = 108;
+    const ringRx = 82, ringRy = 45;
+    const laneRx = 60, laneRy = 33;
+    const islandRx = 40, islandRy = 22;
+    const armEndRx = 150, armEndRy = 92;
+    const badgeRx = 108, badgeRy = 62;
+    const uid = 'r' + Math.random().toString(36).slice(2, 8);
+
+    const rad = d => d * Math.PI / 180;
+    const P = (rx, ry, deg) => [cx + rx * Math.cos(rad(deg)), cy - ry * Math.sin(rad(deg))];
+    const fmt = p => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+
+    const entryAng = 270;                        // ingresso in basso
+    const stepAng = 360 / (nExits + 1);          // passo base (distribuzione uniforme)
+
+    // PREMIUM: posiziona l'uscita imboccata all'angolo REALE di svolta (dai bearing
+    // OSRM), non equidistante. Riservato agli abbonati; i free vedono lo schema uniforme.
+    const premium = (typeof this._isPremium === 'function') && this._isPremium();
+    const accurate = premium && Number.isFinite(bearingBefore) && Number.isFinite(bearingAfter);
+    let angOf;
+    if (accurate) {
+      const turn = ((bearingAfter - bearingBefore + 540) % 360) - 180;  // (-180,180]: + a destra, - a sinistra
+      const takenScreen = ((90 - turn) % 360 + 360) % 360;              // 90°=dritto (alto), 0°=destra, 180°=sinistra
+      let Ttaken = (takenScreen - entryAng + 360) % 360;               // offset antiorario dall'ingresso
+      Ttaken = Math.min(Math.max(Ttaken, 40), 320);                    // evita la sovrapposizione con l'ingresso
+      // uscite prima della nostra: distribuite fino all'angolo reale; le successive: nell'arco restante
+      angOf = (k) => entryAng + (k <= exit
+        ? Ttaken * (k / exit)
+        : Ttaken + (360 - Ttaken) * ((k - exit) / (nExits + 1 - exit)));
     } else {
-      pathD = "M 160 195 Q 160 145 210 130 Q 240 95 190 60 Q 130 45 90 75 Q 70 105 95 135 Q 120 150 135 165 L 140 195";
-      exitAngleText = `${exit}ª Uscita (Inversione)`;
-      laneAdvice = "Gira intorno all'anello interno e segnala con freccia a destra prima di uscire";
+      angOf = (k) => entryAng + k * stepAng;                           // uscite equidistanti (senso antiorario)
+    }
+    const proChip = accurate
+      ? ' <span style="background:#f59e0b;color:#0f172a;font-size:0.58rem;font-weight:900;padding:1px 5px;border-radius:4px;letter-spacing:0.4px;vertical-align:middle;">PRO</span>'
+      : '';
+
+    // Direzione (etichetta) dal modifier OSRM
+    const mod = (modifier || '').toLowerCase();
+    let dirText = 'Prosegui Dritto';
+    let laneAdvice = 'Occupa la corsia centrale / destra e mantieni la traiettoria';
+    if (mod.includes('uturn')) { dirText = 'Inversione'; laneAdvice = "Gira intorno all'anello e segnala prima di uscire"; }
+    else if (mod.includes('left')) { dirText = 'A Sinistra'; laneAdvice = 'Entra dalla corsia interna/sinistra, poi disimpegnati verso la tua uscita'; }
+    else if (mod.includes('right')) { dirText = 'A Destra'; laneAdvice = 'Resta sulla corsia esterna destra'; }
+    else if (mod.includes('straight')) { dirText = 'Prosegui Dritto'; laneAdvice = 'Occupa la corsia centrale / destra e mantieni la traiettoria'; }
+
+    // Bracci stradali (ingresso + una per ogni uscita)
+    let arms = `<path d="M ${fmt(P(ringRx - 4, ringRy - 3, entryAng))} L ${fmt(P(armEndRx, armEndRy, entryAng))}" stroke="#475569" stroke-width="26" stroke-linecap="butt" />` +
+               `<path d="M ${fmt(P(ringRx - 4, ringRy - 3, entryAng))} L ${fmt(P(armEndRx, armEndRy, entryAng))}" stroke="url(#road_${uid})" stroke-width="22" stroke-linecap="butt" />`;
+    for (let k = 1; k <= nExits; k++) {
+      const a = angOf(k);
+      arms += `<path d="M ${fmt(P(ringRx - 4, ringRy - 3, a))} L ${fmt(P(armEndRx, armEndRy, a))}" stroke="#475569" stroke-width="26" stroke-linecap="butt" />` +
+              `<path d="M ${fmt(P(ringRx - 4, ringRy - 3, a))} L ${fmt(P(armEndRx, armEndRy, a))}" stroke="url(#road_${uid})" stroke-width="22" stroke-linecap="butt" />`;
+    }
+
+    // Traiettoria: dall'ingresso, gira sull'anello (antiorario) fino all'uscita scelta
+    const entryLane = P(laneRx, laneRy, entryAng);
+    const entryMouth = P(armEndRx - 10, armEndRy - 7, entryAng);
+    const tAng = angOf(exit);
+    const exitLane = P(laneRx, laneRy, tAng);
+    const exitMouth = P(armEndRx - 8, armEndRy - 5, tAng);
+    const span = angOf(exit) - entryAng;
+    const largeArc = span > 180 ? 1 : 0;
+    const pathD = `M ${fmt(entryMouth)} L ${fmt(entryLane)} A ${laneRx} ${laneRy} 0 ${largeArc} 0 ${fmt(exitLane)} L ${fmt(exitMouth)}`;
+
+    // Badge numerati per ogni uscita (disegnati per ultimi così restano leggibili)
+    let badges = '';
+    for (let k = 1; k <= nExits; k++) {
+      const b = P(badgeRx, badgeRy, angOf(k));
+      const active = (k === exit);
+      badges += `<g class="geo-exit-badge ${active ? 'active-exit' : ''}">
+              <circle cx="${b[0].toFixed(1)}" cy="${b[1].toFixed(1)}" r="11" fill="${active ? '#10b981' : '#334155'}" stroke="#ffffff" stroke-width="1.5" />
+              <text x="${b[0].toFixed(1)}" y="${(b[1] + 4).toFixed(1)}" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">${k}</text>
+            </g>`;
     }
 
     return `
@@ -3763,74 +4284,56 @@ class GeoLocatorEngine {
         <div class="geo-rotonda-hud-header">
           <div class="geo-rotonda-hud-badge">
             <i class="fa-solid fa-rotate-right fa-spin" style="--fa-animation-duration: 9s;"></i>
-            <strong>ROTONDA 3D &bull; ${exitAngleText.toUpperCase()}</strong>
+            <strong>ROTONDA 3D &bull; ${exit}ª USCITA (${dirText.toUpperCase()})</strong>${proChip}
           </div>
           <span class="geo-rotonda-hud-target">${stepName || 'Uscita'}</span>
         </div>
 
         <div class="geo-rotonda-svg-wrap">
-          <svg viewBox="0 0 320 220" class="geo-rotonda-svg" xmlns="http://www.w3.org/2000/svg">
+          <svg viewBox="0 0 320 224" class="geo-rotonda-svg" xmlns="http://www.w3.org/2000/svg">
             <defs>
-              <linearGradient id="roadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <linearGradient id="road_${uid}" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stop-color="#334155" />
                 <stop offset="100%" stop-color="#1e293b" />
               </linearGradient>
-              <linearGradient id="activeTrackGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+              <linearGradient id="track_${uid}" x1="0%" y1="100%" x2="0%" y2="0%">
                 <stop offset="0%" stop-color="#38bdf8" />
                 <stop offset="60%" stop-color="#10b981" />
                 <stop offset="100%" stop-color="#22c55e" />
               </linearGradient>
-              <filter id="glow3D" x="-20%" y="-20%" width="140%" height="140%">
+              <filter id="glow_${uid}" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur stdDeviation="3" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
               </filter>
-              <marker id="arrowCar" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <marker id="arw_${uid}" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M 0 1 L 10 5 L 0 9 z" fill="#22c55e" />
               </marker>
             </defs>
 
             <!-- Ombra 3D anello rotonda -->
-            <ellipse cx="160" cy="115" rx="82" ry="46" fill="#0f172a" opacity="0.6" />
+            <ellipse cx="${cx}" cy="${cy + 8}" rx="${ringRx + 2}" ry="${ringRy + 2}" fill="#0f172a" opacity="0.55" />
 
-            <!-- Bracci stradali 3D -->
-            <path d="M 144 195 L 144 150 L 176 150 L 176 195 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
-            <path d="M 235 94 L 290 94 L 290 118 L 235 118 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
-            <path d="M 144 15 L 144 65 L 176 65 L 176 15 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
-            <path d="M 30 94 L 85 94 L 85 118 L 30 118 Z" fill="url(#roadGrad)" stroke="#475569" stroke-width="1.5" />
+            <!-- Bracci stradali (dinamici) -->
+            ${arms}
 
             <!-- Anello asfalto -->
-            <ellipse cx="160" cy="105" rx="80" ry="45" fill="url(#roadGrad)" stroke="#64748b" stroke-width="2" />
-            <ellipse cx="160" cy="105" rx="58" ry="32" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" opacity="0.7" />
+            <ellipse cx="${cx}" cy="${cy}" rx="${ringRx}" ry="${ringRy}" fill="url(#road_${uid})" stroke="#64748b" stroke-width="2" />
+            <ellipse cx="${cx}" cy="${cy}" rx="${(ringRx + islandRx) / 2}" ry="${(ringRy + islandRy) / 2}" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6,6" opacity="0.6" />
 
             <!-- Isola centrale in rilievo 3D -->
-            <ellipse cx="160" cy="109" rx="38" ry="21" fill="#065f46" />
-            <ellipse cx="160" cy="105" rx="36" ry="19" fill="#059669" stroke="#10b981" stroke-width="1.5" />
-            <ellipse cx="160" cy="103" rx="20" ry="10" fill="#34d399" opacity="0.3" />
-
-            <!-- Frecce bianche circolazione -->
-            <path d="M 195 130 Q 215 110 200 85" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6" />
-            <path d="M 125 80 Q 105 100 120 125" fill="none" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.6" />
-
-            <!-- Badge numeri uscite -->
-            <g class="geo-exit-badge ${exit === 1 ? 'active-exit' : ''}">
-              <circle cx="270" cy="106" r="11" fill="${exit === 1 ? '#10b981' : '#334155'}" stroke="#ffffff" stroke-width="1.5" />
-              <text x="270" y="110" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">1</text>
-            </g>
-            <g class="geo-exit-badge ${exit === 2 ? 'active-exit' : ''}">
-              <circle cx="160" cy="28" r="11" fill="${exit === 2 ? '#10b981' : '#334155'}" stroke="#ffffff" stroke-width="1.5" />
-              <text x="160" y="32" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">2</text>
-            </g>
-            <g class="geo-exit-badge ${exit === 3 ? 'active-exit' : ''}">
-              <circle cx="50" cy="106" r="11" fill="${exit === 3 ? '#10b981' : '#334155'}" stroke="#ffffff" stroke-width="1.5" />
-              <text x="50" y="110" font-size="11" font-weight="900" text-anchor="middle" fill="#ffffff">3</text>
-            </g>
+            <ellipse cx="${cx}" cy="${cy + 3}" rx="${islandRx}" ry="${islandRy}" fill="#065f46" />
+            <ellipse cx="${cx}" cy="${cy}" rx="${islandRx - 2}" ry="${islandRy - 2}" fill="#059669" stroke="#10b981" stroke-width="1.5" />
+            <ellipse cx="${cx}" cy="${cy - 3}" rx="${islandRx - 16}" ry="${islandRy - 11}" fill="#34d399" opacity="0.3" />
 
             <!-- Traiettoria attiva con bagliore -->
-            <path d="${pathD}" fill="none" stroke="#047857" stroke-width="10" opacity="0.4" filter="url(#glow3D)" stroke-linecap="round" />
-            <path d="${pathD}" fill="none" stroke="url(#activeTrackGrad)" stroke-width="5" stroke-linecap="round" marker-end="url(#arrowCar)" filter="url(#glow3D)" class="geo-active-rotonda-line" />
+            <path d="${pathD}" fill="none" stroke="#047857" stroke-width="10" opacity="0.4" filter="url(#glow_${uid})" stroke-linecap="round" />
+            <path d="${pathD}" fill="none" stroke="url(#track_${uid})" stroke-width="5" stroke-linecap="round" marker-end="url(#arw_${uid})" filter="url(#glow_${uid})" class="geo-active-rotonda-line" />
 
             <!-- Ingresso auto -->
-            <circle cx="160" cy="195" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
+            <circle cx="${entryMouth[0].toFixed(1)}" cy="${entryMouth[1].toFixed(1)}" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
+
+            <!-- Badge numeri uscite (disegnati per ultimi così non vengono coperti dalla traiettoria) -->
+            ${badges}
           </svg>
         </div>
 
@@ -3841,11 +4344,209 @@ class GeoLocatorEngine {
           </div>
           <div class="geo-exit-instruction">
             <i class="fa-solid fa-arrow-turn-up text-primary"></i>
-            <span>Conta le uscite: <strong>Esci alla ${exit}ª</strong></span>
+            <span>Conta le uscite: <strong>Esci alla ${exit}ª</strong> di ${nExits}</span>
           </div>
+          ${!premium ? `
+          <div class="geo-rotonda-upsell" role="button" tabindex="0" title="Con Premium l'uscita è disegnata all'angolo reale di svolta" onclick="if(window.onPremiumClick)window.onPremiumClick()" style="display:flex;align-items:center;gap:7px;cursor:pointer;margin-top:2px;padding:6px 8px;border-radius:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;font-weight:700;">
+            <i class="fa-solid fa-crown"></i>
+            <span style="flex:1;">Uscita all'<strong>angolo reale</strong> con Premium</span>
+            <i class="fa-solid fa-chevron-right" style="opacity:0.7;"></i>
+          </div>` : ''}
         </div>
       </div>
     `;
+  }
+
+  // Pannello PREMIUM: consumi/spesa/CO2/tempo alle varie velocità di crociera +
+  // orario di arrivo stimato con il traffico della fascia oraria. Per i free: card
+  // bloccata con upsell (window.onPremiumClick). Vive nella tab "Servizi".
+  generateSpeedConsumptionPanel(it) {
+    if (!it || !it.isCar) return '';
+    const distKm = it.totalDistanceKm || (it.totalMeters || 0) / 1000;
+    if (!(distKm > 0)) return '';
+    const premium = (typeof this._isPremium === 'function') && this._isPremium();
+
+    // Orario di arrivo stimato con traffico (stima per fascia oraria, NON in tempo reale)
+    const baseSec = it.totalSeconds || 0;
+    const now = new Date();
+    const h = now.getHours() + now.getMinutes() / 60;
+    const weekend = (now.getDay() === 0 || now.getDay() === 6);
+    let tf = 1.0, band = 'scorrevole';
+    if (!weekend) {
+      if (h >= 7 && h < 9.5) { tf = 1.35; band = 'ora di punta (mattina)'; }
+      else if (h >= 17 && h < 19.5) { tf = 1.40; band = 'ora di punta (sera)'; }
+      else if (h >= 12 && h < 14) { tf = 1.15; band = 'traffico moderato'; }
+      else if (h >= 6 && h < 7) { tf = 1.10; band = 'pre-punta'; }
+      else if (h >= 22 || h < 6) { tf = 0.90; band = 'notte, scorrevole'; }
+    } else {
+      if (h >= 10 && h < 13) { tf = 1.12; band = 'weekend, moderato'; }
+      else if (h >= 18 && h < 20.5) { tf = 1.15; band = 'weekend (sera)'; }
+      else if (h >= 23 || h < 7) { tf = 0.90; band = 'notte, scorrevole'; }
+    }
+    const etaSec = baseSec * tf;
+    const arrival = new Date(now.getTime() + etaSec * 1000);
+    const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const extraMin = Math.max(0, Math.round((etaSec - baseSec) / 60));
+
+    if (!premium) {
+      return `
+        <div class="geo-speed-panel" style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px;color:#f8fafc;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <i class="fa-solid fa-gauge-high" style="color:#f59e0b;font-size:1.1rem;"></i>
+            <strong>Consumi per Velocità &amp; Arrivo con Traffico</strong>
+            <span style="margin-left:auto;background:#f59e0b;color:#0f172a;font-size:0.6rem;font-weight:900;padding:2px 6px;border-radius:5px;">PREMIUM</span>
+          </div>
+          <div style="font-size:0.82rem;color:#cbd5e1;line-height:1.5;margin-bottom:10px;">
+            Confronta consumo, spesa, CO2 e tempo a <strong>50 · 70 · 90 · 110 · 130 km/h</strong> e ottieni l'<strong>orario di arrivo stimato con il traffico</strong> della fascia oraria attuale.
+          </div>
+          <button type="button" onclick="if(window.onPremiumClick)window.onPremiumClick()" style="width:100%;border:none;cursor:pointer;background:#f59e0b;color:#0f172a;font-weight:800;padding:9px;border-radius:8px;font-size:0.85rem;">
+            <i class="fa-solid fa-crown"></i> Attiva Premium per l'analisi completa
+          </button>
+        </div>`;
+    }
+
+    // Parametri coerenti con la dashboard esistente (derivati dall'itinerario)
+    const consPer100 = (it.consumptionLiters && distKm) ? (it.consumptionLiters / distKm * 100) : 6.2;
+    const pricePerL = (it.costEstimateEur && it.consumptionLiters) ? (it.costEstimateEur / it.consumptionLiters) : 1.82;
+    const co2PerL = (it.co2EstimateKg && it.consumptionLiters) ? (it.co2EstimateKg / it.consumptionLiters) : 2.31;
+    const avgSpeed = baseSec > 0 ? (distKm / (baseSec / 3600)) : 0;
+    // Modello consumo L/100km: minimo intorno ai 65 km/h, cresce con v² (resistenza aerodinamica)
+    const ref = v => 3.4 + 0.00035 * v * v + 12 / v;
+    const kCal = consPer100 / ref(90);
+    const l100 = v => ref(v) * kCal;
+    const speeds = [50, 70, 90, 110, 130];
+
+    const td = 'padding:6px 8px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.8rem;';
+    const thh = 'padding:6px 8px;text-align:left;font-size:0.68rem;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:0.3px;';
+    const rows = speeds.map(v => {
+      const L = distKm / 100 * l100(v);
+      const eur = L * pricePerL;
+      const co2 = L * co2PerL;
+      const tSec = distKm / v * 3600;
+      const near = avgSpeed && Math.abs(v - avgSpeed) <= 10;
+      return `<tr style="${near ? 'background:rgba(37,99,235,0.18);' : ''}">
+        <td style="${td}font-weight:800;color:#fff;">${v} km/h${near ? ' <span style="font-size:0.62rem;color:#93c5fd;">media</span>' : ''}</td>
+        <td style="${td}color:#e2e8f0;">${this.formatDuration(tSec)}</td>
+        <td style="${td}color:#fbbf24;">~${L.toFixed(1)} L</td>
+        <td style="${td}color:#34d399;">~€${eur.toFixed(2)}</td>
+        <td style="${td}color:#a7f3d0;">~${co2.toFixed(1)} kg</td>
+      </tr>`;
+    }).join('');
+
+    return `
+      <div class="geo-speed-panel" style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:12px 14px;margin-bottom:14px;color:#f8fafc;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <i class="fa-solid fa-gauge-high" style="color:#f59e0b;font-size:1.15rem;"></i>
+          <strong>Consumi per Velocità</strong>
+          <span style="margin-left:auto;background:#f59e0b;color:#0f172a;font-size:0.6rem;font-weight:900;padding:2px 6px;border-radius:5px;">PREMIUM</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(37,99,235,0.14);border:1px solid rgba(37,99,235,0.4);border-radius:10px;padding:9px 11px;margin-bottom:10px;">
+          <i class="fa-solid fa-clock" style="color:#60a5fa;font-size:1.3rem;"></i>
+          <div style="line-height:1.35;">
+            <div style="font-size:1.05rem;font-weight:800;color:#fff;">Arrivo previsto ~${hhmm(arrival)}</div>
+            <div style="font-size:0.74rem;color:#cbd5e1;">Con traffico stimato · <strong>${band}</strong>${extraMin ? ` · +${extraMin} min` : ''}</div>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr>
+              <th style="${thh}">Velocità</th>
+              <th style="${thh}">Tempo*</th>
+              <th style="${thh}">Consumo</th>
+              <th style="${thh}">Spesa</th>
+              <th style="${thh}">CO2</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:9px;font-size:0.68rem;color:#94a3b8;line-height:1.45;">
+          * Tempo a velocità di crociera costante su ${distKm.toFixed(1)} km. Consumi stimati (${consPer100.toFixed(1)} L/100km di riferimento, ${pricePerL.toFixed(2)} €/L). Il traffico è una stima in base alla fascia oraria attuale, non in tempo reale.
+        </div>
+      </div>`;
+  }
+
+  // Pannello PREMIUM (solo mezzi pubblici): affluenza/folla stimata a bordo per
+  // fascia oraria — indica quando i pullman sono più affollati. Stima statistica
+  // (giorno + ora), non dati reali di occupazione. Per i free: card bloccata.
+  generateCrowdingPanel(it) {
+    if (!it || it.isCar) return '';
+    const premium = (typeof this._isPremium === 'function') && this._isPremium();
+    const now = new Date();
+    const weekend = (now.getDay() === 0 || now.getDay() === 6);
+    const curH = now.getHours();
+
+    // Profili orari di affluenza (0-100) per giorno feriale / weekend
+    const wk = [5, 4, 4, 6, 10, 25, 55, 90, 95, 70, 45, 40, 60, 75, 55, 50, 70, 88, 92, 75, 55, 40, 25, 12];
+    const we = [8, 6, 5, 5, 6, 8, 12, 18, 28, 40, 52, 58, 62, 60, 55, 55, 58, 62, 66, 60, 55, 50, 40, 22];
+    const scores = weekend ? we : wk;
+    const levelOf = s => s < 25 ? { t: 'Bassa', c: '#10b981', i: 'fa-user' }
+      : s < 55 ? { t: 'Media', c: '#f59e0b', i: 'fa-user-group' }
+      : s < 80 ? { t: 'Alta', c: '#f97316', i: 'fa-users' }
+      : { t: 'Molto alta', c: '#ef4444', i: 'fa-users-line' };
+    const cur = levelOf(scores[curH]);
+
+    if (!premium) {
+      return `
+        <div class="geo-crowd-panel" style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px;color:#f8fafc;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <i class="fa-solid fa-users" style="color:#f59e0b;font-size:1.1rem;"></i>
+            <strong>Affluenza a Bordo &amp; Orari di Punta</strong>
+            <span style="margin-left:auto;background:#f59e0b;color:#0f172a;font-size:0.6rem;font-weight:900;padding:2px 6px;border-radius:5px;">PREMIUM</span>
+          </div>
+          <div style="font-size:0.82rem;color:#cbd5e1;line-height:1.5;margin-bottom:10px;">
+            Scopri gli <strong>orari con più folla</strong> sui pullman e viaggia negli orari più tranquilli: livello di affluenza stimato ora per ora.
+          </div>
+          <button type="button" onclick="if(window.onPremiumClick)window.onPremiumClick()" style="width:100%;border:none;cursor:pointer;background:#f59e0b;color:#0f172a;font-weight:800;padding:9px;border-radius:8px;font-size:0.85rem;">
+            <i class="fa-solid fa-crown"></i> Attiva Premium per vedere l'affluenza
+          </button>
+        </div>`;
+    }
+
+    const startH = 5, endH = 23;
+    let bars = '';
+    for (let hh = startH; hh <= endH; hh++) {
+      const s = scores[hh];
+      const L = levelOf(s);
+      const isNow = hh === curH;
+      const barH = Math.max(6, Math.round(s * 0.46));
+      bars += `<div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;min-width:0;">
+        <div style="width:100%;max-width:15px;height:${barH}px;background:${L.c};border-radius:3px 3px 0 0;opacity:${isNow ? 1 : 0.6};${isNow ? 'box-shadow:0 0 0 2px #fff,0 0 8px ' + L.c + ';' : ''}"></div>
+        ${isNow
+          ? '<span style="font-size:0.5rem;color:#fff;font-weight:900;">ORA</span>'
+          : (hh % 3 === 0 ? `<span style="font-size:0.5rem;color:#64748b;">${hh}</span>` : '<span style="font-size:0.5rem;color:transparent;">.</span>')}
+      </div>`;
+    }
+
+    const dot = (c, t) => `<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:2px;background:${c};display:inline-block;"></span>${t}</span>`;
+
+    return `
+      <div class="geo-crowd-panel" style="background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;border-radius:12px;padding:12px 14px;margin-bottom:14px;color:#f8fafc;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <i class="fa-solid fa-users" style="color:#f59e0b;font-size:1.15rem;"></i>
+          <strong>Affluenza a Bordo</strong>
+          <span style="margin-left:auto;background:#f59e0b;color:#0f172a;font-size:0.6rem;font-weight:900;padding:2px 6px;border-radius:5px;">PREMIUM</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border:1px solid ${cur.c}55;border-radius:10px;padding:9px 11px;margin-bottom:12px;">
+          <i class="fa-solid ${cur.i}" style="color:${cur.c};font-size:1.4rem;width:26px;text-align:center;"></i>
+          <div style="line-height:1.35;">
+            <div style="font-size:1.02rem;font-weight:800;color:#fff;">Adesso: <span style="color:${cur.c};">${cur.t}</span></div>
+            <div style="font-size:0.74rem;color:#cbd5e1;">Folla stimata sui pullman &middot; ${weekend ? 'weekend' : 'giorno feriale'}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:flex-end;gap:3px;height:52px;padding:0 2px;">${bars}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:0.66rem;color:#cbd5e1;margin-top:8px;">
+          ${dot('#10b981', 'Bassa')} ${dot('#f59e0b', 'Media')} ${dot('#f97316', 'Alta')} ${dot('#ef4444', 'Molto alta')}
+        </div>
+
+        <div style="margin-top:9px;font-size:0.68rem;color:#94a3b8;line-height:1.45;">
+          Stima statistica per fascia oraria e giorno della settimana; l'affluenza reale può variare per linea ed eventi.
+        </div>
+      </div>`;
   }
 
   generateTurn3DSvg(type, modifier, stepName) {

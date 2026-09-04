@@ -42,6 +42,20 @@ class LiveBoardEngine {
     this.audioEnabled = false;
 
     this.departures = [];
+
+    // --- LIVE ACTIVITIES: mappa depId -> activityId nativo iOS ---
+    this.trackedActivities = {};
+    // Callback invocata da Unity quando una Live Activity viene avviata con successo
+    window.onLiveActivityStarted = (activityId) => {
+      if (this._pendingLiveActivityDepId) {
+        this.trackedActivities[this._pendingLiveActivityDepId] = activityId;
+        this._pendingLiveActivityDepId = null;
+        console.log(`[LiveActivity] Associata attività ${activityId}`);
+      }
+    };
+    // Contatore per limitare gli aggiornamenti widget (non ogni secondo)
+    this._widgetUpdateCounter = 0;
+
     this.init();
   }
 
@@ -249,133 +263,124 @@ class LiveBoardEngine {
       return;
     }
 
-    const lines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
-    if (!lines || lines.length === 0) return;
+    const allLines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
+    if (!allLines || allLines.length === 0) return;
 
-    // Genera 14 corse/voli realistici a partire dall'orario corrente
-    const offsets = [1, 3, 5, 8, 12, 16, 21, 26, 32, 39, 48, 58, 70, 85]; // Minuti dal tempo attuale
+    // SOLO le linee che SERVONO davvero la fermata selezionata (la fermata è tra
+    // le sue stops). Prima si ciclavano linee a caso con orari "adesso + minuti
+    // random": orari FINTI. Ora si leggono le tabelle orarie REALI (line.schedule).
+    let serving = [];
+    if (this.activeStopId) {
+      serving = allLines.filter((l) => {
+        const s = l.stopsIds || l.stops || [];
+        return s.indexOf(this.activeStopId) !== -1;
+      });
+    }
+    // Se il dataset non collega nessuna linea a questa fermata, ripiega sulle linee
+    // della regione (comunque con i loro orari reali) per non lasciare il tabellone vuoto.
+    const pool = serving.length > 0 ? serving : allLines.slice(0, 80);
 
-    offsets.forEach((minOffset, index) => {
-      const line = lines[index % lines.length];
-      const depDate = new Date(now.getTime() + minOffset * 60 * 1000 + (Math.floor(Math.random() * 40) * 1000));
-      
-      // Calcola ritardo simulato
-      const delayMinutes = Math.random() > 0.7 ? Math.floor(Math.random() * 4) + 1 : 0;
-      
-      // Banchina, Binario o Gate
-      const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || 
-                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isFlight ? 'Aeroporto Principale' : (isTrain ? 'Stazione Centrale' : 'Hub Principale') });
-      const platform = (currentStop.platforms && currentStop.platforms.length > 0)
-        ? currentStop.platforms[index % currentStop.platforms.length]
-        : (isFlight ? "Gate 1" : (isTrain ? "Binario 1" : "Banchina 1"));
+    this.departures = this._collectScheduledDepartures(now, pool, currentRegion, currentMode);
+    this.departures.sort((a, b) => a.scheduledTime - b.scheduledTime);
+    this.departures = this.departures.slice(0, 16);
+  }
 
-      // Capienza simulata
-      const occupancy = Math.floor(Math.random() * 45) + 30; // 30% - 75%
+  // Tipo di giorno per leggere schedule.weekday / .saturday / .sunday.
+  _dayType(d) {
+    const g = d.getDay(); // 0 = domenica, 6 = sabato
+    return g === 0 ? 'sunday' : (g === 6 ? 'saturday' : 'weekday');
+  }
 
-      // Destinazione principale della corsa o del volo
-      const stopsList = line.stopsIds || line.stops || [];
-      const destStopId = stopsList.length > 0 ? stopsList[stopsList.length - 1] : null;
-      let destName = (destStopId && typeof getStopById === 'function' ? getStopById(destStopId)?.name : null);
-      if (!destName || destName === "Capolinea") {
-        if (line.name && line.name.includes(" - ")) {
-          destName = line.name.split(" - ").pop().split(" (")[0];
-        } else if (line.name && line.name.includes("➔")) {
-          destName = line.name.split("➔").pop().trim();
-        } else {
-          destName = isFlight ? "Aeroporto di Destinazione" : (isTrain ? "Stazione Terminus" : "Capolinea Centrale");
+  // Stima dei minuti dall'origine della linea alla fermata selezionata, in base
+  // alla posizione della fermata nel percorso e alla durata totale della corsa.
+  // (Il dataset ha l'orario alla partenza + la durata, non i tempi per-fermata.)
+  _stopOffsetMinutes(line, stopId) {
+    const stops = line.stopsIds || line.stops || [];
+    const idx = stopId ? stops.indexOf(stopId) : -1;
+    if (idx <= 0) return 0;
+    const dur = (typeof line.duration === 'number' && line.duration > 0) ? line.duration : 0;
+    if (!dur) return 0;
+    const denom = Math.max(1, stops.length - 1);
+    return Math.round((dur * idx) / denom);
+  }
+
+  // Costruisce le partenze REALI (oggi + domani per riempire la sera) leggendo
+  // gli orari ufficiali di ciascuna linea del pool alla fermata selezionata.
+  _collectScheduledDepartures(now, lines, region, mode) {
+    const isTrain = mode === 'train';
+    const isFlight = mode === 'flight';
+    const out = [];
+    const nowMs = now.getTime();
+    const graceMs = 90 * 1000; // mostra ancora una corsa partita da <=90s
+    const CAP = 400;
+
+    const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null);
+    const platforms = (currentStop && currentStop.platforms && currentStop.platforms.length) ? currentStop.platforms : null;
+
+    for (let dayOffset = 0; dayOffset <= 1 && out.length < CAP; dayOffset++) {
+      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset);
+      const dayType = this._dayType(day);
+
+      for (let li = 0; li < lines.length && out.length < CAP; li++) {
+        const line = lines[li];
+        const sched = line.schedule && line.schedule[dayType];
+        if (!sched || !sched.length) continue;
+
+        const offMin = this._stopOffsetMinutes(line, this.activeStopId);
+
+        // Destinazione (ultima fermata o nome linea).
+        const stopsList = line.stopsIds || line.stops || [];
+        const destStopId = stopsList.length ? stopsList[stopsList.length - 1] : null;
+        let destName = (destStopId && typeof getStopById === 'function' ? (getStopById(destStopId) || {}).name : null);
+        if (!destName || destName === 'Capolinea') {
+          if (line.name && line.name.includes(' - ')) destName = line.name.split(' - ').pop().split(' (')[0];
+          else if (line.name && line.name.includes('➔')) destName = line.name.split('➔').pop().trim();
+          else destName = isFlight ? 'Aeroporto di Destinazione' : (isTrain ? 'Stazione Terminus' : 'Capolinea');
+        }
+
+        for (let ti = 0; ti < sched.length && out.length < CAP; ti++) {
+          const parts = ('' + sched[ti]).split(':');
+          const hh = parseInt(parts[0], 10);
+          const mm = parseInt(parts[1], 10);
+          if (!isFinite(hh) || !isFinite(mm)) continue;
+
+          const dep = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hh, mm + offMin, 0, 0);
+          if (dep.getTime() < nowMs - graceMs) continue;
+
+          const platform = platforms
+            ? platforms[(hh + mm) % platforms.length]
+            : (isFlight ? 'Gate 1' : (isTrain ? 'Binario 1' : 'Banchina 1'));
+
+          out.push({
+            // id STABILE (linea+orario) così i countdown non si azzerano ad ogni refresh
+            id: `DEP_${line.id}_${dayOffset}_${('' + sched[ti]).replace(':', '')}`,
+            lineId: line.id,
+            lineCode: line.flightNumber || line.code || line.shortName || line.name || 'Linea',
+            lineName: line.name,
+            lineColor: line.color || (isFlight ? '#0284c7' : (isTrain ? '#dc2626' : '#0284c7')),
+            lineType: line.type || (isFlight ? 'national' : (isTrain ? 'regional' : 'suburban')),
+            destination: destName,
+            viaInfo: line.airline ? `Compagnia: ${line.airline} &bull; ${line.name}` : (line.fullName || line.name),
+            scheduledTime: dep,
+            delayMinutes: 0, // nessun ritardo inventato: senza feed live la corsa è "programmata"
+            platform: platform,
+            busModel: line.busModel || line.aircraft || (isFlight ? 'Aeromobile' : (isTrain ? 'Treno Regionale' : 'Autobus di Linea')),
+            priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isFlight ? 49.00 : (isTrain ? 4.50 : 2.50)),
+            occupancy: 45,
+            vehicleId: line.id,
+            scheduled: true,
+            isAcquiring: false
+          });
         }
       }
-      
-      const vehicleId = isFlight ? `${line.airline || 'ITA Airways'} (${line.busModel || 'Airbus A320neo'})` : (isTrain ? `CONVOGLIO-FS-${1000 + (index * 6)}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${100 + index}`);
-
-      this.departures.push({
-        id: `DEP_${Date.now()}_${index}`,
-        lineId: line.id,
-        lineCode: line.flightNumber || line.code || line.shortName || (isFlight ? `AZ ${1100 + index}` : (isTrain ? `R-${index + 1}` : `L-${index + 1}`)),
-        lineName: line.name,
-        lineColor: line.color || (isFlight ? "#0284c7" : (isTrain ? "#dc2626" : "#0284c7")),
-        lineType: line.type || (isFlight ? "national" : (isTrain ? "regional" : "suburban")),
-        destination: destName,
-        viaInfo: line.airline ? `Compagnia: ${line.airline} &bull; ${line.name}` : (line.fullName || line.name),
-        scheduledTime: depDate,
-        delayMinutes: delayMinutes,
-        platform: platform,
-        busModel: line.busModel || line.aircraft || (isFlight ? "Airbus A320neo" : (isTrain ? "Treno Elettrico Pop ETR 104" : "Autobus Climatizzato Euro 6")),
-        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isFlight ? 49.00 : (isTrain ? 4.50 : 2.50)),
-        occupancy: occupancy,
-        vehicleId: vehicleId,
-        isAcquiring: false
-      });
-    });
-
-    // Ordina per orario di partenza previsto
-    this.departures.sort((a, b) => a.scheduledTime - b.scheduledTime);
+    }
+    return out;
   }
 
   refreshDepartures() {
-    const now = new Date();
-    // Rimuovi corse passate da oltre 2 minuti
-    this.departures = this.departures.filter(d => {
-      const diffSec = (d.scheduledTime.getTime() - now.getTime()) / 1000;
-      return diffSec > -90; // Mantieni per 1.5 min dopo la partenza con stato "Partito"
-    });
-
-    const currentRegion = typeof safeStorageGet === 'function' ? safeStorageGet("italiabus_region", "calabria") : "calabria";
-    const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
-    const isTrain = currentMode === 'train';
-    const isFlight = currentMode === 'flight';
-    const lines = typeof getLinesByRegion === 'function' ? getLinesByRegion(currentRegion) : [];
-    if (!lines || lines.length === 0) return;
-
-    // Se ci sono meno di 10 corse, creane di nuove nel futuro
-    while (this.departures.length < 12) {
-      const lastDep = this.departures[this.departures.length - 1];
-      const baseTime = lastDep ? lastDep.scheduledTime.getTime() : now.getTime();
-      const minOffset = Math.floor(Math.random() * 8) + 6;
-      const nextTime = new Date(baseTime + minOffset * 60 * 1000);
-      
-      const line = lines[Math.floor(Math.random() * lines.length)];
-      const stopsArr = line.stopsIds || line.stops || [];
-      const destStopId = stopsArr.length > 0 ? stopsArr[stopsArr.length - 1] : null;
-      let destName = (destStopId && typeof getStopById === 'function' ? getStopById(destStopId)?.name : null);
-      if (!destName || destName === "Capolinea") {
-        if (line.name && line.name.includes(" - ")) {
-          destName = line.name.split(" - ").pop().split(" (")[0];
-        } else if (line.name && line.name.includes("➔")) {
-          destName = line.name.split("➔").pop().trim();
-        } else {
-          destName = isFlight ? "Aeroporto di Destinazione" : (isTrain ? "Stazione Terminus" : "Capolinea Centrale");
-        }
-      }
-
-      const currentStop = (typeof getStopById === 'function' ? getStopById(this.activeStopId) : null) || 
-                          ((typeof getStopsByRegion === 'function' ? getStopsByRegion(currentRegion)[0] : null) || { name: isFlight ? 'Aeroporto Principale' : (isTrain ? 'Stazione Centrale' : 'Hub Principale') });
-      const platform = (currentStop && currentStop.platforms && currentStop.platforms.length > 0)
-        ? currentStop.platforms[Math.floor(Math.random() * currentStop.platforms.length)]
-        : (isFlight ? "Gate 1" : (isTrain ? "Binario 1" : "Banchina 1"));
-      const vehicleId = isFlight ? `${line.airline || 'ITA Airways'} (${line.busModel || 'Airbus A320neo'})` : (isTrain ? `CONVOGLIO-FS-${Math.floor(Math.random() * 800) + 1000}` : `BUS-${currentRegion.substring(0,3).toUpperCase()}-${Math.floor(Math.random() * 80) + 100}`);
-
-      this.departures.push({
-        id: `DEP_${Date.now()}_${Math.floor(Math.random()*1000)}`,
-        lineId: line.id,
-        lineCode: line.flightNumber || line.code || line.shortName || (isFlight ? "AZ" : (isTrain ? "R-FS" : "L-BUS")),
-        lineName: line.name,
-        lineColor: line.color || (isFlight ? "#0284c7" : (isTrain ? "#dc2626" : "#0284c7")),
-        lineType: line.type || (isFlight ? "national" : (isTrain ? "regional" : "suburban")),
-        destination: destName,
-        viaInfo: line.airline ? `Compagnia: ${line.airline} &bull; ${line.name}` : (line.fullName || line.name),
-        scheduledTime: nextTime,
-        delayMinutes: Math.random() > 0.75 ? Math.floor(Math.random() * 5) + 1 : 0,
-        platform: platform,
-        busModel: line.busModel || line.aircraft || (isFlight ? "Airbus A320neo" : (isTrain ? "Treno Pop ETR 104" : "Autobus Climatizzato Euro 6")),
-        priceBase: (typeof line.priceBase === 'number' && !isNaN(line.priceBase)) ? line.priceBase : (isFlight ? 49.00 : (isTrain ? 4.50 : 2.50)),
-        occupancy: Math.floor(Math.random() * 40) + 35,
-        vehicleId: vehicleId,
-        isAcquiring: false
-      });
-    }
-
-    this.departures.sort((a, b) => a.scheduledTime - b.scheduledTime);
+    // Ricalcola dalle tabelle orarie REALI: l'elenco avanza da solo col passare
+    // del tempo (le corse già partite escono, entrano le successive di oggi/domani).
+    this.generateInitialDepartures();
     this.render();
   }
 
@@ -437,6 +442,181 @@ class LiveBoardEngine {
         }
       }
     });
+
+    // --- LIVE ACTIVITIES: aggiorna stato delle attività tracciate ogni 30 tick (~30s) ---
+    this._widgetUpdateCounter++;
+    if (Object.keys(this.trackedActivities).length > 0 && this._widgetUpdateCounter % 30 === 0) {
+      this._updateTrackedActivities();
+    }
+    // Aggiorna i dati del Widget Lock Screen ogni 5 minuti (300 tick)
+    if (this._widgetUpdateCounter % 300 === 0) {
+      this._sendWidgetUpdate();
+    }
+  }
+
+  // =============================================================
+  // LIVE ACTIVITIES — Avvio, Stop e Aggiornamento
+  // =============================================================
+
+  /**
+   * Toggle Live Activity per una partenza: avvia se non tracciata, ferma se già attiva.
+   * @param {string} depId - ID della partenza
+   */
+  toggleLiveActivity(depId) {
+    if (this.trackedActivities[depId]) {
+      this.stopLiveActivity(depId);
+    } else {
+      this.startLiveActivity(depId);
+    }
+  }
+
+  /**
+   * Avvia una Live Activity per la partenza specificata.
+   * Invia i dati completi a Unity che li passa al bridge nativo iOS.
+   * @param {string} depId - ID della partenza
+   */
+  startLiveActivity(depId) {
+    const dep = this.departures.find(d => d.id === depId);
+    if (!dep) return;
+
+    const modeData = typeof getActiveMode === "function" ? getActiveMode() : { name: "bus" };
+    const transportMode = this._getTransportMode(modeData);
+
+    const payload = {
+      lineCode: dep.lineCode || "",
+      lineName: dep.lineName || "",
+      destination: dep.destination || "",
+      lineColor: dep.lineColor || "#0284c7",
+      transportMode: transportMode,
+      vehicleModel: dep.busModel || "",
+      departureTimestamp: Math.floor(dep.scheduledTime.getTime() / 1000),
+      delayMinutes: dep.delayMinutes || 0,
+      platform: dep.platform || "",
+      status: "scheduled",
+      occupancy: dep.occupancy || 0
+    };
+
+    this._pendingLiveActivityDepId = depId;
+    const msg = "start_live_activity|||" + JSON.stringify(payload);
+    
+    if (window.invokeUnity && window.invokeUnity(msg)) {
+      console.log(`[LiveActivity] Avvio richiesto per ${dep.lineCode} → ${dep.destination}`);
+    } else {
+      // Fallback per browser: mostra un toast informativo
+      this._pendingLiveActivityDepId = null;
+      console.log("[LiveActivity] Live Activities non disponibili (non in ambiente Unity/iOS).");
+      if (typeof showToast === "function") {
+        showToast("📌 Le Live Activities sono disponibili solo su iPhone con iOS 16.1+", "info");
+      }
+    }
+    // Re-render per aggiornare lo stato del pulsante
+    this.render();
+  }
+
+  /**
+   * Ferma una Live Activity attiva per la partenza specificata.
+   * @param {string} depId - ID della partenza
+   */
+  stopLiveActivity(depId) {
+    const activityId = this.trackedActivities[depId];
+    if (!activityId) return;
+
+    const msg = "end_live_activity|||" + activityId;
+    if (window.invokeUnity) window.invokeUnity(msg);
+
+    delete this.trackedActivities[depId];
+    console.log(`[LiveActivity] Fermata attività ${activityId} per partenza ${depId}`);
+    this.render();
+  }
+
+  /**
+   * Aggiorna tutte le Live Activities tracciate con i dati correnti.
+   * Chiamato periodicamente da tickCountdowns (ogni ~30s).
+   * @private
+   */
+  _updateTrackedActivities() {
+    const now = new Date();
+    for (const [depId, activityId] of Object.entries(this.trackedActivities)) {
+      const dep = this.departures.find(d => d.id === depId);
+      if (!dep) {
+        // Partenza rimossa dal pool: termina la Live Activity
+        const msg = "end_live_activity|||" + activityId;
+        if (window.invokeUnity) window.invokeUnity(msg);
+        delete this.trackedActivities[depId];
+        continue;
+      }
+
+      const diffSec = Math.floor((dep.scheduledTime.getTime() - now.getTime()) / 1000);
+      let status = "scheduled";
+      if (diffSec <= -30) status = "departed";
+      else if (diffSec <= 0) status = "boarding";
+      else if (diffSec < 60) status = "arriving";
+
+      // Se partito, termina la Live Activity
+      if (status === "departed") {
+        const endMsg = "end_live_activity|||" + activityId;
+        if (window.invokeUnity) window.invokeUnity(endMsg);
+        delete this.trackedActivities[depId];
+        continue;
+      }
+
+      // Aggiorna lo stato della Live Activity
+      const stateUpdate = {
+        departureTimestamp: Math.floor(dep.scheduledTime.getTime() / 1000),
+        delayMinutes: dep.delayMinutes || 0,
+        platform: dep.platform || "",
+        status: status,
+        occupancy: dep.occupancy || 0
+      };
+
+      const msg = "update_live_activity|||" + activityId + "|||" + JSON.stringify(stateUpdate);
+      if (window.invokeUnity) window.invokeUnity(msg);
+    }
+  }
+
+  /**
+   * Determina la modalità di trasporto dal modeData.
+   * @private
+   */
+  _getTransportMode(modeData) {
+    const name = (modeData?.name || "").toLowerCase();
+    if (name.includes("pull") || name.includes("bus") || name.includes("autobus")) return "bus";
+    if (name.includes("tren") || name.includes("train") || name.includes("ferrovia")) return "train";
+    if (name.includes("vol") || name.includes("flight") || name.includes("aer")) return "flight";
+    if (name.includes("tram") || name.includes("metro")) return "tram";
+    if (name.includes("taxi") || name.includes("ncc")) return "taxi";
+    return "bus";
+  }
+
+  /**
+   * Invia le prossime partenze a Unity per il Widget Lock Screen statico.
+   * @private
+   */
+  _sendWidgetUpdate() {
+    if (!window.invokeUnity) return;
+
+    const now = new Date();
+    const modeData = typeof getActiveMode === "function" ? getActiveMode() : { name: "bus" };
+    const transportMode = this._getTransportMode(modeData);
+
+    // Prendi le prossime 3 partenze non ancora partite
+    const upcoming = this.departures
+      .filter(dep => dep.scheduledTime.getTime() > now.getTime() - 30000)
+      .slice(0, 3)
+      .map(dep => ({
+        lineCode: dep.lineCode || "",
+        destination: dep.destination || "",
+        departureTimestamp: Math.floor(dep.scheduledTime.getTime() / 1000),
+        delayMinutes: dep.delayMinutes || 0,
+        platform: dep.platform || "",
+        lineColor: dep.lineColor || "#0284c7",
+        transportMode: transportMode
+      }));
+
+    if (upcoming.length > 0) {
+      const msg = "update_widget_data|||" + JSON.stringify(upcoming);
+      window.invokeUnity(msg);
+    }
   }
 
   bindEvents() {
@@ -492,7 +672,7 @@ class LiveBoardEngine {
       const btn = document.getElementById("btnCheckNearestDepartures");
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Individuo la fermata pi� vicina...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Individuo la fermata pi� vicina...';
       }
       window._waitingForGps = 'board';
       window.Unity.call('request_gps');
@@ -851,7 +1031,7 @@ class LiveBoardEngine {
             <i class="fa-solid fa-street-view"></i> Street View
           </a>
           <div class="board-live-pill">
-            <span class="live-dot pulse"></span> ${currentMode === 'taxi' ? 'POSTEGGIO TAXI UFFICIALE H24' : (currentMode === 'train' ? 'VIAGGIATRENO LIVE RFI' : 'LIVE SATELLITARE GPS')}
+            <span class="live-dot pulse"></span> ${currentMode === 'taxi' ? 'POSTEGGIO TAXI UFFICIALE H24' : (currentMode === 'train' ? 'ORARIO FS PROGRAMMATO' : 'ORARI UFFICIALI DI LINEA')}
           </div>
         </div>
       </div>
@@ -1018,6 +1198,11 @@ class LiveBoardEngine {
                 <i class="fa-solid fa-ticket"></i> ${isFlight ? 'Carta d\'Imbarco' : 'Prenota'}
                 <span class="coming-soon-badge">Coming Soon</span>
               </button>
+              <button class="btn btn-sm btn-outline btn-live-activity ${this.trackedActivities[dep.id] ? 'btn-tracking-active' : ''}" 
+                onclick="event.stopPropagation(); window.liveBoard.toggleLiveActivity('${dep.id}')" 
+                title="${this.trackedActivities[dep.id] ? 'Smetti di seguire questa corsa sulla Lock Screen' : 'Segui il countdown direttamente sulla Lock Screen e nella Dynamic Island'}">
+                <i class="fa-solid ${this.trackedActivities[dep.id] ? 'fa-bell-slash' : 'fa-bell'}"></i> ${this.trackedActivities[dep.id] ? 'Smetti di Seguire' : '📌 Segui su Lock Screen'}
+              </button>
             </div>
           </div>
           
@@ -1037,6 +1222,82 @@ class LiveBoardEngine {
 
   showRouteOnMap(lineId, depId) {
     this.openRouteColorPicker(lineId, depId);
+  }
+
+  // Modale "Controlla Orari": mostra la TABELLA ORARIA REALE della linea
+  // (line.schedule → feriale / sabato / domenica). Prima questo metodo NON
+  // esisteva e il bottone lanciava un errore.
+  openLineScheduleModal(lineId, lineCode) {
+    const line = (typeof getLineById === 'function' ? getLineById(lineId) : null);
+    const dep = this.departures ? this.departures.find(d => d.lineId === lineId) : null;
+    const name = (line && line.name) || (dep && dep.lineName) || lineCode || 'Linea';
+    const color = (line && line.color) || (dep && dep.lineColor) || '#0284c7';
+    const sched = (line && line.schedule) ? line.schedule : null;
+    const today = this._dayType(new Date());
+    const dayNames = { weekday: 'Feriale (Lun–Ven)', saturday: 'Sabato', sunday: 'Domenica e festivi' };
+
+    this._ensureScheduleModalStyles();
+
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const section = (key) => {
+      const times = (sched && sched[key]) ? sched[key] : [];
+      const label = dayNames[key] + (key === today ? ' · oggi' : '');
+      if (!times.length) return `<div class="lsm-day"><h4>${label}</h4><p class="lsm-empty">Nessuna corsa</p></div>`;
+      const chips = times.map(t => {
+        const p = ('' + t).split(':');
+        const mins = parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+        const isNext = (key === today && isFinite(mins) && mins >= nowMin);
+        return `<span class="lsm-t${isNext ? ' next' : ''}">${t}</span>`;
+      }).join('');
+      return `<div class="lsm-day${key === today ? ' is-today' : ''}"><h4>${label}</h4><div class="lsm-times">${chips}</div></div>`;
+    };
+
+    const overlay = document.createElement('div');
+    overlay.className = 'lsm-overlay';
+    overlay.innerHTML = `
+      <div class="lsm-modal" role="dialog" aria-modal="true">
+        <div class="lsm-head">
+          <div class="lsm-title"><span class="lsm-code" style="background:${color}">${lineCode || ''}</span> <strong>${name}</strong></div>
+          <button type="button" class="lsm-close" aria-label="Chiudi">&times;</button>
+        </div>
+        <div class="lsm-note"><i class="fa-solid fa-circle-info"></i> Orari ufficiali di linea. Alle fermate intermedie l'orario è stimato sulla durata della corsa; i ritardi in tempo reale non sono disponibili offline.</div>
+        <div class="lsm-body">
+          ${sched ? (section('weekday') + section('saturday') + section('sunday')) : '<p class="lsm-empty">Orario non disponibile per questa linea.</p>'}
+        </div>
+      </div>`;
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    const closeBtn = overlay.querySelector('.lsm-close');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); } });
+    document.body.appendChild(overlay);
+  }
+
+  _ensureScheduleModalStyles() {
+    if (document.getElementById('lsmStyles')) return;
+    const st = document.createElement('style');
+    st.id = 'lsmStyles';
+    st.textContent = `
+      .lsm-overlay{position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;}
+      .lsm-modal{background:var(--bg-card,#fff);color:var(--text-primary,#0f172a);border:1px solid var(--border-color,#e2e8f0);border-radius:16px;max-width:520px;width:100%;max-height:82vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+      .lsm-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border-color,#e2e8f0);position:sticky;top:0;background:var(--bg-card,#fff);}
+      .lsm-title{display:flex;align-items:center;gap:9px;font-size:1rem;}
+      .lsm-code{color:#fff;font-weight:800;padding:3px 9px;border-radius:7px;font-size:.82rem;white-space:nowrap;}
+      .lsm-close{border:none;background:var(--bg-subtle,#f1f5f9);color:var(--text-secondary,#475569);width:32px;height:32px;border-radius:999px;font-size:1.2rem;cursor:pointer;line-height:1;}
+      .lsm-close:hover{background:var(--border-color,#e2e8f0);}
+      .lsm-note{font-size:.76rem;color:var(--text-secondary,#475569);padding:10px 16px;background:var(--bg-subtle,#f1f5f9);}
+      .lsm-note i{color:var(--brand-primary,#0284c7);margin-right:5px;}
+      .lsm-body{padding:12px 16px 18px;}
+      .lsm-day{margin-bottom:14px;}
+      .lsm-day h4{margin:0 0 8px;font-size:.85rem;font-weight:800;color:var(--text-primary,#0f172a);}
+      .lsm-day.is-today h4{color:var(--brand-primary,#0284c7);}
+      .lsm-times{display:flex;flex-wrap:wrap;gap:7px;}
+      .lsm-t{font-variant-numeric:tabular-nums;font-weight:700;font-size:.82rem;padding:5px 9px;border-radius:8px;background:var(--bg-subtle,#f1f5f9);color:var(--text-secondary,#475569);border:1px solid var(--border-color,#e2e8f0);}
+      .lsm-t.next{background:var(--brand-primary,#0284c7);color:#fff;border-color:var(--brand-primary,#0284c7);}
+      .lsm-empty{font-size:.8rem;color:var(--text-muted,#64748b);margin:0;}
+    `;
+    document.head.appendChild(st);
   }
 
   openRouteColorPicker(lineId, depId = null) {

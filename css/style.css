@@ -3217,6 +3217,44 @@ body.mode-flight {
 }
 
 /* ==========================================================================
+   LIVE ACTIVITY — PULSANTE "SEGUI SU LOCK SCREEN"
+   ========================================================================== */
+
+.btn-live-activity {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  padding: 6px 14px !important;
+  transition: all 0.25s ease !important;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3) !important;
+}
+
+.btn-live-activity:hover {
+  background: linear-gradient(135deg, #6d28d9, #5b21b6) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.45) !important;
+}
+
+.btn-live-activity.btn-tracking-active {
+  background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3) !important;
+  animation: live-pulse 2s ease-in-out infinite !important;
+}
+
+.btn-live-activity.btn-tracking-active:hover {
+  background: linear-gradient(135deg, #b91c1c, #991b1b) !important;
+  animation: none !important;
+}
+
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3); }
+  50% { box-shadow: 0 2px 16px rgba(220, 38, 38, 0.6); }
+}
+
+/* ==========================================================================
    LIVE BOARD GPS NEAREST DEPARTURES BANNER & BUTTON
    ========================================================================== */
 

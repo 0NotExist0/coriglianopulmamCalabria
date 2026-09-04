@@ -32,6 +32,7 @@ class CustomizerEngine {
     this.bindControls();
     this.syncActiveStates();
     this.observeThemeChanges();
+    this.initAndroidWidgetSection();
   }
 
   /* ---------- Storage helpers ---------- */
@@ -253,6 +254,177 @@ class CustomizerEngine {
       const obs = new MutationObserver(() => this.syncActiveStates());
       obs.observe(this.root, { attributes: true, attributeFilter: ["data-theme"] });
     }
+  }
+
+  // ==========================================================================
+  // WIDGET SCHERMATA HOME (ANDROID)
+  // ==========================================================================
+  initAndroidWidgetSection() {
+    const originGpsWrap = document.getElementById("czWidgetOriginGpsWrap");
+    const originManualWrap = document.getElementById("czWidgetOriginManualWrap");
+    const btnEditOrigin = document.getElementById("btnEditWidgetOrigin");
+    const btnRestoreGps = document.getElementById("btnRestoreWidgetGps");
+    const originInput = document.getElementById("czWidgetOriginInput");
+    const destInput = document.getElementById("czWidgetDestInput");
+    const btnAddWidget = document.getElementById("btnAddAndroidWidget");
+
+    // Riferimenti anteprima
+    const prevFrom = document.getElementById("czWcardFrom");
+    const prevTo = document.getElementById("czWcardTo");
+    const prevLine = document.getElementById("czWcardLine");
+    const prevPlatform = document.getElementById("czWcardPlatform");
+    const prevCountdown = document.getElementById("czWcardCountdown");
+    const prevStatus = document.getElementById("czWcardStatus");
+    const prevModeIcon = document.getElementById("czWcardModeIcon");
+
+    if (!btnAddWidget) return;
+
+    let isGps = true;
+    let currentCountdownSec = 12 * 60; // 12 minuti di partenza
+
+    // Carica configurazione precedentemente salvata
+    try {
+      const saved = localStorage.getItem("italiabus_home_widget_config");
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.destination && destInput) destInput.value = data.destination;
+        if (data.origin && data.origin !== "Posizione Attuale (GPS)" && originInput) {
+          originInput.value = data.origin;
+          isGps = false;
+          if (originGpsWrap) originGpsWrap.style.display = "none";
+          if (originManualWrap) originManualWrap.style.display = "flex";
+        }
+      }
+    } catch (e) {}
+
+    // Funzione di aggiornamento anteprima
+    const updatePreview = () => {
+      const originText = isGps ? "📍 Posizione Attuale (GPS)" : (originInput?.value.trim() || "Posizione di Partenza");
+      const destText = destInput?.value.trim() || "Milano Centrale";
+
+      if (prevFrom) prevFrom.textContent = originText;
+      if (prevTo) prevTo.textContent = destText;
+
+      // Riconoscimento intelligente della modalità di trasporto e gate/binario
+      const destLower = destText.toLowerCase();
+      let modeIcon = "fa-bus";
+      let lineText = "Bus 279 A";
+      let platformText = '<i class="fa-solid fa-signs-post"></i> Banchina 1';
+
+      if (destLower.includes("aeroport") || destLower.includes("volo") || destLower.includes("fiumicino") || destLower.includes("malpensa") || destLower.includes("gate")) {
+        modeIcon = "fa-plane";
+        lineText = "Volo AZ 1142";
+        platformText = '<i class="fa-solid fa-door-open text-info"></i> Gate B12';
+      } else if (destLower.includes("centrale") || destLower.includes("termini") || destLower.includes("stazione") || destLower.includes("treno") || destLower.includes("freccia")) {
+        modeIcon = "fa-train";
+        lineText = "FR 9612";
+        platformText = '<i class="fa-solid fa-signs-post"></i> Binario 4';
+      } else if (destLower.includes("metro") || destLower.includes("tram") || destLower.includes("duomo")) {
+        modeIcon = "fa-tram";
+        lineText = "Metro M1";
+        platformText = '<i class="fa-solid fa-signs-post"></i> Banchina Nord';
+      }
+
+      if (prevModeIcon) prevModeIcon.className = `fa-solid ${modeIcon} text-primary`;
+      if (prevLine) prevLine.textContent = lineText;
+      if (prevPlatform) prevPlatform.innerHTML = platformText;
+
+      const mins = Math.max(1, Math.floor(currentCountdownSec / 60));
+      if (prevCountdown) prevCountdown.textContent = `${mins} min`;
+      if (prevStatus) prevStatus.textContent = "In Orario";
+    };
+
+    // Toggle Partenza GPS / Manuale
+    if (btnEditOrigin) {
+      btnEditOrigin.addEventListener("click", () => {
+        isGps = false;
+        if (originGpsWrap) originGpsWrap.style.display = "none";
+        if (originManualWrap) originManualWrap.style.display = "flex";
+        if (originInput) originInput.focus();
+        updatePreview();
+      });
+    }
+
+    if (btnRestoreGps) {
+      btnRestoreGps.addEventListener("click", () => {
+        isGps = true;
+        if (originManualWrap) originManualWrap.style.display = "none";
+        if (originGpsWrap) originGpsWrap.style.display = "flex";
+        if (originInput) originInput.value = "";
+        updatePreview();
+      });
+    }
+
+    // Input listeners
+    if (originInput) originInput.addEventListener("input", updatePreview);
+    if (destInput) destInput.addEventListener("input", updatePreview);
+
+    // Pillole di destinazione rapida
+    document.querySelectorAll("#czWidgetQuickDestPills .cz-wpill").forEach(pill => {
+      pill.addEventListener("click", () => {
+        if (destInput) {
+          destInput.value = pill.dataset.dest || pill.textContent;
+          updatePreview();
+        }
+      });
+    });
+
+    // Timer animato di countdown nell'anteprima
+    setInterval(() => {
+      currentCountdownSec--;
+      if (currentCountdownSec <= 30) currentCountdownSec = 15 * 60;
+      const mins = Math.max(1, Math.floor(currentCountdownSec / 60));
+      if (prevCountdown) prevCountdown.textContent = `${mins} min`;
+    }, 1000);
+
+    // Click: AGGIUNGI WIDGET ALLA SCHERMATA HOME
+    btnAddWidget.addEventListener("click", () => {
+      const originVal = isGps ? "Posizione Attuale (GPS)" : (originInput?.value.trim() || "Posizione Attuale");
+      const destVal = destInput?.value.trim() || "Milano Centrale";
+      const lineVal = prevLine?.textContent || "Bus 279 A";
+      const platformVal = prevPlatform?.textContent?.trim() || "Gate / Binario 1";
+      const minsVal = Math.max(1, Math.floor(currentCountdownSec / 60));
+
+      const widgetConfig = {
+        origin: originVal,
+        destination: destVal,
+        lineCode: lineVal,
+        platform: platformVal,
+        countdownMinutes: minsVal,
+        departureTime: `${minsVal} min`,
+        status: "In Orario"
+      };
+
+      // Salva in localStorage per persistenza
+      try {
+        localStorage.setItem("italiabus_home_widget_config", JSON.stringify(widgetConfig));
+      } catch (e) {}
+
+      // Feedback animato sul bottone
+      const originalHtml = btnAddWidget.innerHTML;
+      btnAddWidget.disabled = true;
+      btnAddWidget.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Aggiunta in corso...';
+
+      // Comunica a Unity per effettuare la chiamata nativa Android (requestPinAppWidget)
+      const msg = "pin_android_widget|||" + JSON.stringify(widgetConfig);
+      const sentToUnity = window.invokeUnity && window.invokeUnity(msg);
+
+      setTimeout(() => {
+        btnAddWidget.disabled = false;
+        btnAddWidget.innerHTML = '<i class="fa-solid fa-check"></i> Tratta Salvata nel Widget!';
+        setTimeout(() => { btnAddWidget.innerHTML = originalHtml; }, 3000);
+
+        // Mostra popup modale con istruzioni chiare per l'utente Android
+        if (typeof showWidgetHomeModal === "function") {
+          showWidgetHomeModal(widgetConfig);
+        } else {
+          alert(`✅ Tratta per il Widget salvata con successo!\n\nPartenza: ${originVal}\nDestinazione: ${destVal}\nProssimo: ${lineVal} (${platformVal})\n\nSe il tuo telefono Android ha aperto la finestra popup, tocca "Aggiungi alla schermata Home". Altrimenti tieni premuto su un punto vuoto della schermata Home, seleziona "Widget" > "Italiamobilità" e posizionalo.`);
+        }
+      }, 700);
+    });
+
+    // Inizializza l'anteprima
+    updatePreview();
   }
 }
 

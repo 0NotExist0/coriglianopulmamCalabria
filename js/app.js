@@ -1153,8 +1153,20 @@ window.addEventListener('load', () => {
       if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
     }, 500);
   }
+
+  // --- LIVE ACTIVITIES: push iniziale dei dati per il Widget Lock Screen ---
+  // Attende 5 secondi dall'avvio per dare tempo al tabellone di generare le partenze.
+  setTimeout(() => {
+    if (window.liveBoard && typeof window.liveBoard._sendWidgetUpdate === "function") {
+      window.liveBoard._sendWidgetUpdate();
+      console.log("[Widget] Dati iniziali inviati al Widget Lock Screen.");
+    }
+  }, 5000);
+
+  // Refresh periodico dei dati widget ogni 5 minuti
+  setInterval(() => {
+    if (window.liveBoard && typeof window.liveBoard._sendWidgetUpdate === "function") {
+      window.liveBoard._sendWidgetUpdate();
+    }
+  }, 5 * 60 * 1000);
 });
-
-
-
-

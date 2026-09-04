@@ -27,6 +27,25 @@
     } catch(e){} })();
   </script>
 
+  <!-- Rilevamento app nativa (WebView Unity): applica <html class="in-app"> PRIMA del
+       render così il footer web non lampeggia mai dentro l'app. Il ponte Unity
+       (window.Unity su Android, window.webkit.messageHandlers.unityControl su iOS) è
+       già presente al load; ricontrolliamo comunque su DOMContentLoaded e dopo un attimo
+       nel caso il bridge venga iniettato con lieve ritardo. -->
+  <script>
+    (function(){
+      function inApp(){
+        return !!(window.Unity ||
+          (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.unityControl));
+      }
+      function apply(){ if (inApp()) document.documentElement.classList.add('in-app'); }
+      apply();
+      document.addEventListener('DOMContentLoaded', apply);
+      setTimeout(apply, 800);
+      setTimeout(apply, 2500);
+    })();
+  </script>
+
   <!-- PWA / Mobile (iOS & Android) -->
   <link rel="manifest" href="manifest.json">
   <meta name="mobile-web-app-capable" content="yes">
@@ -106,6 +125,11 @@
     @keyframes pulse-badge {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.6; }
+    }
+    /* Dentro l'app nativa (WebView Unity) il footer web non va mostrato:
+       contatti/branding/firma servono solo alla versione web. */
+    html.in-app .app-footer {
+      display: none !important;
     }
   </style>
 
@@ -502,6 +526,86 @@
           <button class="cz-seg-btn" data-style-choice="soft"><i class="fa-solid fa-cloud"></i> Morbido</button>
         </div>
       </div>
+      <!-- ==========================================
+           WIDGET SCHERMATA HOME (ANDROID)
+           ========================================== -->
+      <div class="cz-widget-section" id="czWidgetSection">
+        <div class="cz-group-title">
+          <i class="fa-solid fa-mobile-screen-button text-primary"></i> Widget Schermata Home
+          <span class="cz-widget-tag">Android</span>
+        </div>
+        <p class="cz-widget-sub">
+          Imposta la tratta preferita (partenza e destinazione) e visualizza il conto alla rovescia, mezzo e gate direttamente sulla Home del tuo telefono:
+        </p>
+
+        <div class="cz-widget-map-box">
+          <!-- Campo Partenza -->
+          <div class="cz-widget-field">
+            <label class="cz-wlabel"><i class="fa-solid fa-circle-dot text-primary"></i> Partenza:</label>
+            <div id="czWidgetOriginGpsWrap" class="cz-worigin-gps">
+              <span class="cz-wgps-badge"><i class="fa-solid fa-location-crosshairs"></i> Posizione Attuale (GPS)</span>
+              <button type="button" class="cz-worigin-btn-edit" id="btnEditWidgetOrigin" title="Imposta punto di partenza diverso">Modifica</button>
+            </div>
+            <div id="czWidgetOriginManualWrap" class="cz-worigin-manual" style="display: none;">
+              <input type="text" id="czWidgetOriginInput" class="cz-winput" placeholder="Comune, stazione o fermata di partenza..." autocomplete="off">
+              <button type="button" class="cz-wbtn-gps-restore" id="btnRestoreWidgetGps" title="Ripristina Posizione GPS"><i class="fa-solid fa-location-arrow"></i></button>
+            </div>
+          </div>
+
+          <!-- Tratta grafica -->
+          <div class="cz-wroute-indicator">
+            <div class="cz-wroute-line"></div>
+            <i class="fa-solid fa-arrow-down cz-wroute-arrow"></i>
+          </div>
+
+          <!-- Campo Destinazione -->
+          <div class="cz-widget-field">
+            <label class="cz-wlabel"><i class="fa-solid fa-location-dot text-danger"></i> Destinazione:</label>
+            <input type="text" id="czWidgetDestInput" class="cz-winput" placeholder="Dove vuoi andare? (es. Stazione, Aeroporto, Centro...)" autocomplete="off">
+            <div class="cz-wquick-pills" id="czWidgetQuickDestPills">
+              <span class="cz-wpill" data-dest="Milano Centrale">Milano Centrale</span>
+              <span class="cz-wpill" data-dest="Roma Termini">Roma Termini</span>
+              <span class="cz-wpill" data-dest="Aeroporto Fiumicino">Aeroporto</span>
+              <span class="cz-wpill" data-dest="Napoli Centrale">Napoli</span>
+              <span class="cz-wpill" data-dest="Corigliano Stazione">Corigliano</span>
+            </div>
+          </div>
+
+          <!-- Anteprima Grafica del Widget Home -->
+          <div class="cz-wpreview-container">
+            <div class="cz-wpreview-title"><i class="fa-solid fa-eye"></i> Anteprima Widget Home:</div>
+            <div class="cz-wcard-preview" id="czWidgetCardPreview">
+              <div class="cz-wcard-top">
+                <div class="cz-wcard-brand">
+                  <i class="fa-solid fa-bus text-primary" id="czWcardModeIcon"></i>
+                  <span>Italiamobilità</span>
+                </div>
+                <span class="cz-wcard-live-dot">● LIVE</span>
+              </div>
+              <div class="cz-wcard-route">
+                <span class="cz-wcard-from" id="czWcardFrom">📍 Posizione Attuale</span>
+                <span class="cz-wcard-arrow">➔</span>
+                <span class="cz-wcard-to" id="czWcardTo">Milano Centrale</span>
+              </div>
+              <div class="cz-wcard-bottom">
+                <div class="cz-wcard-info-col">
+                  <span class="cz-wcard-line-badge" id="czWcardLine">Pullman / Treno</span>
+                  <span class="cz-wcard-platform" id="czWcardPlatform"><i class="fa-solid fa-signs-post"></i> Gate / Binario 1</span>
+                </div>
+                <div class="cz-wcard-time-col">
+                  <span class="cz-wcard-countdown" id="czWcardCountdown">12 min</span>
+                  <span class="cz-wcard-status" id="czWcardStatus">In Orario</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottone Aggiungi Widget alla Home -->
+          <button type="button" class="btn btn-primary cz-wbtn-add" id="btnAddAndroidWidget">
+            <i class="fa-solid fa-plus-circle"></i> Aggiungi Widget alla Schermata Home
+          </button>
+        </div>
+      </div>
 
       <button class="btn btn-outline cz-reset-btn" id="czResetBtn">
         <i class="fa-solid fa-rotate-left"></i> Ripristina Predefinito
@@ -773,9 +877,14 @@
               </div>
 
               <div class="form-group">
-                <label><i class="fa-solid fa-filter"></i> Tipologia Linea:</label>
+                <label><i class="fa-solid fa-filter"></i> Tipologia Corsa / Mezzo:</label>
                 <select id="searchLineType" class="custom-select">
                   <option value="all">Tutte le Tipologie</option>
+                  <option value="direct">⚡ Solo Corse Dirette (0 cambi)</option>
+                  <option value="pullman">🚌 Solo Pullman & Autolinee</option>
+                  <option value="train">🚆 Solo Treni & Alta Velocità</option>
+                  <option value="tram">🚊 Solo Tram & Metro</option>
+                  <option value="flight">✈️ Solo Aerei</option>
                   <option value="urban">Linee Urbane</option>
                   <option value="regional">Linee Regionali / Interurbane</option>
                 </select>
@@ -1350,8 +1459,11 @@
         <div class="footer-col">
           <h4>Assistenza & Info</h4>
           <ul>
-            <li><i class="fa-solid fa-phone"></i> Numero Verde: <strong>800 123 456</strong></li>
-            <li><i class="fa-solid fa-envelope"></i> info@italiarun.it</li>
+            <li><i class="fa-solid fa-phone-volume"></i> Emergenze: <a href="tel:112"><strong>112</strong></a> <small>(Numero Unico Europeo)</small></li>
+            <li id="footerComuneMailItem">
+              <i class="fa-solid fa-envelope"></i>
+              <span id="footerComuneMail">Attiva la posizione per il contatto del tuo Comune</span>
+            </li>
             <li><i class="fa-solid fa-building"></i> Terminal Bus: Rete Nazionale Autostazioni</li>
             <li><a href="#" onclick="alert('Ufficio Oggetti Smarriti attivo presso la Biglietteria Centrale di zona.')">Oggetti Smarriti</a></li>
           </ul>
@@ -1415,7 +1527,7 @@
   <script src="js/locality-normalize.js?v=5.28"></script>
   <script src="js/realtime-engine.js?v=5.27"></script>
   <script src="js/notifications.js?v=5.27"></script>
-  <script src="js/live-board.js?v=5.27"></script>
+  <script src="js/live-board.js?v=5.34"></script>
   <script src="js/search.js?v=5.27"></script>
   <script src="js/booking.js?v=5.27"></script>
   <script src="js/map.js?v=5.28"></script>
@@ -1429,7 +1541,7 @@
   <script src="js/poi-data.js?v=5.29"></script>
   <script src="js/radar-engine.js?v=5.32"></script>
   <script src="js/fuel-prices.js?v=5.34"></script>
-  <script src="js/geo-locator.js?v=5.34"></script>
+  <script src="js/geo-locator.js?v=5.36"></script>
   <script src="js/select-enhancer.js?v=5.27"></script>
   <script src="js/alerts-scheduler.js?v=5.27"></script>
 
@@ -1439,8 +1551,10 @@
   <script src="vendor/firebase/firebase-database-compat.js?v=5.27"></script>
   <script src="js/firebase-config.js?v=5.27"></script>
   <script src="js/account.js?v=5.28"></script>
-  <script src="js/ui-settings.js?v=5.32"></script>
+  <script src="js/app-icon.js?v=5.36"></script>
+  <script src="js/ui-settings.js?v=5.36"></script>
   <script src="js/trailer.js?v=5.27"></script>
+  <script src="js/app-footer.js?v=5.37"></script>
 
 </body>
 </html>

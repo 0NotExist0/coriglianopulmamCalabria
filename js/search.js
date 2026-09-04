@@ -360,7 +360,14 @@ class RouteSearchEngine {
 
       // 1.A Corse Dirette
       lines.forEach(line => {
-        if (typeFilter !== "all" && line.type !== typeFilter) return;
+        if (typeFilter && typeFilter !== "all" && typeFilter !== "direct") {
+          if (typeFilter === "pullman" && (line.mode && line.mode !== "pullman")) return;
+          if (typeFilter === "train" && (line.mode !== "train" && line.type !== "high_speed" && line.type !== "regional_rail")) return;
+          if (typeFilter === "tram" && (line.mode !== "tram" && line.type !== "tram")) return;
+          if (typeFilter === "flight" && line.mode !== "flight") return;
+          if (typeFilter === "urban" && line.type !== "urban") return;
+          if (typeFilter === "regional" && line.type !== "regional") return;
+        }
 
         const originIdx = line.stopsIds.indexOf(originId);
         const destIdx = line.stopsIds.indexOf(destId);
@@ -417,7 +424,7 @@ class RouteSearchEngine {
       });
 
       // 1.B Corse con Cambio nello stesso Hub Regionale
-      if (directTrips.length === 0) {
+      if (directTrips.length === 0 && typeFilter !== "direct") {
         const hubId = getMainHubForRegion(originStop.region)?.id;
         if (hubId && originId !== hubId && destId !== hubId) {
           const leg1Lines = lines.filter(l => {
@@ -539,8 +546,11 @@ class RouteSearchEngine {
       const origHub = getMainHubForRegion(originStop.region) || originStop;
       const destHub = getMainHubForRegion(destStop.region) || destStop;
       const currentMode = typeof getActiveMode === "function" ? getActiveMode() : "pullman";
-      const isTrain = currentMode === "train";
-      const isFlight = currentMode === "flight";
+      let isTrain = currentMode === "train";
+      let isFlight = currentMode === "flight";
+      if (typeFilter === "train") isTrain = true;
+      if (typeFilter === "flight") isFlight = true;
+      if (typeFilter === "pullman") { isTrain = false; isFlight = false; }
 
       for (let i = 0; i < 3; i++) {
         const depMinutes = reqBaseMinutes + i * 90;
@@ -612,7 +622,11 @@ class RouteSearchEngine {
       }
     }
 
-    return [...directTrips, ...transferTrips];
+    let allResults = [...directTrips, ...transferTrips];
+    if (typeFilter === "direct") {
+      allResults = allResults.filter(t => t.isDirect);
+    }
+    return allResults;
   }
 
   renderResults(results, originId, destId, dateStr, passengers, originRerouted = null, destRerouted = null) {

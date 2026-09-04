@@ -103,6 +103,42 @@
     itg.querySelectorAll("[data-uis-itin]").forEach(function (b) {
       b.addEventListener("click", function () { setLayout(b.getAttribute("data-uis-itin")); });
     });
+
+    // ---- Gruppo: Icona dell'app ----
+    if (window.appIcon && !document.getElementById("uisIconGroup")) {
+      if (!document.getElementById("uisIconStyle")) {
+        var st = document.createElement("style");
+        st.id = "uisIconStyle";
+        st.textContent =
+          ".uis-icon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:6px}" +
+          ".uis-icon-card{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;border:2px solid rgba(148,163,184,.35);border-radius:12px;background:rgba(148,163,184,.08);cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease}" +
+          ".uis-icon-card img{width:56px;height:56px;border-radius:14px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.2)}" +
+          ".uis-icon-card:hover{border-color:#93c5fd}" +
+          ".uis-icon-card.active{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.18)}" +
+          ".uis-icon-name{font-weight:800;font-size:.82rem}" +
+          ".uis-icon-sub{font-size:.68rem;opacity:.7}" +
+          ".uis-icon-note{font-size:.72rem;opacity:.75;margin-top:8px;line-height:1.4}";
+        document.head.appendChild(st);
+      }
+      var icg = document.createElement("div");
+      icg.className = "cz-group";
+      icg.id = "uisIconGroup";
+      var cards = window.appIcon.list().map(function (o) {
+        return '<button class="uis-icon-card" type="button" data-uis-icon="' + o.id + '" title="' + o.label + '">' +
+          '<img src="' + o.img + '" alt="' + o.label + '" loading="lazy">' +
+          '<span class="uis-icon-name">' + o.label + '</span>' +
+          '<span class="uis-icon-sub">' + o.sub + '</span>' +
+          '</button>';
+      }).join("");
+      icg.innerHTML =
+        '<div class="cz-group-title"><i class="fa-solid fa-mobile-screen-button"></i> Icona dell\'app</div>' +
+        '<div class="uis-icon-grid">' + cards + '</div>' +
+        '<div class="uis-icon-note"></div>';
+      body.insertBefore(icg, itg.nextSibling);
+      icg.querySelectorAll("[data-uis-icon]").forEach(function (b) {
+        b.addEventListener("click", function () { window.appIcon.select(b.getAttribute("data-uis-icon")); });
+      });
+    }
   }
 
   // ---- Schermata iniziale ----
@@ -174,11 +210,23 @@
         ? "Come organizzare il pannello del percorso: 3 schede (Percorso / Carburante / Servizi), 2 schede (Viaggio / Carburante) o sezioni apribili."
         : '<i class="fa-solid fa-crown"></i> Con <b>Premium</b> scegli il layout. In versione free il pannello è a 2 schede con i prezzi carburante bloccati.';
     }
+
+    // Icona app
+    var icg = document.getElementById("uisIconGroup");
+    if (icg && window.appIcon) {
+      var curIcon = window.appIcon.current();
+      icg.querySelectorAll("[data-uis-icon]").forEach(function (b) {
+        b.classList.toggle("active", b.getAttribute("data-uis-icon") === curIcon);
+      });
+      var inote = icg.querySelector(".uis-icon-note");
+      if (inote) inote.innerHTML = "Scegli l'icona dell'app. Il cambio dell'icona sulla schermata home del telefono può richiedere il riavvio dell'app.";
+    }
   }
 
   function init() {
     applyAll(); // rinforza l'applicazione (lo script inline in <head> l'ha già fatto senza flash)
     injectCustomizerControls();
+    if (window.appIcon) window.appIcon._render = renderControls; // ri-evidenzia la card icona dopo la scelta
     renderControls();
     // Riallinea lo stato (soprattutto premium) ogni volta che si aprono le impostazioni
     var czBtn = document.getElementById("customizerToggleBtn");
