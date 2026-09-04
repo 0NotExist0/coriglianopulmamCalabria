@@ -1860,13 +1860,24 @@ class GeoLocatorEngine {
     const refLatLng = this.currentRefLatLng || this.userLatLng || [39.7, 16.5];
 
     this.setActiveItinerary(opt.itinerary, refLatLng);
-    this.enhanceOriginWalkGeometry().then(() => {
-      this.drawNavLegs(refLatLng);
-      this.renderItineraryPanel(refLatLng);
-      if (window.transitMap && this.navLegs) {
-        window.transitMap._skipMoveEnd = true;
-        this.fitWholeRoute();
-        setTimeout(() => { if (window.transitMap) window.transitMap._skipMoveEnd = false; }, 1400);
+    // Disegna subito (il tratto del mezzo potrebbe essere una retta sintetica),
+    // poi migliora in background la geometria con le STRADE REALI e ridisegna.
+    this.drawNavLegs(refLatLng);
+    this.renderItineraryPanel(refLatLng);
+    if (window.transitMap && this.navLegs) {
+      window.transitMap._skipMoveEnd = true;
+      this.fitWholeRoute();
+      setTimeout(() => { if (window.transitMap) window.transitMap._skipMoveEnd = false; }, 1400);
+    }
+    Promise.all([this.enhanceOriginWalkGeometry(), this.enhanceRideGeometry()]).then(() => {
+      // Ridisegna solo se questo itinerario è ancora quello attivo
+      if (this.currentItineraryOptions && this.currentItineraryOptions[this.activeOptionIndex] === opt) {
+        this.drawNavLegs(refLatLng);
+        if (window.transitMap && this.navLegs) {
+          window.transitMap._skipMoveEnd = true;
+          this.fitWholeRoute();
+          setTimeout(() => { if (window.transitMap) window.transitMap._skipMoveEnd = false; }, 1400);
+        }
       }
     });
   }
@@ -1965,6 +1976,40 @@ class GeoLocatorEngine {
         if (r.duration) { leg.seconds = Math.round(r.duration); this.walkSeconds = leg.seconds; }
       }
     } catch (e) { /* fallback: linea retta gia' presente */ }
+  }
+
+  /* Migliora la geometria delle tratte del MEZZO disegnate come retta.
+     Quando non esiste una linea reale che collega partenza e arrivo (es. tratte
+     lunghe cross-regione), la corsa veniva sintetizzata come segmento diritto
+     [partenza, arrivo] -> sulla mappa appariva una riga dritta attraverso
+     l'Italia (anche sul mare). Qui, per queste tratte, scarichiamo il percorso
+     stradale REALE (OSRM) così il tracciato segue le strade. Gli AEREI restano
+     dritti (un volo non segue la strada). */
+  async enhanceRideGeometry() {
+    if (!this.navLegs) return;
+    const targets = this.navLegs.filter(l =>
+      (l.type === 'ride' || l.type === 'drive') &&
+      l.coords && l.coords.length === 2 &&
+      !(l.mode === 'flight' || (l.line && l.line.mode === 'flight'))
+    );
+    if (!targets.length) return;
+    await Promise.all(targets.map(async (leg) => {
+      const from = leg.coords[0];
+      const to = leg.coords[leg.coords.length - 1];
+      const meters = this.haversine(from, to);
+      // Solo tratte abbastanza lunghe (evita fetch inutili) e realistiche su strada.
+      if (meters < 2000 || meters > 1500000) return;
+      try {
+        const r = await this.fetchDrivingRoute(from, to);
+        if (r && r.coords && r.coords.length > 2) {
+          leg.coords = r.coords;
+          if (r.distance) leg.meters = Math.round(r.distance);
+          if (r.duration) leg.seconds = Math.round(r.duration);
+          // leg.stops resta [partenza, arrivo]: _buildRideSegments li mappa
+          // sui due capi della geometria -> un unico segmento lungo la strada.
+        }
+      } catch (e) { /* fallback: resta la retta già presente */ }
+    }));
   }
 
   /* ==========================================================================
