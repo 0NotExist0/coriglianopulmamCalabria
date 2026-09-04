@@ -7,6 +7,8 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>ItaliaRun & Mobilità Italia | Orari, Timer Live e Percorsi</title>
+  <link rel="canonical" href="https://italiarun.vercel.app/">
+  <meta name="robots" content="index, follow">
 
   <!-- Auto-cancella cache ad ogni ingresso -->
   <script>
@@ -63,6 +65,10 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content="ItaliaRun & Mobilità Italia | Orari, Timer Live e Percorsi">
   <meta property="og:description" content="ItaliaRun: Orari in tempo reale con timer a scalare, mappa interattiva e navigatore per tutte le regioni d'Italia.">
+  <meta property="og:url" content="https://italiarun.vercel.app/">
+  <meta property="og:site_name" content="ItaliaRun">
+  <meta property="og:image" content="https://italiarun.vercel.app/img/icona-512.png">
+  <meta name="twitter:card" content="summary_large_image">
 
   <!-- Google AdSense: NON caricato staticamente qui.
        Lo script veniva scaricato all'avvio e su file:// (app nativa) bloccava
@@ -162,6 +168,16 @@
   <link rel="stylesheet" href="css/trailer.css?v=5.27">
   <!-- PERF: override mobile/in-app, caricato per ULTIMO -->
   <link rel="stylesheet" href="css/perf.css?v=5.40">
+  <!-- Dati strutturati: associa il nome "ItaliaRun" al sito su Google -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "ItaliaRun",
+    "alternateName": ["ItaliaRun & Mobilità Italia", "Italia Run"],
+    "url": "https://italiarun.vercel.app/"
+  }
+  </script>
 </head>
 <body>
 
