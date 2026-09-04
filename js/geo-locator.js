@@ -2114,26 +2114,61 @@ class GeoLocatorEngine {
      al click si evidenzia in ambra e apre un popup con i dettagli del pezzo.
      ========================================================================== */
   _buildRideSegments(leg, shown, baseColor) {
-    const stops = leg.stops || null;
     const lineLabel = leg.line ? (leg.line.code || leg.line.name || 'Mezzo') : 'Mezzo';
-    for (let s = 0; s < shown.length - 1; s++) {
-      const a = shown[s], b = shown[s + 1];
-      const fromStop = stops && stops[s];
-      const toStop = stops && stops[s + 1];
-      const fromName = (fromStop && fromStop.name) || (s === 0 ? (leg.boardName || 'Partenza') : `Fermata ${s + 1}`);
-      const toName = (toStop && toStop.name) || (s === shown.length - 2 ? (leg.alightName || 'Arrivo') : `Fermata ${s + 2}`);
+    // I segmenti sono FERMATA→FERMATA. IMPORTANTISSIMO: il numero di pezzi
+    // dipende dalle FERMATE, mai dai punti della polilinea. Su un viaggio lungo
+    // (es. Transitous) `shown` è la GEOMETRIA STRADALE densa: migliaia di punti.
+    // Suddividere per ogni punto creava migliaia di polilinee e bloccava l'app.
+    const stops = (leg.stops && leg.stops.length >= 2) ? leg.stops : null;
 
-      const seg = L.polyline([a, b], {
+    // boundaries[i] = indice in `shown` che segna l'inizio della fermata i.
+    let boundaries;
+    if (stops && shown.length === stops.length) {
+      // Caso locale: una coordinata per fermata → confini diretti.
+      boundaries = stops.map((_, i) => i);
+    } else if (stops && stops.length <= 200) {
+      // Geometria stradale densa CON fermate note: mappa ogni fermata sul punto
+      // di geometria più vicino, poi taglia la strada tra fermate consecutive.
+      boundaries = stops.map(st => this._nearestGeoIndex(shown, [st.lat_actual || st.lat, st.lng_actual || st.lng]));
+      boundaries[0] = 0;
+      boundaries[boundaries.length - 1] = shown.length - 1;
+      for (let i = 1; i < boundaries.length; i++) {
+        if (boundaries[i] <= boundaries[i - 1]) boundaries[i] = Math.min(shown.length - 1, boundaries[i - 1] + 1);
+      }
+    } else {
+      // Fermate intermedie sconosciute (o troppe): UN solo pezzo cliccabile che
+      // copre l'intera tratta partenza→arrivo, con tutta la sua geometria.
+      boundaries = [0, shown.length - 1];
+    }
+
+    const segCount = boundaries.length - 1;
+    const nameFor = (i) => {
+      if (stops && stops[i] && stops[i].name) return stops[i].name;
+      if (i === 0) return leg.boardName || 'Partenza';
+      if (i >= segCount) return leg.alightName || 'Arrivo';
+      return `Fermata ${i + 1}`;
+    };
+    const addrFor = (i) => (stops && stops[i] && stops[i].address) || '';
+
+    for (let s = 0; s < segCount; s++) {
+      const fromIdx = boundaries[s], toIdx = boundaries[s + 1];
+      const geom = shown.slice(fromIdx, toIdx + 1);
+      if (geom.length < 2) continue;
+
+      const seg = L.polyline(geom, {
         color: baseColor, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round',
         interactive: true, bubblingMouseEvents: false
       }).addTo(this.geoLayer);
 
       seg._segMeta = {
-        idx: s, a, b, fromName, toName, lineLabel, baseColor, baseWeight: 6,
-        fromAddr: (fromStop && fromStop.address) || '',
-        toAddr: (toStop && toStop.address) || ''
+        idx: s, fromIdx, toIdx,
+        a: geom[0], b: geom[geom.length - 1],
+        fromName: nameFor(s), toName: nameFor(s + 1),
+        lineLabel, baseColor, baseWeight: 6,
+        fromAddr: addrFor(s), toAddr: addrFor(s + 1),
+        meters: this._pathMeters(geom)
       };
-      seg.bindTooltip(`${s + 1}. <strong>${fromName}</strong> → <strong>${toName}</strong>`,
+      seg.bindTooltip(`${s + 1}. <strong>${seg._segMeta.fromName}</strong> → <strong>${seg._segMeta.toName}</strong>`,
         { sticky: true, className: 'custom-map-tooltip' });
       seg.on('click', (ev) => {
         this.highlightRouteSegment(seg);
@@ -2141,6 +2176,25 @@ class GeoLocatorEngine {
       });
       leg.segmentLines.push(seg);
     }
+  }
+
+  // Indice del punto di `geom` più vicino a `pt` (per mappare una fermata sulla
+  // geometria stradale densa).
+  _nearestGeoIndex(geom, pt) {
+    let best = 0, bestD = Infinity;
+    for (let i = 0; i < geom.length; i++) {
+      const dLat = geom[i][0] - pt[0], dLng = geom[i][1] - pt[1];
+      const d = dLat * dLat + dLng * dLng; // distanza euclidea approssimata: basta per il minimo
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  }
+
+  // Lunghezza reale (metri) di una polilinea, sommando i tratti.
+  _pathMeters(geom) {
+    let m = 0;
+    for (let i = 1; i < geom.length; i++) m += this.haversine(geom[i - 1], geom[i]);
+    return Math.round(m);
   }
 
   highlightRouteSegment(seg) {
@@ -2155,7 +2209,7 @@ class GeoLocatorEngine {
     if (seg.bringToFront) seg.bringToFront();
     this._highlightedSegment = seg;
 
-    const meters = Math.round(this.haversine(m.a, m.b));
+    const meters = (typeof m.meters === 'number' && m.meters > 0) ? m.meters : Math.round(this.haversine(m.a, m.b));
     const distTxt = meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
     const speed = (this.activeItinerary && this.activeItinerary.hasTrain) ? 12.5 : 8.33; // m/s (~45 / ~30 km/h)
     const mins = Math.max(1, Math.round(meters / speed / 60));
@@ -2392,9 +2446,8 @@ class GeoLocatorEngine {
     for (const leg of this.navLegs) {
       leg.revealed = true;
       if (leg.segmentLines && leg.segmentLines.length) {
-        for (let s = 0; s < leg.segmentLines.length; s++) {
-          const sl = leg.segmentLines[s];
-          if (sl && leg.coords[s] && leg.coords[s + 1]) sl.setLatLngs([leg.coords[s], leg.coords[s + 1]]);
+        for (const sl of leg.segmentLines) {
+          if (sl && sl._segMeta) sl.setLatLngs(leg.coords.slice(sl._segMeta.fromIdx, sl._segMeta.toIdx + 1));
         }
       } else if (leg.polyline) {
         leg.polyline.setLatLngs(leg.coords);
@@ -4168,17 +4221,18 @@ class GeoLocatorEngine {
   // (per le leg mezzo suddivise). No-op per le leg con polilinea unica.
   _trimLegSegments(leg, phase, bestSeg, bestPt) {
     if (!leg || !leg.segmentLines || !leg.segmentLines.length) return;
-    for (let s = 0; s < leg.segmentLines.length; s++) {
-      const sl = leg.segmentLines[s];
-      if (!sl) continue;
-      const full = (leg.coords[s] && leg.coords[s + 1]) ? [leg.coords[s], leg.coords[s + 1]] : [];
-      if (phase === 'done') this._setLine(sl, []);
-      else if (phase === 'future') this._setLine(sl, full);
-      else { // current
-        if (s < bestSeg) this._setLine(sl, []);
-        else if (s === bestSeg) this._setLine(sl, [bestPt, leg.coords[s + 1]]);
-        else this._setLine(sl, full);
-      }
+    // Ogni segmento copre un intervallo [fromIdx, toIdx] della geometria (leg.coords).
+    // bestSeg è l'indice del punto corrente in leg.coords (proiezione GPS).
+    for (const sl of leg.segmentLines) {
+      if (!sl || !sl._segMeta) continue;
+      const { fromIdx, toIdx } = sl._segMeta;
+      const full = leg.coords.slice(fromIdx, toIdx + 1);
+      if (phase === 'done') { this._setLine(sl, []); continue; }
+      if (phase === 'future') { this._setLine(sl, full); continue; }
+      // Leg corrente:
+      if (toIdx <= bestSeg) this._setLine(sl, []);              // segmento già percorso
+      else if (fromIdx > bestSeg) this._setLine(sl, full);     // segmento ancora da percorrere
+      else this._setLine(sl, [bestPt].concat(leg.coords.slice(bestSeg + 1, toIdx + 1))); // in corso: accorcia
     }
   }
 
