@@ -27,6 +27,23 @@ class TransitMapEngine {
       this.placeStopMarkers();
       this.spawnLiveBuses();
       this.bindMapControls();
+
+      // ROBUSTEZZA (soprattutto WebView Unity): all'avvio il container della
+      // mappa può avere larghezza 0 finché il layout non è completo. In quel
+      // caso i marker — e in particolare i cluster ("Marker → Raggruppati") —
+      // non si posizionano correttamente. Appena la mappa è pronta e
+      // ridimensionata, ricalcoliamo una volta i marker con la proiezione
+      // corretta. Innocuo in modalità "Singoli".
+      this.map.whenReady(() => {
+        setTimeout(() => {
+          if (!this.map) return;
+          this.map.invalidateSize();
+          this.placeStopMarkers();
+          if (window.radarEngine && typeof window.radarEngine.renderAllMarkers === 'function') {
+            try { window.radarEngine.renderAllMarkers(); } catch (e) {}
+          }
+        }, 400);
+      });
     } catch (e) {
       console.warn("Leaflet Map init error:", e);
     }
@@ -130,7 +147,19 @@ class TransitMapEngine {
       zoom: zoom,
       zoomControl: true,
       scrollWheelZoom: true
+      // NB: la mappa resta su renderer SVG di default, così il percorso del
+      // viaggio (tratti a piedi/auto/mezzo) mantiene stili e animazioni CSS
+      // (es. formichine del tratto a piedi) e la piena visibilità come prima.
+      // Solo le linee "di massa" di tutta la regione vengono spostate su un
+      // canvas dedicato (vedi this._bulkRouteCanvas) per non generare migliaia
+      // di nodi SVG: è lì che stava il costo, non nel percorso interattivo.
     });
+
+    // Canvas dedicato SOLO per le polilinee di tutte le linee della regione
+    // (drawRoutePolylines): centinaia di tracciati che prima erano altrettanti
+    // nodi SVG nel DOM. Il percorso del viaggio interattivo NON usa questo
+    // renderer e resta su SVG.
+    this._bulkRouteCanvas = (typeof L.canvas === 'function') ? L.canvas({ padding: 0.5 }) : null;
 
     // Basemap GRATUITI senza API key (i tile CARTO ora richiedono una chiave).
     // L'utente sceglie la modalità dal selettore in alto a sinistra sulla mappa.
@@ -167,7 +196,10 @@ class TransitMapEngine {
     });
 
     this.routeLinesLayer = L.featureGroup().addTo(this.map);
-    this.stopMarkersLayer = L.featureGroup().addTo(this.map);
+    // Le fermate possono essere raggruppate (cluster) se l'utente sceglie
+    // "Raggruppati" da Personalizza. Stessa API di featureGroup, così il
+    // resto del codice (addLayer/clearLayers) resta identico.
+    this.stopMarkersLayer = this._createStopLayer().addTo(this.map);
     this.liveBusesLayer = L.featureGroup().addTo(this.map);
     this.highlightedRouteLayer = L.featureGroup().addTo(this.map);
     this.walkingRouteLayer = L.featureGroup().addTo(this.map);
@@ -316,6 +348,7 @@ class TransitMapEngine {
       if (latlngs.length >= 2) {
         const isTrain = currentMode === 'train' || line.type === 'av';
         const polyline = L.polyline(latlngs, {
+          renderer: this._bulkRouteCanvas || undefined, // PERF: canvas, non SVG
           color: line.color || (isTrain ? '#dc2626' : '#0284c7'),
           weight: isTrain ? 5 : 4,
           opacity: 0.85,
@@ -332,6 +365,42 @@ class TransitMapEngine {
         this.routeLinesLayer.addLayer(polyline);
       }
     });
+  }
+
+  /* ==========================================================================
+     CLUSTERING FERMATE (opzione "Marker sulla Mappa" in Personalizza)
+     ========================================================================== */
+  _clusterEnabled() {
+    try {
+      const v = (typeof safeStorageGet === 'function')
+        ? safeStorageGet('italiarun_map_cluster', 'single')
+        : ((typeof localStorage !== 'undefined' && localStorage.getItem('italiarun_map_cluster')) || 'single');
+      return v === 'cluster' && typeof L.markerClusterGroup === 'function';
+    } catch (e) { return false; }
+  }
+
+  _createStopLayer() {
+    if (this._clusterEnabled()) {
+      return L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: 55,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 16
+      });
+    }
+    return L.featureGroup();
+  }
+
+  // Chiamato dal customizer quando si passa da "Singoli" a "Raggruppati".
+  applyClusterSetting() {
+    if (!this.map || !this.stopMarkersLayer) return;
+    const wasOnMap = this.map.hasLayer(this.stopMarkersLayer);
+    try { this.stopMarkersLayer.clearLayers(); } catch (e) {}
+    this.map.removeLayer(this.stopMarkersLayer);
+    this.stopMarkersLayer = this._createStopLayer();
+    if (wasOnMap) this.stopMarkersLayer.addTo(this.map);
+    this.placeStopMarkers();
   }
 
   placeStopMarkers() {

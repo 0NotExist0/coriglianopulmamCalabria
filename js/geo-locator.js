@@ -240,6 +240,8 @@ class GeoLocatorEngine {
     this.legMarkers = [];
     this.fullRouteShown = false;
     this.followMode = 'free';
+    // Azzera la guida vocale turn-by-turn quando si annulla/ripulisce il percorso.
+    if (window.voiceGuide) window.voiceGuide.resetNavigation();
     this.hideNavControls();
   }
 
@@ -1206,6 +1208,7 @@ class GeoLocatorEngine {
     // Cerca una linea esistente che contenga entrambe le fermate
     let matchingLine = null;
     let legCoords = null;
+    let legStops = null; // oggetti fermata paralleli a legCoords (per i segmenti cliccabili)
     let stopsCount = 1;
 
     for (let i = 0; i < lines.length; i++) {
@@ -1218,9 +1221,10 @@ class GeoLocatorEngine {
         stopsCount = di - oi;
         const seq = arr.slice(oi, di + 1);
         legCoords = [];
+        legStops = [];
         seq.forEach(sid => {
           const st = stops.find(x => x.id === sid);
-          if (st) legCoords.push([st.lat_actual || st.lat, st.lng_actual || st.lng]);
+          if (st) { legCoords.push([st.lat_actual || st.lat, st.lng_actual || st.lng]); legStops.push(st); }
         });
         break;
       }
@@ -1229,6 +1233,7 @@ class GeoLocatorEngine {
     // Se non trovata una sequenza esatta ma le stazioni esistono, sintetizza la linea diretta express
     if (!matchingLine || !legCoords || legCoords.length < 2) {
       legCoords = [oLL, dLL];
+      legStops = [bestOriginStop, targetDestStop];
       stopsCount = Math.max(1, Math.round(rideMeters / (modeKey === 'train' ? 45000 : (modeKey === 'flight' ? 250000 : 15000))));
 
       let lineCode, lineName, lineOp, lineModel, lineColor, priceBase;
@@ -1303,6 +1308,7 @@ class GeoLocatorEngine {
         boardName: bestOriginStop.name,
         alightName: targetDestStop.name,
         coords: legCoords,
+        stops: legStops,
         stopsCount: stopsCount,
         meters: Math.round(rideMeters),
         seconds: rideSec,
@@ -1889,7 +1895,7 @@ class GeoLocatorEngine {
       { type: 'walk', isOrigin: true, fromLatLng: refLatLng, toStop: depStop, toName: depStop.name,
         coords: [refLatLng, depLL], meters: Math.round(walkMeters), seconds: Math.round(walkMeters / 1.35), elevGain: null },
       { type: 'ride', mode: mode, line: Object.assign({}, line, { mode: mode }), boardStop: depStop, alightStop: destObj,
-        boardName: depStop.name, alightName: destObj.name, coords: busCoords,
+        boardName: depStop.name, alightName: destObj.name, coords: busCoords, stops: (busCoords && busCoords.stops) || null,
         stopsCount: Math.max(1, busCoords.length - 1), meters: Math.round(rideMeters), platform: platform }
     ];
     const totalSeconds = Math.round((walkMeters / 1.35) + (rideMeters / 8.33));
@@ -1937,6 +1943,9 @@ class GeoLocatorEngine {
       window.liveBoard.generateInitialDepartures();
       window.liveBoard.render();
     }
+
+    // Guida vocale: prepara le istruzioni turn-by-turn (solo se l'itinerario è in auto).
+    if (window.voiceGuide) window.voiceGuide.startNavigation(this.navLegs);
   }
 
   /* Migliora la geometria del primo tratto a piedi con il percorso pedonale reale */
@@ -1970,6 +1979,7 @@ class GeoLocatorEngine {
     // Azzera SOLO i riferimenti ai layer (mantiene navLegs / itinerario)
     this.userMarker = null; this.depMarker = null; this.destMarker = null; this.legMarkers = [];
     this.walkPolyline = null; this.walkGlow = null; this.busPolyline = null; this.busGlow = null;
+    this._highlightedSegment = null; // il segmento evidenziato (se presente) è stato rimosso col clearLayers
 
     const currentMode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
     const modeIcon = currentMode === 'flight' ? 'fa-plane-departure'
@@ -2010,10 +2020,21 @@ class GeoLocatorEngine {
         }).bindTooltip(`🚗 <strong>Guida in Auto:</strong> ${kmTxt} km &bull; ~${minTxt} min`,
           { sticky: true, className: 'custom-map-tooltip' }).addTo(this.geoLayer);
       } else if (isRide) {
-        leg.polyline = L.polyline(shown, {
-          color, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round'
-        }).bindTooltip(`<strong>${leg.line ? (leg.line.code || leg.line.name) : 'Mezzo'}</strong> ➔ ${leg.alightName || ''}`,
-          { sticky: true, className: 'custom-map-tooltip' }).addTo(this.geoLayer);
+        // NUOVA FEATURE: suddividi la tratta del mezzo nei singoli segmenti
+        // fermata→fermata. Ogni segmento è cliccabile: al click si evidenzia
+        // in un colore diverso e mostra i dettagli di quel pezzo (fermate,
+        // distanza, tempo stimato). Se c'è una sola tratta (linea diretta
+        // sintetica a 2 punti) si ricade sulla polilinea unica di prima.
+        leg.segmentLines = [];
+        leg.polyline = null;
+        if (shown.length >= 3) {
+          this._buildRideSegments(leg, shown, color);
+        } else {
+          leg.polyline = L.polyline(shown, {
+            color, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round'
+          }).bindTooltip(`<strong>${leg.line ? (leg.line.code || leg.line.name) : 'Mezzo'}</strong> ➔ ${leg.alightName || ''}`,
+            { sticky: true, className: 'custom-map-tooltip' }).addTo(this.geoLayer);
+        }
       } else {
         leg.polyline = L.polyline(shown, {
           color, weight: 6, opacity: 0.95, dashArray: '8, 8', lineCap: 'round', lineJoin: 'round', className: 'walking-route-polyline'
@@ -2085,6 +2106,85 @@ class GeoLocatorEngine {
       if (window.transitMap) window.transitMap._skipMoveEnd = false;
       if (this.geoLayer) this.geoLayer.bringToFront();
     }, 1300);
+  }
+
+  /* ==========================================================================
+     SEGMENTI FERMATA→FERMATA CLICCABILI
+     Ogni pezzo della tratta del mezzo diventa una polilinea a sé, cliccabile:
+     al click si evidenzia in ambra e apre un popup con i dettagli del pezzo.
+     ========================================================================== */
+  _buildRideSegments(leg, shown, baseColor) {
+    const stops = leg.stops || null;
+    const lineLabel = leg.line ? (leg.line.code || leg.line.name || 'Mezzo') : 'Mezzo';
+    for (let s = 0; s < shown.length - 1; s++) {
+      const a = shown[s], b = shown[s + 1];
+      const fromStop = stops && stops[s];
+      const toStop = stops && stops[s + 1];
+      const fromName = (fromStop && fromStop.name) || (s === 0 ? (leg.boardName || 'Partenza') : `Fermata ${s + 1}`);
+      const toName = (toStop && toStop.name) || (s === shown.length - 2 ? (leg.alightName || 'Arrivo') : `Fermata ${s + 2}`);
+
+      const seg = L.polyline([a, b], {
+        color: baseColor, weight: 6, opacity: 1, lineCap: 'round', lineJoin: 'round',
+        interactive: true, bubblingMouseEvents: false
+      }).addTo(this.geoLayer);
+
+      seg._segMeta = {
+        idx: s, a, b, fromName, toName, lineLabel, baseColor, baseWeight: 6,
+        fromAddr: (fromStop && fromStop.address) || '',
+        toAddr: (toStop && toStop.address) || ''
+      };
+      seg.bindTooltip(`${s + 1}. <strong>${fromName}</strong> → <strong>${toName}</strong>`,
+        { sticky: true, className: 'custom-map-tooltip' });
+      seg.on('click', (ev) => {
+        this.highlightRouteSegment(seg);
+        if (ev && ev.originalEvent && window.L && L.DomEvent) L.DomEvent.stop(ev.originalEvent);
+      });
+      leg.segmentLines.push(seg);
+    }
+  }
+
+  highlightRouteSegment(seg) {
+    if (!seg || !seg._segMeta) return;
+    const map = this.map || this.ensureMap();
+    if (!map) return;
+    this._clearSegmentHighlight();
+
+    const m = seg._segMeta;
+    const HL = '#f59e0b'; // ambra: evidenziazione del pezzo selezionato
+    seg.setStyle({ color: HL, weight: 9, opacity: 1 });
+    if (seg.bringToFront) seg.bringToFront();
+    this._highlightedSegment = seg;
+
+    const meters = Math.round(this.haversine(m.a, m.b));
+    const distTxt = meters >= 1000 ? `${(meters / 1000).toFixed(1)} km` : `${meters} m`;
+    const speed = (this.activeItinerary && this.activeItinerary.hasTrain) ? 12.5 : 8.33; // m/s (~45 / ~30 km/h)
+    const mins = Math.max(1, Math.round(meters / speed / 60));
+    const midLat = (m.a[0] + m.b[0]) / 2, midLng = (m.a[1] + m.b[1]) / 2;
+
+    const html = `
+      <div class="seg-popup-card">
+        <div class="seg-popup-head" style="background:${HL};">
+          <i class="fa-solid fa-arrows-left-right-to-line"></i>
+          <strong>Tratto ${m.idx + 1} &middot; ${m.lineLabel}</strong>
+        </div>
+        <div class="seg-popup-body">
+          <div class="seg-popup-row"><span class="seg-dot seg-dot-a"></span><div><strong>${m.fromName}</strong>${m.fromAddr ? `<small>${m.fromAddr}</small>` : ''}</div></div>
+          <div class="seg-popup-row"><span class="seg-dot seg-dot-b"></span><div><strong>${m.toName}</strong>${m.toAddr ? `<small>${m.toAddr}</small>` : ''}</div></div>
+          <div class="seg-popup-metrics"><span><i class="fa-solid fa-ruler-horizontal"></i> ${distTxt}</span><span><i class="fa-solid fa-clock"></i> ~${mins} min</span></div>
+        </div>
+      </div>`;
+
+    L.popup({ className: 'seg-detail-popup', autoPan: true, closeButton: true, maxWidth: 280 })
+      .setLatLng([midLat, midLng]).setContent(html).openOn(map);
+    map.once('popupclose', () => this._clearSegmentHighlight());
+  }
+
+  _clearSegmentHighlight() {
+    const seg = this._highlightedSegment;
+    if (seg && seg._segMeta && typeof seg.setStyle === 'function') {
+      seg.setStyle({ color: seg._segMeta.baseColor, weight: seg._segMeta.baseWeight, opacity: 1 });
+    }
+    this._highlightedSegment = null;
   }
 
   _drawItineraryMarkers(modeIcon) {
@@ -2291,7 +2391,14 @@ class GeoLocatorEngine {
 
     for (const leg of this.navLegs) {
       leg.revealed = true;
-      if (leg.polyline) leg.polyline.setLatLngs(leg.coords);
+      if (leg.segmentLines && leg.segmentLines.length) {
+        for (let s = 0; s < leg.segmentLines.length; s++) {
+          const sl = leg.segmentLines[s];
+          if (sl && leg.coords[s] && leg.coords[s + 1]) sl.setLatLngs([leg.coords[s], leg.coords[s + 1]]);
+        }
+      } else if (leg.polyline) {
+        leg.polyline.setLatLngs(leg.coords);
+      }
       if (leg.glow) leg.glow.setLatLngs(leg.coords);
     }
 
@@ -2515,18 +2622,22 @@ class GeoLocatorEngine {
       // Rispetta il verso di marcia della linea
       const seq = di < ti ? ids.slice(di, ti + 1) : ids.slice(ti, di + 1).reverse();
       const coords = [];
+      const segStops = [];
       for (let k = 0; k < seq.length; k++) {
         const s = typeof getStopById === 'function' ? getStopById(seq[k]) : null;
-        if (s) coords.push([s.lat_actual || s.lat, s.lng_actual || s.lng]);
+        if (s) { coords.push([s.lat_actual || s.lat, s.lng_actual || s.lng]); segStops.push(s); }
       }
-      if (coords.length >= 2) return coords;
+      // Alleghiamo gli oggetti fermata all'array coords (proprietà extra, ignorata
+      // dai consumatori che usano coords come semplice lista di punti) così la
+      // tratta può essere suddivisa in segmenti fermata→fermata cliccabili.
+      if (coords.length >= 2) { coords.stops = segStops; return coords; }
     }
 
     // Nessuna linea collega davvero partenza e destinazione.
     // Per il TAXI la corsa diretta punto-punto e' legittima (linea retta);
     // per bus/treno/tram/volo NON inventiamo una corsa -> null (irraggiungibile).
     const mode = typeof getActiveMode === 'function' ? getActiveMode() : 'pullman';
-    if (mode === 'taxi') return [depLL, destLL];
+    if (mode === 'taxi') { const arr = [depLL, destLL]; arr.stops = [dep, dest]; return arr; }
     return null;
   }
 
@@ -3841,6 +3952,12 @@ class GeoLocatorEngine {
 
     this.userLatLng = [lat, lng];
 
+    // Allarme discesa ("Svegliami alla fermata"): valuta la vicinanza alla destinazione.
+    if (window.getOffAlarm) window.getOffAlarm.notifyPosition(lat, lng);
+
+    // Guida vocale turn-by-turn: annuncia le manovre in avvicinamento.
+    if (window.voiceGuide) window.voiceGuide.onPosition(lat, lng);
+
     // Sposta il marker utente (crealo se assente)
     if (this.userMarker) {
       this.userMarker.setLatLng(this.userLatLng);
@@ -3955,8 +4072,23 @@ class GeoLocatorEngine {
       <button type="button" class="geo-nav-act-btn" onclick="window.geoLocator.fitWholeRoute()" title="Vedi l'intero percorso e i cambi">
         <i class="fa-solid fa-route"></i> <span>Vedi tutto il percorso</span>
       </button>
+      <button type="button" id="geoVoiceBtn" class="geo-nav-act-btn geo-voice-btn" onclick="window.voiceGuide && window.voiceGuide.toggleEnabled()" title="Attiva o disattiva le istruzioni vocali e gli avvisi autovelox">
+        <i class="fa-solid fa-volume-high"></i> <span class="vgnav-label">Voce attiva</span>
+      </button>
+      <button type="button" id="geoGetOffBtn" class="geo-nav-act-btn geo-getoff-btn" onclick="window.getOffAlarm && window.getOffAlarm.toggleFromNav()" title="Suono, vibrazione e voce quando sei vicino alla fermata di arrivo">
+        <i class="fa-solid fa-bell"></i> <span class="goff-label">Svegliami alla fermata</span>
+        <span id="geoGetOffDist" class="goff-dist"></span>
+      </button>
+      <div id="geoGetOffRadiusRow" class="geo-getoff-radius">
+        <span class="goff-r-label">Avvisami a</span>
+        <button type="button" class="goff-r-btn" data-goff-r="300" onclick="window.getOffAlarm.setRadius(300)">300 m</button>
+        <button type="button" class="goff-r-btn" data-goff-r="400" onclick="window.getOffAlarm.setRadius(400)">400 m</button>
+        <button type="button" class="goff-r-btn" data-goff-r="500" onclick="window.getOffAlarm.setRadius(500)">500 m</button>
+      </div>
     `;
     wrapper.appendChild(el);
+    if (window.getOffAlarm && typeof window.getOffAlarm.syncUI === 'function') window.getOffAlarm.syncUI();
+    if (window.voiceGuide && typeof window.voiceGuide.syncUI === 'function') window.voiceGuide.syncUI();
     // Evita che trascinare/scrollare sul pannello muova la mappa sottostante.
     if (window.L && L.DomEvent) {
       try { L.DomEvent.disableClickPropagation(el); L.DomEvent.disableScrollPropagation(el); } catch (e) {}
@@ -4016,15 +4148,36 @@ class GeoLocatorEngine {
     for (let li = 0; li < revealed.length; li++) {
       const leg = revealed[li];
       if (li < bestLi) {
+        this._trimLegSegments(leg, 'done', 0, null);
         this._setLine(leg.polyline, []);
         this._setLine(leg.glow, []);
       } else if (li === bestLi) {
         const rem = [bestPt].concat(leg.coords.slice(bestSeg + 1));
+        this._trimLegSegments(leg, 'current', bestSeg, bestPt);
         this._setLine(leg.polyline, rem);
         this._setLine(leg.glow, rem);
       } else {
+        this._trimLegSegments(leg, 'future', 0, null);
         this._setLine(leg.polyline, leg.coords);
         this._setLine(leg.glow, leg.coords);
+      }
+    }
+  }
+
+  // Applica il trimming del navigatore ai singoli segmenti fermata→fermata
+  // (per le leg mezzo suddivise). No-op per le leg con polilinea unica.
+  _trimLegSegments(leg, phase, bestSeg, bestPt) {
+    if (!leg || !leg.segmentLines || !leg.segmentLines.length) return;
+    for (let s = 0; s < leg.segmentLines.length; s++) {
+      const sl = leg.segmentLines[s];
+      if (!sl) continue;
+      const full = (leg.coords[s] && leg.coords[s + 1]) ? [leg.coords[s], leg.coords[s + 1]] : [];
+      if (phase === 'done') this._setLine(sl, []);
+      else if (phase === 'future') this._setLine(sl, full);
+      else { // current
+        if (s < bestSeg) this._setLine(sl, []);
+        else if (s === bestSeg) this._setLine(sl, [bestPt, leg.coords[s + 1]]);
+        else this._setLine(sl, full);
       }
     }
   }
@@ -4038,12 +4191,18 @@ class GeoLocatorEngine {
   onArrived() {
     if (this.arrived) return;
     this.arrived = true;
+    // La sveglia (se attiva) ha già avvisato: disattivala in silenzio.
+    if (window.getOffAlarm && window.getOffAlarm.isArmed()) window.getOffAlarm.disarm(true);
+    // Guida vocale: annuncia l'arrivo e azzera le istruzioni.
+    if (window.voiceGuide) window.voiceGuide.announceArrival();
     if (this.navLegs) {
       for (const leg of this.navLegs) {
         this._setLine(leg.polyline, []);
         this._setLine(leg.glow, []);
+        if (leg.segmentLines) leg.segmentLines.forEach(sl => this._setLine(sl, []));
       }
     }
+    this._clearSegmentHighlight();
     this.stopLiveTracking();
     this.hideNavControls();
     const destName = this.selectedDestination?.name || this.activeRouteInfo?.destinationStop?.name || "destinazione";

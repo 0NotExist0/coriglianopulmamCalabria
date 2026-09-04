@@ -3220,3 +3220,22 @@
 .rpoi-go{ flex-shrink:0; background:#16a34a; color:#fff; border:none; border-radius:9px; padding:7px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
 .rpoi-go:hover{ background:#15803d; }
 @media (max-width:560px){ .radar-poi-panel{ top:8px; right:8px; left:8px; width:auto; max-height:70%; } }
+
+/* ==========================================================================
+   POPUP DETTAGLIO SEGMENTO (tratto fermata→fermata cliccabile sul percorso)
+   ========================================================================== */
+.seg-detail-popup .leaflet-popup-content-wrapper{ padding:0; overflow:hidden; border-radius:14px; box-shadow:0 10px 30px rgba(15,23,42,0.28); }
+.seg-detail-popup .leaflet-popup-content{ margin:0; width:auto !important; }
+.seg-popup-card{ font-family:inherit; min-width:210px; }
+.seg-popup-head{ display:flex; align-items:center; gap:8px; padding:10px 12px; color:#fff; font-size:0.92rem; }
+.seg-popup-head i{ font-size:0.95rem; }
+.seg-popup-body{ padding:10px 12px 12px; background:var(--bg-card,#fff); }
+.seg-popup-row{ display:flex; align-items:flex-start; gap:9px; padding:4px 0; }
+.seg-popup-row div{ display:flex; flex-direction:column; line-height:1.25; }
+.seg-popup-row strong{ font-size:0.9rem; color:var(--text-primary,#0f172a); }
+.seg-popup-row small{ font-size:0.74rem; color:var(--text-secondary,#64748b); }
+.seg-dot{ width:12px; height:12px; border-radius:50%; margin-top:3px; flex-shrink:0; border:2px solid #fff; box-shadow:0 0 0 1.5px currentColor; }
+.seg-dot-a{ color:#16a34a; background:#16a34a; }
+.seg-dot-b{ color:#dc2626; background:#dc2626; }
+.seg-popup-metrics{ display:flex; gap:14px; margin-top:8px; padding-top:8px; border-top:1px solid var(--border-color,#e2e8f0); font-size:0.82rem; font-weight:700; color:var(--text-primary,#0f172a); }
+.seg-popup-metrics i{ color:#f59e0b; margin-right:4px; }

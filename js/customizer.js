@@ -13,9 +13,10 @@ class CustomizerEngine {
       palette: "nx_palette",
       accent: "nx_accent",
       style: "nx_style",
-      theme: "italiabus_theme" // condiviso con app.js
+      theme: "italiabus_theme", // condiviso con app.js
+      mapMarkers: "italiarun_map_cluster" // condiviso con map.js e radar-engine.js
     };
-    this.DEFAULTS = { palette: "mare", accent: "", style: "default" };
+    this.DEFAULTS = { palette: "mare", accent: "", style: "default", mapMarkers: "single" };
     this.THEME_PROPS = [
       "--brand-primary", "--brand-primary-hover", "--brand-primary-soft",
       "--brand-glow", "--brand-accent", "--brand-gradient",
@@ -91,6 +92,17 @@ class CustomizerEngine {
     this.syncActiveStates();
   }
 
+  /* ---------- Marker mappa: singoli / raggruppati (cluster) ---------- */
+  applyMapMarkers(mode) {
+    const val = (mode === "cluster") ? "cluster" : "single";
+    this.set("mapMarkers", val);
+    // Riapplica sui motori mappa/radar se già pronti (altrimenti leggeranno
+    // l'impostazione da soli alla prossima inizializzazione).
+    try { if (window.transitMap && typeof window.transitMap.applyClusterSetting === "function") window.transitMap.applyClusterSetting(); } catch (e) {}
+    try { if (window.radarEngine && typeof window.radarEngine.applyClusterSetting === "function") window.radarEngine.applyClusterSetting(); } catch (e) {}
+    this.syncActiveStates();
+  }
+
   /* ---------- Tema chiaro / scuro ---------- */
   applyThemeChoice(theme) {
     if (window.app && typeof window.app.applyTheme === "function") {
@@ -137,6 +149,7 @@ class CustomizerEngine {
     this.set("accent", "");
     this.applyPalette(this.DEFAULTS.palette);
     this.applyStyle(this.DEFAULTS.style);
+    this.applyMapMarkers(this.DEFAULTS.mapMarkers);
     this.applyThemeChoice("light");
   }
 
@@ -223,6 +236,11 @@ class CustomizerEngine {
       btn.addEventListener("click", () => this.applyStyle(btn.dataset.styleChoice));
     });
 
+    // Marker mappa (singoli / raggruppati)
+    document.querySelectorAll("#czMapMarkerSeg .cz-seg-btn").forEach(btn => {
+      btn.addEventListener("click", () => this.applyMapMarkers(btn.dataset.markerChoice));
+    });
+
     // Reset
     const resetBtn = document.getElementById("czResetBtn");
     if (resetBtn) resetBtn.addEventListener("click", () => this.reset());
@@ -242,6 +260,10 @@ class CustomizerEngine {
     });
     document.querySelectorAll("#czStyleSeg .cz-seg-btn").forEach(b => {
       b.classList.toggle("active", b.dataset.styleChoice === style);
+    });
+    const mapMarkers = this.get("mapMarkers", this.DEFAULTS.mapMarkers);
+    document.querySelectorAll("#czMapMarkerSeg .cz-seg-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.markerChoice === mapMarkers);
     });
     document.querySelectorAll("#czAccentRow .cz-accent-dot").forEach(d => {
       d.classList.toggle("active", accent && d.dataset.accent.toLowerCase() === accent.toLowerCase());
@@ -329,6 +351,11 @@ class CustomizerEngine {
       if (prevLine) prevLine.textContent = lineText;
       if (prevPlatform) prevPlatform.innerHTML = platformText;
 
+      // Mappa l'icona dedotta -> modalità (usata dal widget Android per l'emoji del mezzo).
+      const modeMap = { "fa-plane": "flight", "fa-train": "train", "fa-tram": "tram", "fa-bus": "bus" };
+      const cardPrev = document.getElementById("czWidgetCardPreview");
+      if (cardPrev) cardPrev.dataset.mode = modeMap[modeIcon] || "bus";
+
       const mins = Math.max(1, Math.floor(currentCountdownSec / 60));
       if (prevCountdown) prevCountdown.textContent = `${mins} min`;
       if (prevStatus) prevStatus.textContent = "In Orario";
@@ -385,6 +412,8 @@ class CustomizerEngine {
       const platformVal = prevPlatform?.textContent?.trim() || "Gate / Binario 1";
       const minsVal = Math.max(1, Math.floor(currentCountdownSec / 60));
 
+      const modeVal = document.getElementById("czWidgetCardPreview")?.dataset.mode || "bus";
+
       const widgetConfig = {
         origin: originVal,
         destination: destVal,
@@ -392,7 +421,8 @@ class CustomizerEngine {
         platform: platformVal,
         countdownMinutes: minsVal,
         departureTime: `${minsVal} min`,
-        status: "In Orario"
+        status: "In Orario",
+        transportMode: modeVal
       };
 
       // Salva in localStorage per persistenza

@@ -78,11 +78,11 @@ class RadarDriveEngine {
 
   init() {
     if (typeof L === 'undefined') return;
-    this.fuelLayer = L.layerGroup();
-    this.autogrillLayer = L.layerGroup();
-    this.speedCamLayer = L.layerGroup();
-    this.speedLimitsLayer = L.layerGroup();
-    this.poiLayer = L.layerGroup();
+    this.fuelLayer = this._createRadarLayer();
+    this.autogrillLayer = this._createRadarLayer();
+    this.speedCamLayer = this._createRadarLayer();
+    this.speedLimitsLayer = L.layerGroup(); // solo cerchi/limiti, mai cluster
+    this.poiLayer = this._createRadarLayer();
 
     // Dataset Nazionale Curato & Istantaneo per Autostrade (A1, A2, A14, A4) e Statali (SS106, SS18, SS107, GRA, ecc.)
     this.curatedPOIs = this._buildCuratedPOIDatabase();
@@ -438,6 +438,11 @@ class RadarDriveEngine {
     if (this.proximityAlertDismissed.has(alertKey)) return;
     this.proximityAlertDismissed.add(alertKey);
 
+    // Avviso VOCALE + sonoro (guida vocale). Deduplicato dallo stesso alertKey del banner.
+    if (window.voiceGuide && typeof window.voiceGuide.announceCamera === 'function') {
+      window.voiceGuide.announceCamera(cam, distanceMeters);
+    }
+
     const alertEl = document.getElementById('radarProximityBanner');
     if (alertEl) {
       alertEl.innerHTML = `
@@ -483,6 +488,47 @@ class RadarDriveEngine {
      RENDERING DEI MARKER SULLA MAPPA LEAFLET
      ========================================================================== */
 
+  /* ==========================================================================
+     CLUSTERING RADAR (opzione "Marker sulla Mappa" in Personalizza)
+     ========================================================================== */
+  _clusterEnabled() {
+    try {
+      const v = (typeof safeStorageGet === 'function')
+        ? safeStorageGet('italiarun_map_cluster', 'single')
+        : ((typeof localStorage !== 'undefined' && localStorage.getItem('italiarun_map_cluster')) || 'single');
+      return v === 'cluster' && typeof L !== 'undefined' && typeof L.markerClusterGroup === 'function';
+    } catch (e) { return false; }
+  }
+
+  _createRadarLayer() {
+    if (this._clusterEnabled()) {
+      return L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: 55,
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        disableClusteringAtZoom: 16
+      });
+    }
+    return L.layerGroup();
+  }
+
+  // Chiamato dal customizer quando si passa da "Singoli" a "Raggruppati".
+  applyClusterSetting() {
+    if (!this.map) return;
+    const names = ['fuelLayer', 'autogrillLayer', 'speedCamLayer', 'poiLayer'];
+    const onMap = {};
+    names.forEach(n => {
+      onMap[n] = this[n] && this.map.hasLayer(this[n]);
+      if (this[n]) { try { this[n].clearLayers(); } catch (e) {} this.map.removeLayer(this[n]); }
+    });
+    names.forEach(n => {
+      this[n] = this._createRadarLayer();
+      if (onMap[n]) this[n].addTo(this.map);
+    });
+    this.renderAllMarkers();
+  }
+
   renderAllMarkers() {
     if (!this.map || typeof L === 'undefined') return;
 
@@ -496,8 +542,21 @@ class RadarDriveEngine {
       ? this.activeRoutePOIs.all
       : this._mergePOIs(this.curatedPOIs, this.liveOverpassPOIs);
 
+    // PERF: viewport culling (solo in modalità "Singoli"). Disegniamo SOLO i
+    // POI dentro (o appena fuori) il riquadro visibile: gli altri restano nel
+    // dataset e compaiono spostando/zoomando la mappa (moveend). Nessuna
+    // informazione persa — semplicemente non teniamo centinaia di marker fuori
+    // schermo nel DOM tutti insieme (era una delle cause del lag).
+    // In modalità "Raggruppati" (cluster) mostriamo invece TUTTO: ci pensa il
+    // cluster a comprimere la densità, così i numeri sui pallini sono reali.
+    let cullBounds = null;
+    if (!this._clusterEnabled()) {
+      try { cullBounds = this.map.getBounds().pad(0.35); } catch (e) { cullBounds = null; }
+    }
+
     for (const p of poisToRender) {
       if (typeof p.lat !== 'number' || typeof p.lng !== 'number') continue;
+      if (cullBounds && !cullBounds.contains([p.lat, p.lng])) continue;
       const cat = this._catOf(p);
       const meta = POI_CATS[cat] || POI_CATS.ri;
       const gmaps = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving`;
@@ -551,6 +610,11 @@ class RadarDriveEngine {
 
   refreshVisiblePOIs() {
     if (!this.map) return;
+    // Ridisegno IMMEDIATO dei marker nella nuova area visibile (il culling in
+    // renderAllMarkers tiene solo quelli a schermo → operazione leggera).
+    // Così, spostando la mappa, i POI della zona compaiono subito senza
+    // attendere la query di rete.
+    this.renderAllMarkers();
     // Debounce: durante pan/zoom continui evita di martellare Overpass (rischio 429/504).
     clearTimeout(this._refreshTimer);
     this._refreshTimer = setTimeout(() => {

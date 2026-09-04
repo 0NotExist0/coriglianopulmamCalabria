@@ -141,13 +141,17 @@
   <!-- Leaflet.js CSS for Interactive Map (Cloudflare CDN) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 
+  <!-- Leaflet.markercluster CSS (opzionale: raggruppamento marker, attivabile da Personalizza) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
+
   <!-- FontAwesome 6 Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
   <!-- Project Stylesheets -->
   <link rel="stylesheet" href="css/style.css?v=5.31">
   <link rel="stylesheet" href="css/tickets.css?v=5.27">
-  <link rel="stylesheet" href="css/map.css?v=5.30">
+  <link rel="stylesheet" href="css/map.css?v=5.40">
   <link rel="stylesheet" href="css/fuel-prices.css?v=5.34">
   <link rel="stylesheet" href="css/themes.css?v=5.27">
   <link rel="stylesheet" href="css/responsive.css?v=5.31">
@@ -155,6 +159,8 @@
   <link rel="stylesheet" href="css/account.css?v=5.28">
   <link rel="stylesheet" href="css/ui-settings.css?v=5.27">
   <link rel="stylesheet" href="css/trailer.css?v=5.27">
+  <!-- PERF: override mobile/in-app, caricato per ULTIMO -->
+  <link rel="stylesheet" href="css/perf.css?v=5.40">
 </head>
 <body>
 
@@ -525,6 +531,18 @@
           <button class="cz-seg-btn" data-style-choice="default"><i class="fa-solid fa-circle-notch"></i> Classico</button>
           <button class="cz-seg-btn" data-style-choice="soft"><i class="fa-solid fa-cloud"></i> Morbido</button>
         </div>
+      </div>
+
+      <!-- Marker mappa: singoli o raggruppati (cluster) -->
+      <div>
+        <div class="cz-group-title"><i class="fa-solid fa-map-pin"></i> Marker sulla Mappa</div>
+        <div class="cz-segmented" id="czMapMarkerSeg">
+          <button class="cz-seg-btn" data-marker-choice="single"><i class="fa-solid fa-location-dot"></i> Singoli</button>
+          <button class="cz-seg-btn" data-marker-choice="cluster"><i class="fa-solid fa-layer-group"></i> Raggruppati</button>
+        </div>
+        <p style="font-size:0.78rem; color:var(--text-secondary,#64748b); margin:8px 2px 0; line-height:1.4;">
+          <i class="fa-solid fa-circle-info"></i> "Raggruppati" unisce i pin vicini in un pallino col numero, per una mappa molto più fluida sui telefoni. Nessuna fermata o servizio viene perso: basta zoomare per riaprire il gruppo.
+        </p>
       </div>
       <!-- ==========================================
            WIDGET SCHERMATA HOME (ANDROID)
@@ -1521,6 +1539,9 @@
        SCRIPTS (LEAFLET & APPLICATION MODULES)
        ========================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- Leaflet.markercluster JS: deve caricarsi DOPO leaflet e PRIMA di map.js.
+       Se non arriva (offline), map.js/radar-engine.js ricadono sui layer normali. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
   <script src="js/data.js?v=5.27"></script>
   <script src="js/data-normalize.js?v=5.27"></script>
   <script src="js/comuni-gazetteer.js?v=5.28"></script>
@@ -1530,18 +1551,20 @@
   <script src="js/live-board.js?v=5.34"></script>
   <script src="js/search.js?v=5.27"></script>
   <script src="js/booking.js?v=5.27"></script>
-  <script src="js/map.js?v=5.28"></script>
+  <script src="js/map.js?v=5.40"></script>
   <script src="js/strikes.js?v=5.27"></script>
   <script src="js/app.js?v=5.33"></script>
   <script src="js/web-ads.js?v=5.27"></script>
-  <script src="js/customizer.js?v=5.27"></script>
+  <script src="js/customizer.js?v=5.40"></script>
   <script src="js/journey-planner.js?v=5.27"></script>
   <script src="js/gmaps-directions.js?v=5.27"></script>
   <script src="js/transitous-routing.js?v=5.27"></script>
   <script src="js/poi-data.js?v=5.29"></script>
-  <script src="js/radar-engine.js?v=5.32"></script>
+  <script src="js/radar-engine.js?v=5.40"></script>
   <script src="js/fuel-prices.js?v=5.34"></script>
-  <script src="js/geo-locator.js?v=5.36"></script>
+  <script src="js/geo-locator.js?v=5.40"></script>
+  <script src="js/getoff-alarm.js?v=5.39"></script>
+  <script src="js/voice-guide.js?v=5.39"></script>
   <script src="js/select-enhancer.js?v=5.27"></script>
   <script src="js/alerts-scheduler.js?v=5.27"></script>
 
