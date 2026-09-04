@@ -43,16 +43,33 @@ window.lockPremium = function() {
   if (btn) btn.style.opacity = '1';
 };
 
-// Mostra il prezzo reale e localizzato dell'abbonamento sul bottone (ricevuto dallo store).
+// Prezzi Premium ricevuti dallo store (via Unity). Retro-compatibile:
+//  - setPremiumPrice(monthly)             -> vecchia firma (solo mensile)
+//  - setPremiumPrices(monthly, lifetime)  -> nuova: abilita la doppia offerta
+window._premiumPlans = window._premiumPlans || {};
 window.setPremiumPrice = function(priceString) {
+  if (priceString) window._premiumPlans.monthly = priceString;
   var price = document.getElementById('btnPremiumPrice');
   if (price && priceString) price.textContent = ' - ' + priceString + '/mese';
+  if (typeof window._renderPremiumPlans === 'function') window._renderPremiumPlans();
+};
+window.setPremiumPrices = function(monthly, lifetime) {
+  if (monthly) window._premiumPlans.monthly = monthly;
+  if (lifetime) window._premiumPlans.lifetime = lifetime;
+  // Se lo store espone il prodotto "una tantum", si abilita la doppia offerta.
+  window._premiumDualReady = !!lifetime;
+  var price = document.getElementById('btnPremiumPrice');
+  if (price) price.textContent = lifetime ? (' - ' + lifetime) : (monthly ? (' - ' + monthly + '/mese') : '');
+  if (typeof window._renderPremiumPlans === 'function') window._renderPremiumPlans();
 };
 
-// Handler del bottone Premium: se gia' abbonato non fa nulla, altrimenti avvia l'acquisto.
-window.onPremiumClick = function() {
+// Avvia l'acquisto del piano scelto ('lifetime' | 'monthly'). Senza argomento, o se
+// il prodotto "una tantum" non e' ancora disponibile nello store, usa il flusso
+// attuale ('buy_premium'), cosi' l'app pubblicata non si rompe mai.
+window.onPremiumClick = function(plan) {
   if (window._premiumUnlocked) return false;
-  if (window.invokeUnity && window.invokeUnity('buy_premium')) return false;
+  var msg = (plan === 'lifetime' && window._premiumDualReady) ? 'buy_premium_lifetime' : 'buy_premium';
+  if (window.invokeUnity && window.invokeUnity(msg)) return false;
   alert('Funzione disponibile solo nell\'App Nativa');
   return false;
 };
@@ -831,22 +848,55 @@ class AppController {
         '<div class="premium-lock-card" role="dialog" aria-modal="true">' +
         '  <button type="button" class="premium-lock-close" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>' +
         '  <div class="premium-lock-icon"><i class="fa-solid fa-crown"></i></div>' +
-        '  <h3 class="premium-lock-title">Riservato agli abbonati</h3>' +
-        '  <p class="premium-lock-text"><strong id="premiumLockSection"></strong> è disponibile solo con l\'abbonamento <b>Premium</b>.</p>' +
+        '  <h3 class="premium-lock-title">Sblocca ItaliaRun Pro</h3>' +
+        '  <p class="premium-lock-text"><strong id="premiumLockSection"></strong> fa parte di <b>ItaliaRun Pro</b>: un solo sblocco, tutte le funzioni avanzate.</p>' +
         '  <ul class="premium-lock-perks">' +
-        '    <li><i class="fa-solid fa-check"></i> Cerca &amp; Prenota, Tariffe &amp; Abbonamenti, Flotta Mezzi e Portafoglio Biglietti</li>' +
-        '    <li><i class="fa-solid fa-check"></i> Prezzi carburante reali e layout percorso personalizzato</li>' +
-        '    <li><i class="fa-solid fa-check"></i> Nessuna pubblicità</li>' +
+        '    <li><i class="fa-solid fa-volume-high"></i> Navigatore vocale turn-by-turn con avvisi autovelox e tutor</li>' +
+        '    <li><i class="fa-solid fa-bell"></i> "Svegliami alla fermata": allarme di arrivo con suono e vibrazione</li>' +
+        '    <li><i class="fa-solid fa-train-subway"></i> Tutti i mezzi in un\'unica mappa: bus, treni, tram, taxi e voli</li>' +
+        '    <li><i class="fa-solid fa-gas-pump"></i> Prezzi carburante reali lungo il percorso</li>' +
+        '    <li><i class="fa-solid fa-ticket"></i> Cerca &amp; Prenota, Tariffe, Flotta e Portafoglio Biglietti</li>' +
+        '    <li class="perk-bonus"><i class="fa-solid fa-ban"></i> In pi\u00f9: <b>zero pubblicit\u00e0</b></li>' +
         '  </ul>' +
-        '  <button type="button" class="btn btn-primary premium-lock-cta"><i class="fa-solid fa-crown"></i> Attiva Premium</button>' +
+        '  <div class="premium-lock-plans" id="premiumLockPlans"></div>' +
+        '  <p class="premium-lock-note"><i class="fa-solid fa-shield-halved"></i> Pagamento sicuro tramite Google Play &bull; Ripristino acquisti disponibile</p>' +
         '</div>';
       document.body.appendChild(ov);
       ov.addEventListener('click', (e) => { if (e.target === ov) ov.classList.remove('open'); });
       ov.querySelector('.premium-lock-close').addEventListener('click', () => ov.classList.remove('open'));
-      ov.querySelector('.premium-lock-cta').addEventListener('click', () => {
+      // I pulsanti dei piani sono ridisegnati da _renderPremiumPlans (in base ai prezzi dello store).
+      ov.querySelector('#premiumLockPlans').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-plan]');
+        if (!b) return;
         ov.classList.remove('open');
-        if (typeof window.onPremiumClick === 'function') window.onPremiumClick();
+        if (typeof window.onPremiumClick === 'function') window.onPremiumClick(b.getAttribute('data-plan'));
       });
+      window._renderPremiumPlans = function() {
+        const box = document.getElementById('premiumLockPlans');
+        if (!box) return;
+        const p = window._premiumPlans || {};
+        if (window._premiumDualReady) {
+          const life = p.lifetime || '3,99\u20ac';
+          const mon = p.monthly || '0,99\u20ac';
+          box.innerHTML =
+            '<button type="button" class="premium-plan premium-plan-best" data-plan="lifetime">' +
+            '  <span class="plan-badge">Pi\u00f9 conveniente</span>' +
+            '  <span class="plan-title">Sblocco a vita</span>' +
+            '  <span class="plan-price">' + life + ' <small>una tantum</small></span>' +
+            '</button>' +
+            '<button type="button" class="premium-plan" data-plan="monthly">' +
+            '  <span class="plan-title">Mensile</span>' +
+            '  <span class="plan-price">' + mon + '<small>/mese</small></span>' +
+            '</button>';
+        } else {
+          const price = p.monthly ? (' \u2013 ' + p.monthly + '/mese') : '';
+          box.innerHTML =
+            '<button type="button" class="btn btn-primary premium-lock-cta" data-plan="">' +
+            '  <i class="fa-solid fa-crown"></i> Attiva ItaliaRun Pro' + price +
+            '</button>';
+        }
+      };
+      window._renderPremiumPlans();
     }
     const secEl = ov.querySelector('#premiumLockSection');
     if (secEl) secEl.textContent = name;

@@ -331,3 +331,32 @@ body.free-user .mobile-nav-btn[data-tab="tickets"] .mobile-nav-icon::after {
   .fuel-chip.active { box-shadow: 0 3px 10px rgba(2,132,199,.35); }
   .fuel-price-pill.on { background: var(--bg-subtle, #f1f5f9); }
 }
+
+/* --- ItaliaRun Pro: blocco piani (Lifetime + Mensile) nel paywall --- */
+.premium-lock-plans { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.premium-plan {
+  position: relative; flex: 1 1 140px; min-width: 128px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 15px 12px 12px; border-radius: 14px; cursor: pointer;
+  background: var(--bg-subtle, #f1f5f9); border: 2px solid var(--border-color, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.premium-plan:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(2,6,23,.16); }
+.premium-plan .plan-title { font-size: .8rem; font-weight: 700; color: var(--text-secondary, #475569); }
+.premium-plan .plan-price { font-size: 1.15rem; font-weight: 900; color: var(--text-primary, #0f172a); }
+.premium-plan .plan-price small { font-size: .72rem; font-weight: 700; color: var(--text-muted, #94a3b8); }
+.premium-plan-best {
+  background: linear-gradient(135deg, rgba(2,132,199,.12), rgba(2,132,199,.02));
+  border-color: var(--brand-primary, #0284c7);
+}
+.premium-plan-best .plan-price { color: var(--brand-primary, #0284c7); }
+.premium-plan .plan-badge {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  background: var(--brand-primary, #0284c7); color: #fff; font-size: .62rem; font-weight: 900;
+  letter-spacing: .3px; text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
+  white-space: nowrap; box-shadow: 0 3px 10px rgba(2,132,199,.4);
+}
+.premium-lock-perks .perk-bonus i { color: var(--color-danger, #ef4444) !important; }
+.premium-lock-note { margin-top: 10px; font-size: .72rem; color: var(--text-muted, #94a3b8); text-align: center; }
+.premium-lock-note i { margin-right: 4px; }
