@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="light" data-palette="mare">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>FAQ e Guida | ItaliaRun</title>
+  <meta name="description" content="Domande frequenti e guida rapida a ItaliaRun: mappa a schermo intero, navigatore vocale, fermata più vicina, orari, abbonamento Pro.">
+  <link rel="canonical" href="https://italiarun.vercel.app/faq.html">
+  <meta name="robots" content="index, follow">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="FAQ e Guida | ItaliaRun">
+  <meta property="og:description" content="Domande frequenti e guida rapida a ItaliaRun: mappa a schermo intero, navigatore vocale, fermata più vicina, orari, abbonamento Pro.">
+  <meta property="og:url" content="https://italiarun.vercel.app/faq.html">
+  <meta property="og:site_name" content="ItaliaRun">
+  <link rel="icon" type="image/png" sizes="192x192" href="img/icona-192.png">
+  <link rel="apple-touch-icon" href="img/icona-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --brand:#0284c7; --brand-dark:#0369a1; --ink:#0f172a; --muted:#64748b;
+      --line:#e2e8f0; --bg:#f8fafc; --card:#ffffff;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:'Plus Jakarta Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      color:var(--ink); background:var(--bg); line-height:1.65; }
+    a { color:var(--brand); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .lg-top { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.92);
+      backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+    .lg-top-inner { max-width:920px; margin:0 auto; padding:12px 20px; display:flex;
+      align-items:center; gap:14px; flex-wrap:wrap; }
+    .lg-logo { font-weight:800; font-size:1.15rem; color:var(--ink); display:flex; align-items:center; gap:8px; }
+    .lg-logo i { color:var(--brand); }
+    .lg-logo b { color:var(--brand); }
+    .lg-nav { display:flex; gap:4px; flex-wrap:wrap; margin-left:auto; }
+    .lg-nav a { font-size:.85rem; font-weight:700; color:var(--muted); padding:6px 10px; border-radius:8px; }
+    .lg-nav a:hover { background:#eef4f9; text-decoration:none; }
+    .lg-nav a.active { background:var(--brand); color:#fff; }
+    .lg-wrap { max-width:820px; margin:0 auto; padding:34px 20px 60px; }
+    .lg-wrap h1 { font-size:2rem; font-weight:800; margin:.2em 0 .1em; }
+    .lg-updated { color:var(--muted); font-size:.85rem; margin:0 0 26px; }
+    .lg-wrap h2 { font-size:1.25rem; font-weight:800; margin:1.6em 0 .5em; padding-top:.2em; }
+    .lg-wrap h3 { font-size:1.02rem; font-weight:800; margin:1.2em 0 .3em; }
+    .lg-wrap p, .lg-wrap li { font-size:1rem; color:#1e293b; }
+    .lg-wrap ul { padding-left:1.2em; }
+    .lg-card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+      padding:18px 22px; margin:18px 0; }
+    .lg-lead { font-size:1.1rem; color:#334155; }
+    .lg-back { display:inline-flex; align-items:center; gap:8px; margin-top:30px; font-weight:700; }
+    .faq-q { font-weight:800; margin:1.3em 0 .2em; font-size:1.05rem; color:var(--ink); }
+    .lg-foot { border-top:1px solid var(--line); background:var(--card); }
+    .lg-foot-inner { max-width:920px; margin:0 auto; padding:26px 20px; color:var(--muted); font-size:.85rem; }
+    .lg-foot-links { margin-bottom:10px; }
+    @media (prefers-color-scheme: dark) {
+      :root { --ink:#e5eef6; --muted:#94a3b8; --line:#1e293b; --bg:#0b1220; --card:#0f1a2b; }
+      .lg-top { background:rgba(11,18,32,.92); }
+      .lg-nav a:hover { background:#16233a; }
+      .lg-wrap p, .lg-wrap li { color:#cbd5e1; }
+    }
+  </style>
+</head>
+<body>
+  <header class="lg-top">
+    <div class="lg-top-inner">
+      <a class="lg-logo" href="index.html"><i class="fa-solid fa-bus"></i> Italia<b>Run</b></a>
+      <nav class="lg-nav"><a href="index.html">App</a><a href="chi-siamo.html">Chi siamo</a><a href="faq.html" class="active">FAQ</a><a href="contatti.html">Contatti</a><a href="privacy.html">Privacy</a><a href="termini.html">Termini</a><a href="cookie.html">Cookie</a></nav>
+    </div>
+  </header>
+  <main class="lg-wrap">
+    <h1>Domande frequenti e guida rapida</h1>
+    <p class="lg-updated">Ultimo aggiornamento: 4 settembre 2026</p>
+    <p class="lg-lead">Tutto quello che serve per sfruttare al meglio ItaliaRun, in poche risposte.</p>
+
+    <p class="faq-q">ItaliaRun è gratis?</p>
+    <p>Sì. Le funzioni principali — tabellone orari, mappa e ricerca fermate — sono gratuite, con qualche annuncio. Con <strong>ItaliaRun Pro</strong> togli la pubblicità e sblocchi le funzioni avanzate.</p>
+
+    <p class="faq-q">Come trovo la fermata più vicina alla mia destinazione?</p>
+    <p>Apri la <strong>Mappa</strong>, scrivi dove vuoi arrivare nella barra "Dove vuoi andare?" e tocca "Trova fermata per destinazione": l'app ti localizza e ti mostra la fermata utile e il percorso.</p>
+
+    <p class="faq-q">Come uso la mappa a schermo intero?</p>
+    <p>Sulla mappa tocca il pulsante <strong>schermo intero</strong> (icona di espansione, in basso a destra): la mappa riempie tutto lo schermo, in stile navigatore. Il pulsante "Strumenti" mostra zoom e radar; con "Esci" torni alla vista normale.</p>
+
+    <p class="faq-q">Posso spostare i pannellini che coprono la mappa?</p>
+    <p>Sì. I pannelli del navigatore e dell'itinerario si <strong>trascinano</strong>, si <strong>riducono a icona</strong> e si possono <strong>agganciare al bordo</strong> dello schermo (si ritirano a linguetta). Dall'ingranaggio "Personalizza mappa" attivi o disattivi ogni comportamento.</p>
+
+    <p class="faq-q">Come funziona il navigatore vocale?</p>
+    <p>Durante un itinerario, attiva la <strong>guida vocale</strong> dal pannello del navigatore: ricevi indicazioni passo-passo e avvisi (inclusi autovelox e tutor). Con "Svegliami alla fermata" ricevi suono e vibrazione quando ti avvicini alla fermata di arrivo.</p>
+
+    <p class="faq-q">Gli orari sono ufficiali?</p>
+    <p>No: ItaliaRun è uno strumento informativo indipendente. Facciamo il possibile per tenere i dati aggiornati, ma <strong>verifica sempre</strong> orari e coincidenze presso il vettore prima di partire.</p>
+
+    <p class="faq-q">Quali mezzi copre?</p>
+    <p>Pullman, treni, tram, taxi e voli, con orari e tratte per tutte le 20 regioni italiane, in un'unica mappa.</p>
+
+    <p class="faq-q">Come attivo ItaliaRun Pro?</p>
+    <p>Nell'app tocca "Sblocca ItaliaRun Pro" e scegli il piano: <strong>Sblocco a vita</strong> (pagamento una tantum) oppure <strong>abbonamento mensile</strong>. Il pagamento è gestito in modo sicuro dallo store. Se cambi telefono puoi usare "Ripristina acquisti".</p>
+
+    <p class="faq-q">Ho un orario sbagliato o manca una linea: cosa faccio?</p>
+    <p>Scrivici a <a href="mailto:notexistofficial@gmail.com">notexistofficial@gmail.com</a> indicando regione, comune e linea. Essendo un progetto indipendente, le segnalazioni degli utenti sono preziose e le lavoriamo in fretta.</p>
+
+    <p class="faq-q">Come gestisco la privacy e la posizione?</p>
+    <p>Puoi usare l'app anche senza account e senza GPS (inserendo la partenza a mano). Trovi tutti i dettagli nella <a href="privacy.html">Privacy Policy</a> e nella <a href="cookie.html">Cookie Policy</a>.</p>
+    <a class="lg-back" href="index.html"><i class="fa-solid fa-arrow-left-long"></i> Torna all'app ItaliaRun</a>
+  </main>
+  <footer class="lg-foot">
+    <div class="lg-foot-inner">
+      <div class="lg-foot-links"><a href="chi-siamo.html">Chi siamo</a> &bull; <a href="faq.html">FAQ</a> &bull; <a href="contatti.html">Contatti</a> &bull; <a href="privacy.html">Privacy</a> &bull; <a href="termini.html">Termini</a> &bull; <a href="cookie.html">Cookie</a></div>
+      &copy; 2026 ItaliaRun &bull; Progetto indipendente a marchio Not Exist Web Services (0Not_Exist0) &bull;
+      <a href="mailto:notexistofficial@gmail.com">notexistofficial@gmail.com</a>
+    </div>
+  </footer>
+</body>
+</html>
