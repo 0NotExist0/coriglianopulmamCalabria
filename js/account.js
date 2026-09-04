@@ -20,6 +20,10 @@
   var presenceRef = null, connectedRef = null, adminRef = null, profileRef = null, pendingCreate = null;
   var sessionId = null; // id univoco di QUESTA scheda/sessione (stabile tra le riconnessioni)
   var anonInFlight = false; // evita doppioni di login anonimo (ospite)
+  var heartbeatTimer = null;   // aggiorna lastSeen periodicamente (anti-fantasmi)
+  var _lastPresence = null;    // ultimo snapshot presence (per aprire subito il pannello)
+  var HEARTBEAT_MS = 45000;    // battito ogni 45s
+  var STALE_MS = 150000;       // sessione 'fantasma' dopo 150s senza battito
 
   // ---------- helpers ----------
   function cfg() { return window.ACCOUNT_CONFIG || {}; }
@@ -218,7 +222,8 @@
     anonInFlight = true;
     auth.signInAnonymously()
       .catch(function (e) {
-        console.warn("[account] login ospite non riuscito (abilita 'Anonimo' in Firebase Authentication):", e && e.code);
+        if (e && (e.code === "auth/operation-not-allowed" || e.code === "auth/admin-restricted-operation")) window._anonAuthDisabled = true;
+        console.warn("[account] login ospite non riuscito: abilita 'Anonimo' in Firebase Authentication (Sign-in method). Codice:", e && e.code);
       })
       .then(function () { anonInFlight = false; });
   }
@@ -269,8 +274,24 @@
         since: firebase.database.ServerValue.TIMESTAMP
       });
     }
+    startHeartbeat();
   }
+
+  // Heartbeat: aggiorna 'lastSeen' cosi' le sessioni fantasma (app chiusa di colpo,
+  // onDisconnect non scattato) vengono filtrate dal pannello owner.
+  function startHeartbeat() {
+    stopHeartbeat();
+    if (!presenceRef) return;
+    var beat = function () {
+      if (presenceRef) { try { presenceRef.child('lastSeen').set(firebase.database.ServerValue.TIMESTAMP); } catch (e) {} }
+    };
+    beat();
+    heartbeatTimer = setInterval(beat, HEARTBEAT_MS);
+  }
+  function stopHeartbeat() { if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; } }
+
   function clearPresence() {
+    stopHeartbeat();
     if (presenceRef) {
       try { presenceRef.onDisconnect().cancel(); presenceRef.remove(); } catch (e) {}
       presenceRef = null;
@@ -280,8 +301,9 @@
 
   // ---------- pannello owner: utenti online ----------
   function startAdmin() {
+    if (adminRef) return; // gia' in ascolto
     adminRef = db.ref("presence");
-    adminRef.on("value", function (snap) { renderAdmin(snap.val() || {}); },
+    adminRef.on("value", function (snap) { _lastPresence = snap.val() || {}; renderAdmin(_lastPresence); },
       function (err) { console.warn("[account] admin read:", err); });
   }
   function stopAdmin() { if (adminRef) { adminRef.off(); adminRef = null; } }
@@ -428,6 +450,10 @@
     } else {
       out.push(node); // presenza legacy a nodo singolo
     }
+    // Scarta le sessioni fantasma: hanno un heartbeat (lastSeen) ma vecchio.
+    // Le sessioni senza lastSeen (legacy) restano visibili.
+    var now = Date.now();
+    out = out.filter(function (s) { return !s || !s.lastSeen || (now - s.lastSeen) < STALE_MS; });
     // piu' recente in cima
     out.sort(function (a, b) { return (b.since || 0) - (a.since || 0); });
     return out;
@@ -467,13 +493,16 @@
     var logged = accounts.filter(function (a) { return !a.guest; }).length;
     var guests = accounts.length - logged;
     if (count) count.textContent = accounts.length;
-    if (!accounts.length) { list.innerHTML = '<p class="acc-note">Nessun utente online in questo momento.</p>'; return; }
+    var hint = window._anonAuthDisabled
+      ? '<p class="acc-note" style="color:#b45309;margin:2px 0 10px"><i class="fa-solid fa-triangle-exclamation"></i> Ospiti non tracciati: abilita l\'accesso <b>Anonimo</b> in Firebase Authentication per contare i visitatori senza account.</p>'
+      : '';
+    if (!accounts.length) { list.innerHTML = hint + '<p class="acc-note">Nessun utente online in questo momento.</p>'; return; }
 
     var summary = '<p class="acc-admin-summary">' +
       '<i class="fa-solid fa-user-check"></i> ' + logged + ' loggati' +
       ' &nbsp;•&nbsp; <i class="fa-solid fa-user-slash"></i> ' + guests + ' non loggati</p>';
 
-    list.innerHTML = summary + accounts.map(function (a) {
+    list.innerHTML = hint + summary + accounts.map(function (a) {
       var head = a.head;
       var n = a.sessions.length;
       var chips = a.sessions.map(deviceChip).join("");
@@ -500,7 +529,15 @@
   function val(id) { var e = document.getElementById(id); return e ? e.value : ""; }
   function open() { msg("", true); var real = currentUser && !currentUser.isAnonymous; if (!fullyLogged(currentUser)) _tab = "login"; renderModal(real ? (fullyLogged(currentUser) ? "in" : "pending") : undefined); var m = document.getElementById("accountModal"); if (m) { m.classList.add("open"); m.setAttribute("aria-hidden", "false"); } }
   function close() { var m = document.getElementById("accountModal"); if (m) { m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); } }
-  function openAdmin() { var m = document.getElementById("accountAdmin"); if (m) { m.classList.add("open"); m.setAttribute("aria-hidden", "false"); } }
+  function openAdmin() {
+    injectDom();
+    // Solo l'owner loggato vede l'elenco; per gli altri non facciamo nulla.
+    if (!(enabled && fullyLogged(currentUser) && isOwner(currentUser))) return;
+    if (!adminRef) startAdmin();                  // riattacca il listener se serve
+    renderAdmin(_lastPresence || {});             // mostra subito i dati noti (niente pannello vuoto)
+    var m = document.getElementById("accountAdmin");
+    if (m) { m.classList.add("open"); m.setAttribute("aria-hidden", "false"); }
+  }
   function closeAdmin() { var m = document.getElementById("accountAdmin"); if (m) { m.classList.remove("open"); m.setAttribute("aria-hidden", "true"); } }
   function msg(text, ok) { var e = document.getElementById("accMsg"); if (!e) return; e.textContent = text || ""; e.className = "acc-msg" + (text ? (ok ? " ok" : " err") : ""); }
   function busy(b) { var e = document.getElementById("accBody"); if (e) e.style.opacity = b ? "0.55" : "1"; }

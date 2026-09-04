@@ -6,6 +6,8 @@
  * 2) Aggiungi un'app "Web" (</>) e copia l'oggetto firebaseConfig.
  * 3) Incolla i valori qui sotto in FIREBASE_CONFIG (sostituendo gli "INCOLLA_...").
  * 4) Nel menu "Authentication" attiva il metodo "Email/Password".
+ *    4b) Nello stesso menu abilita anche il metodo "Anonimo": serve a contare
+ *        i VISITATORI SENZA ACCOUNT nel pannello "Utenti Online". Senza, restano 0.
  * 5) Nel menu "Realtime Database" crea un database (modalita' bloccata) e incolla
  *    l'URL in databaseURL. Poi imposta le regole di sicurezza (vedi ACCOUNT_RULES
  *    in fondo a questo file).
