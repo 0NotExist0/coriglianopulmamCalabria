@@ -14,9 +14,10 @@ class CustomizerEngine {
       accent: "nx_accent",
       style: "nx_style",
       theme: "italiabus_theme", // condiviso con app.js
-      mapMarkers: "italiarun_map_cluster" // condiviso con map.js e radar-engine.js
+      mapMarkers: "italiarun_map_cluster", // condiviso con map.js e radar-engine.js
+      cityDest: "italiabus_city_dest_panel" // condiviso con geo-locator.js
     };
-    this.DEFAULTS = { palette: "mare", accent: "", style: "default", mapMarkers: "single" };
+    this.DEFAULTS = { palette: "mare", accent: "", style: "default", mapMarkers: "single", cityDest: "both" };
     this.THEME_PROPS = [
       "--brand-primary", "--brand-primary-hover", "--brand-primary-soft",
       "--brand-glow", "--brand-accent", "--brand-gradient",
@@ -103,6 +104,14 @@ class CustomizerEngine {
     this.syncActiveStates();
   }
 
+  /* ---------- Destinazione città: quando aprire il pannello "dove vuoi andare?" ---------- */
+  applyCityDest(mode) {
+    const allowed = ["select", "arrival", "both", "off"];
+    const val = allowed.indexOf(mode) !== -1 ? mode : "both";
+    this.set("cityDest", val);
+    this.syncActiveStates();
+  }
+
   /* ---------- Tema chiaro / scuro ---------- */
   applyThemeChoice(theme) {
     if (window.app && typeof window.app.applyTheme === "function") {
@@ -150,6 +159,7 @@ class CustomizerEngine {
     this.applyPalette(this.DEFAULTS.palette);
     this.applyStyle(this.DEFAULTS.style);
     this.applyMapMarkers(this.DEFAULTS.mapMarkers);
+    this.applyCityDest(this.DEFAULTS.cityDest);
     this.applyThemeChoice("light");
   }
 
@@ -241,6 +251,11 @@ class CustomizerEngine {
       btn.addEventListener("click", () => this.applyMapMarkers(btn.dataset.markerChoice));
     });
 
+    // Destinazione città: quando aprire il pannello "dove vuoi andare?"
+    document.querySelectorAll("#czCityDestSeg .cz-seg-btn").forEach(btn => {
+      btn.addEventListener("click", () => this.applyCityDest(btn.dataset.citydestChoice));
+    });
+
     // Reset
     const resetBtn = document.getElementById("czResetBtn");
     if (resetBtn) resetBtn.addEventListener("click", () => this.reset());
@@ -264,6 +279,10 @@ class CustomizerEngine {
     const mapMarkers = this.get("mapMarkers", this.DEFAULTS.mapMarkers);
     document.querySelectorAll("#czMapMarkerSeg .cz-seg-btn").forEach(b => {
       b.classList.toggle("active", b.dataset.markerChoice === mapMarkers);
+    });
+    const cityDest = this.get("cityDest", this.DEFAULTS.cityDest);
+    document.querySelectorAll("#czCityDestSeg .cz-seg-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.citydestChoice === cityDest);
     });
     document.querySelectorAll("#czAccentRow .cz-accent-dot").forEach(d => {
       d.classList.toggle("active", accent && d.dataset.accent.toLowerCase() === accent.toLowerCase());

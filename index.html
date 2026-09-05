@@ -157,10 +157,10 @@
   <!-- Project Stylesheets -->
   <link rel="stylesheet" href="css/style.css?v=5.46">
   <link rel="stylesheet" href="css/tickets.css?v=5.27">
-  <link rel="stylesheet" href="css/map.css?v=5.40">
+  <link rel="stylesheet" href="css/map.css?v=5.45">
   <link rel="stylesheet" href="css/map-ux.css?v=5.44">
   <link rel="stylesheet" href="css/fuel-prices.css?v=5.45">
-  <link rel="stylesheet" href="css/themes.css?v=5.27">
+  <link rel="stylesheet" href="css/themes.css?v=5.45">
   <link rel="stylesheet" href="css/responsive.css?v=5.31">
   <link rel="stylesheet" href="css/select.css?v=5.27">
   <link rel="stylesheet" href="css/account.css?v=5.28">
@@ -564,6 +564,20 @@
           <i class="fa-solid fa-circle-info"></i> "Raggruppati" unisce i pin vicini in un pallino col numero, per una mappa molto più fluida sui telefoni. Nessuna fermata o servizio viene perso: basta zoomare per riaprire il gruppo.
         </p>
       </div>
+      <!-- Destinazione in città: quando aprire il pannello "dove vuoi andare?" -->
+      <div>
+        <div class="cz-group-title"><i class="fa-solid fa-city"></i> Destinazione in Città</div>
+        <div class="cz-segmented" id="czCityDestSeg">
+          <button class="cz-seg-btn" data-citydest-choice="select"><i class="fa-solid fa-hand-pointer"></i> Alla scelta</button>
+          <button class="cz-seg-btn" data-citydest-choice="arrival"><i class="fa-solid fa-flag-checkered"></i> All'arrivo</button>
+          <button class="cz-seg-btn" data-citydest-choice="both"><i class="fa-solid fa-layer-group"></i> Entrambi</button>
+          <button class="cz-seg-btn" data-citydest-choice="off"><i class="fa-solid fa-ban"></i> Mai</button>
+        </div>
+        <p style="font-size:0.78rem; color:var(--text-secondary,#64748b); margin:8px 2px 0; line-height:1.4;">
+          <i class="fa-solid fa-circle-info"></i> Quando imposti una <strong>città</strong> come destinazione, apre un pannello per scegliere la meta esatta (via, luogo, indirizzo) dentro la città, scaricando vie e luoghi reali da OpenStreetMap. "Alla scelta" appena la imposti, "All'arrivo" quando entri in città, "Entrambi" in tutti e due i casi.
+        </p>
+      </div>
+
       <!-- ==========================================
            WIDGET SCHERMATA HOME (ANDROID)
            ========================================== -->
@@ -1587,15 +1601,15 @@
   <script src="js/strikes.js?v=5.27"></script>
   <script src="js/app.js?v=5.45"></script>
   <script src="js/web-ads.js?v=5.27"></script>
-  <script src="js/customizer.js?v=5.40"></script>
+  <script src="js/customizer.js?v=5.45"></script>
   <script src="js/journey-planner.js?v=5.27"></script>
   <script src="js/gmaps-directions.js?v=5.27"></script>
   <script src="js/transitous-routing.js?v=5.27"></script>
   <script src="js/poi-data.js?v=5.29"></script>
-  <script src="js/radar-engine.js?v=5.40"></script>
+  <script src="js/radar-engine.js?v=5.45"></script>
   <script src="js/fuel-prices.js?v=5.34"></script>
   <script src="js/map-ux.js?v=5.44"></script>
-  <script src="js/geo-locator.js?v=5.44"></script>
+  <script src="js/geo-locator.js?v=5.45"></script>
   <script src="js/getoff-alarm.js?v=5.39"></script>
   <script src="js/voice-guide.js?v=5.39"></script>
   <script src="js/select-enhancer.js?v=5.27"></script>

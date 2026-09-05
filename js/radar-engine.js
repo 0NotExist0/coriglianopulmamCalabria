@@ -21,7 +21,8 @@ const POI_CATS = {
   ho: { type: 'poi',          label: 'Hotel',           sing: 'Hotel',             icon: 'fa-bed',            color: '#7c3aed' },
   pk: { type: 'poi',          label: 'Parcheggi',       sing: 'Parcheggio',        icon: 'fa-square-parking', color: '#2563eb' },
   av: { type: 'speed_camera', label: 'Autovelox',       sing: 'Autovelox',         icon: 'fa-camera-retro',   color: '#dc2626' },
-  ag: { type: 'autogrill',    label: 'Autogrill & Aree',sing: 'Area di Servizio',  icon: 'fa-utensils',       color: '#ea580c' }
+  ag: { type: 'autogrill',    label: 'Autogrill & Aree',sing: 'Area di Servizio',  icon: 'fa-utensils',       color: '#ea580c' },
+  st: { type: 'poi',          label: 'Vie & Strade',    sing: 'Via',               icon: 'fa-road',           color: '#0f766e' }
 };
 
 class RadarDriveEngine {
@@ -293,6 +294,84 @@ class RadarDriveEngine {
       try { localStorage.setItem(lsKey, JSON.stringify({ t: Date.now(), p: parsed })); } catch (e) {}
     }
     return parsed;
+  }
+
+  /* Corsa multi-mirror su Overpass: risolve con gli `elements` grezzi del primo
+     mirror che risponde non vuoto, [] se tutti falliscono. Non blocca mai oltre
+     il timeout del mirror più lento. Usato dalla scansione VIE (openCityPanel). */
+  _overpassFetch(query) {
+    const endpoints = [
+      'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.openstreetmap.ru/api/interpreter'
+    ];
+    const attempts = endpoints.map(base => new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      fetch(`${base}?data=${encodeURIComponent(query)}`, { signal: controller.signal })
+        .then(res => { clearTimeout(timer); if (!res.ok) return reject(new Error('http ' + res.status)); return res.json(); })
+        .then(data => { const els = (data && data.elements) || []; if (!els.length) return reject(new Error('empty')); resolve(els); })
+        .catch(err => { clearTimeout(timer); reject(err); });
+    }));
+    return new Promise(resolve => {
+      let remaining = attempts.length, settled = false;
+      if (!remaining) return resolve([]);
+      attempts.forEach(p => p
+        .then(v => { if (!settled) { settled = true; resolve(v); } })
+        .catch(() => { remaining--; if (remaining === 0 && !settled) resolve([]); }));
+    });
+  }
+
+  /* Scarica le VIE con nome dentro il riquadro (residenziali, principali, pedonali…),
+     una voce per via (dedotta per nome, punto rappresentativo = baricentro OSM).
+     Serve al pannello "Dove vuoi andare in città?" per elencare/cercare le strade. */
+  async fetchLiveOverpassStreets(bounds) {
+    if (!bounds || typeof bounds.getSouth !== 'function') return [];
+    const s = bounds.getSouth().toFixed(4);
+    const w = bounds.getWest().toFixed(4);
+    const n = bounds.getNorth().toFixed(4);
+    const e = bounds.getEast().toFixed(4);
+    const key = `st_${s},${w},${n},${e}`;
+
+    if (this.cachedOverpassData.has(key)) return this.cachedOverpassData.get(key);
+
+    const lsKey = 'ib_str_' + POI_CACHE_VER + '_' + key;
+    try {
+      const cached = localStorage.getItem(lsKey);
+      if (cached) {
+        const obj = JSON.parse(cached);
+        if (obj && obj.t && (Date.now() - obj.t) < POI_CACHE_TTL && Array.isArray(obj.p)) {
+          this.cachedOverpassData.set(key, obj.p);
+          return obj.p;
+        }
+      }
+    } catch (e) {}
+
+    const query = `[out:json][timeout:25];(
+      way["highway"~"^(residential|living_street|pedestrian|tertiary|secondary|primary|unclassified|road)$"]["name"](${s},${w},${n},${e});
+    );out center 400;`;
+
+    let elements = [];
+    try { elements = await this._overpassFetch(query); } catch (e) { elements = []; }
+
+    const seen = new Set();
+    const streets = [];
+    for (const el of elements) {
+      const c = el.center || (el.lat != null ? { lat: el.lat, lon: el.lon } : null);
+      const nm = el.tags && el.tags.name;
+      if (!c || !nm) continue;
+      const k = nm.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      streets.push({ id: 'str_' + el.id, cat: 'st', type: 'poi', brand: nm, name: nm, lat: c.lat, lng: c.lon, road: '' });
+    }
+
+    if (streets.length) {
+      this.cachedOverpassData.set(key, streets);
+      try { localStorage.setItem(lsKey, JSON.stringify({ t: Date.now(), p: streets })); } catch (e) {}
+    }
+    return streets;
   }
 
   /* ==========================================================================
@@ -692,19 +771,38 @@ class RadarDriveEngine {
     this.openPOIPanel(lat, lng, title);
   }
 
-  async openPOIPanel(lat, lng, title, radiusKm = 3.5) {
+  /* Pannello "Dove vuoi andare in <Città>?": apre in modalità città (scarica anche le
+     VIE, mostra la ricerca e il tasto "Vai al centro"). Chiamato da geo-locator quando
+     l'utente imposta un comune come destinazione, o quando entra in città. */
+  openCityDestinationPanel(dest) {
+    if (!dest || typeof dest.lat !== 'number') return;
+    this._cityDest = dest;
+    this.openPOIPanel(dest.lat, dest.lng, dest.name || 'Città', 5, { cityMode: true });
+  }
+
+  async openPOIPanel(lat, lng, title, radiusKm = 3.5, opts = {}) {
     this._panelCenter = [lat, lng];
+    this._panelTitle = title;
+    this._panelCityMode = !!opts.cityMode;
+    if (!this._panelCityMode) this._cityDest = null;
     this._renderPOIPanel(null, title, true); // stato di caricamento
-    let live = [];
-    if (this.map && typeof L !== 'undefined') {
+    let live = [], streets = [];
+    // Serve solo Leaflet (L) per costruire il bbox: funziona anche se la mappa
+    // non è ancora stata inizializzata (apertura automatica appena scelta la città).
+    if (typeof L !== 'undefined') {
       try {
         const d = radiusKm / 111;
         const b = L.latLngBounds([lat - d, lng - d * 1.4], [lat + d, lng + d * 1.4]);
-        live = await this.fetchLiveOverpassPOIs(b);
+        const tasks = [this.fetchLiveOverpassPOIs(b)];
+        if (this._panelCityMode) tasks.push(this.fetchLiveOverpassStreets(b));
+        const res = await Promise.all(tasks);
+        live = res[0] || [];
+        streets = res[1] || [];
       } catch (e) {}
     }
     const near = (this.curatedPOIs || []).filter(p => this.haversineDist([lat, lng], [p.lat, p.lng]) <= radiusKm * 1000);
-    const all = this._mergePOIs(near, live);
+    let all = this._mergePOIs(near, live);
+    if (streets.length) all = all.concat(streets);
     all.forEach(p => { p._distM = Math.round(this.haversineDist([lat, lng], [p.lat, p.lng])); });
     all.sort((a, b) => a._distM - b._distM);
     this._panelPOIs = all;
@@ -726,23 +824,42 @@ class RadarDriveEngine {
   _renderPOIPanel(pois, title, loading) {
     const el = this._poiPanelEl();
     el.style.display = 'flex';
+    const cityMode = this._panelCityMode;
+    const safeTitle = this._escAttr(title || '');
     const head = `
       <div class="rpoi-head">
-        <div class="rpoi-title"><i class="fa-solid fa-location-dot"></i> Punti di Interesse<br><small>${title || ''}</small></div>
+        <div class="rpoi-title"><i class="fa-solid ${cityMode ? 'fa-city' : 'fa-location-dot'}"></i> ${cityMode ? 'Dove vuoi andare?' : 'Punti di Interesse'}<br><small>${title || ''}</small></div>
         <button type="button" class="rpoi-close" onclick="window.radarEngine.closePOIPanel()" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
       </div>`;
+
+    // Barra di ricerca (filtra l'elenco locale + cerca online l'indirizzo esatto).
+    const searchBar = `
+      <div class="rpoi-search-wrap">
+        <i class="fa-solid fa-magnifying-glass rpoi-search-ic"></i>
+        <input type="text" id="rpoiSearchInput" class="rpoi-search" placeholder="Cerca via, luogo o indirizzo…" autocomplete="off"
+          oninput="window.radarEngine._poiSearchFilter(this.value)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();window.radarEngine._poiSearchOnline(this.value);}">
+        <button type="button" class="rpoi-search-go" title="Cerca questo indirizzo online (OpenStreetMap)" onclick="window.radarEngine._poiSearchOnline(document.getElementById('rpoiSearchInput').value)"><i class="fa-solid fa-globe"></i></button>
+      </div>`;
+
     if (loading) {
-      el.innerHTML = head + `<div class="rpoi-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Carico i punti di interesse da OpenStreetMap…</div>`;
+      el.innerHTML = head + searchBar + `<div class="rpoi-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> ${cityMode ? 'Scarico vie e luoghi da OpenStreetMap…' : 'Carico i punti di interesse da OpenStreetMap…'}</div>`;
       return;
     }
+
+    const cityCenterBtn = (cityMode && this._cityDest)
+      ? `<button type="button" class="rpoi-citycenter" onclick="window.radarEngine._poiGoCityCenter()"><i class="fa-solid fa-diamond-turn-right"></i> Vai al centro di ${safeTitle}</button>`
+      : '';
+
     if (!pois || !pois.length) {
-      el.innerHTML = head + `<div class="rpoi-loading">Nessun punto trovato qui ora (OpenStreetMap non raggiungibile). Riprova tra poco.</div>`;
+      el.innerHTML = head + searchBar + cityCenterBtn +
+        `<div class="rpoi-loading">Nessun luogo trovato qui ora. Usa la ricerca qui sopra${cityMode ? ', oppure "Vai al centro"' : ''} (serve connessione a OpenStreetMap).</div>`;
       return;
     }
     // conteggi per categoria (per i chip filtro)
     const counts = {};
     pois.forEach(p => { const c = this._catOf(p); counts[c] = (counts[c] || 0) + 1; });
-    const order = ['fu', 'ri', 'ba', 'sm', 'fa', 'bk', 'os', 'ho', 'pk', 'ag', 'av'];
+    const order = ['st', 'fu', 'ri', 'ba', 'sm', 'fa', 'bk', 'os', 'ho', 'pk', 'ag', 'av'];
     const chips = [`<button type="button" class="rpoi-chip active" data-cat="all" onclick="window.radarEngine._poiPanelFilter('all',this)">Tutti (${pois.length})</button>`]
       .concat(order.filter(c => counts[c]).map(c => {
         const m = POI_CATS[c];
@@ -761,12 +878,19 @@ class RadarDriveEngine {
           <button type="button" class="rpoi-go" onclick="window.radarEngine._poiRoute(${i})" title="Imposta come destinazione e traccia il percorso"><i class="fa-solid fa-diamond-turn-right"></i> Vai</button>
         </div>`;
     }).join('');
-    el.innerHTML = head +
+    el.innerHTML = head + searchBar + cityCenterBtn +
       `<div class="rpoi-chips">${chips.join('')}</div>` +
-      `<div class="rpoi-list">${items}</div>`;
+      `<div class="rpoi-list" id="rpoiList">${items}</div>`;
 
     // Integra i prezzi carburante reali sui benzinai elencati (Premium).
     this._enrichPOIFuelPrices();
+  }
+
+  /* Escape minimale per testo inserito in attributi/inline HTML del pannello. */
+  _escAttr(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+    ));
   }
 
   /* Aggiunge ai benzinai del pannello Punti di Interesse i prezzi reali
@@ -837,19 +961,122 @@ class RadarDriveEngine {
   _poiRoute(i) {
     const p = this._panelPOIs && this._panelPOIs[i];
     if (!p) return;
-    const gl = window.geoLocator;
     const name = p.name || (POI_CATS[this._catOf(p)] || {}).sing || 'Punto';
+    this._routeToPlace(p.lat, p.lng, name, p.road || '');
+  }
+
+  /* Imposta un punto preciso (luogo/via/indirizzo) come destinazione finale e traccia
+     il percorso. `_cityRefined:true` evita che geo-locator riapra il pannello città. */
+  _routeToPlace(lat, lng, name, area) {
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+    const gl = window.geoLocator;
+    const uid = 'poi_' + Date.now();
     if (gl && typeof gl.selectDestination === 'function') {
       gl.selectDestination({
-        id: 'poi_' + i, uniqueKey: 'poi_' + i, name,
-        area: p.road || '', region: (gl.currentRegion || ''),
-        lat: p.lat, lng: p.lng, isMainHub: false, isStop: true,
-        stop: { id: 'poi_' + i, name, lat: p.lat, lng: p.lng }
+        id: uid, uniqueKey: uid, name: name || 'Destinazione',
+        area: area || (this._panelTitle || ''), region: (gl.currentRegion || ''),
+        lat, lng, isMainHub: false, isStop: true, _cityRefined: true,
+        stop: { id: uid, name: name || 'Destinazione', lat, lng }
       }, true);
     } else {
-      window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=transit`, '_blank');
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=transit`, '_blank');
     }
     this.closePOIPanel();
+  }
+
+  /* "Vai al centro di <Città>": instrada verso il comune intero (destinazione originale). */
+  _poiGoCityCenter() {
+    const d = this._cityDest;
+    this.closePOIPanel();
+    if (!d) return;
+    const gl = window.geoLocator;
+    if (gl && typeof gl.selectDestination === 'function') {
+      gl.selectDestination(Object.assign({}, d, { _cityRefined: true }), true);
+    }
+  }
+
+  /* Filtro rapido dell'elenco già scaricato (per testo). */
+  _poiSearchFilter(q) {
+    const el = document.getElementById('radarPOIPanel');
+    if (!el) return;
+    q = (q || '').trim().toLowerCase();
+    // Il testo libero ha precedenza sui chip categoria.
+    el.querySelectorAll('.rpoi-chip').forEach(b => b.classList.toggle('active', b.getAttribute('data-cat') === 'all'));
+    el.querySelectorAll('.rpoi-item').forEach(it => {
+      const txt = (it.textContent || '').toLowerCase();
+      it.style.display = (!q || txt.indexOf(q) !== -1) ? 'flex' : 'none';
+    });
+  }
+
+  /* Ricerca ONLINE dell'indirizzo esatto (geocoding Nominatim), ristretta alla città
+     quando il pannello è in modalità città. È la "ricerca col browser" dei dati OSM. */
+  async _poiSearchOnline(q) {
+    q = (q || '').trim();
+    const listEl = document.getElementById('rpoiList');
+    if (q.length < 2) { this._poiRestoreList(); return; }
+    const city = (this._panelTitle || '').split('(')[0].split(' · ')[0].trim();
+    if (listEl) { listEl._online = true; listEl.innerHTML = `<div class="rpoi-loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Cerco "${this._escAttr(q)}"${city ? ' a ' + this._escAttr(city) : ''}…</div>`; }
+
+    const center = this._panelCenter;
+    const doFetch = async (bounded) => {
+      let vb = '';
+      if (center) {
+        const d = 0.09; // ~10 km attorno al centro città
+        vb = `&viewbox=${center[1] - d},${center[0] + d},${center[1] + d},${center[0] - d}` + (bounded ? '&bounded=1' : '');
+      }
+      const qFull = q + (city ? (', ' + city) : '') + ', Italia';
+      const url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=10&countrycodes=it&q=${encodeURIComponent(qFull)}${vb}`;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const res = await fetch(url, { signal: ctrl.signal, headers: { 'Accept': 'application/json' } });
+        clearTimeout(timer);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      } catch (e) { clearTimeout(timer); return []; }
+    };
+
+    let results = await doFetch(true);
+    if (!results.length) results = await doFetch(false); // fallback senza confine città
+    this._renderOnlineResults(results, q);
+  }
+
+  _renderOnlineResults(results, q) {
+    const listEl = document.getElementById('rpoiList');
+    if (!listEl) return;
+    listEl._online = true;
+    const back = `<button type="button" class="rpoi-back" onclick="window.radarEngine._poiRestoreList()"><i class="fa-solid fa-arrow-left"></i> Elenco</button>`;
+    if (!results || !results.length) {
+      listEl.innerHTML = `<div class="rpoi-online-head"><span>Nessun risultato per "${this._escAttr(q)}"</span>${back}</div>`;
+      return;
+    }
+    this._onlineResults = results;
+    const items = results.map((r, i) => {
+      const parts = (r.display_name || '').split(',');
+      const name = parts.slice(0, 2).join(',').trim() || (r.display_name || 'Risultato');
+      const sub = parts.slice(2, 4).join(',').trim();
+      return `
+        <div class="rpoi-item">
+          <div class="rpoi-ic" style="background:#0f766e"><i class="fa-solid fa-location-dot"></i></div>
+          <div class="rpoi-txt"><strong>${this._escAttr(name)}</strong><small>${this._escAttr(sub)}</small></div>
+          <button type="button" class="rpoi-go" onclick="window.radarEngine._onlineRoute(${i})" title="Imposta come destinazione"><i class="fa-solid fa-diamond-turn-right"></i> Vai</button>
+        </div>`;
+    }).join('');
+    listEl.innerHTML = `<div class="rpoi-online-head"><span><i class="fa-solid fa-globe"></i> Risultati online</span>${back}</div>` + items;
+  }
+
+  _onlineRoute(i) {
+    const r = this._onlineResults && this._onlineResults[i];
+    if (!r) return;
+    const name = (r.display_name || '').split(',').slice(0, 2).join(',').trim() || 'Destinazione';
+    this._routeToPlace(parseFloat(r.lat), parseFloat(r.lon), name, '');
+  }
+
+  _poiRestoreList() {
+    const listEl = document.getElementById('rpoiList');
+    if (listEl) listEl._online = false;
+    this._renderPOIPanel(this._panelPOIs, this._panelTitle, false);
   }
 
   closePOIPanel() {

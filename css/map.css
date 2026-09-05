@@ -3210,7 +3210,7 @@
 .rpoi-chip{ display:inline-flex; align-items:center; gap:5px; background:#f1f5f9; border:1px solid #e2e8f0; color:#334155; border-radius:20px; padding:4px 10px; font-size:0.76rem; font-weight:600; cursor:pointer; }
 .rpoi-chip.active{ background:#0284c7; border-color:#0284c7; color:#fff; }
 .rpoi-chip.active i{ color:#fff !important; }
-.rpoi-list{ overflow-y:auto; padding:6px; }
+.rpoi-list{ flex:1 1 auto; min-height:0; overflow-y:auto; padding:6px; }
 .rpoi-item{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:10px; }
 .rpoi-item:hover{ background:#f8fafc; }
 .rpoi-ic{ width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; }
@@ -3219,6 +3219,25 @@
 .rpoi-txt small{ color:#64748b; font-size:0.76rem; }
 .rpoi-go{ flex-shrink:0; background:#16a34a; color:#fff; border:none; border-radius:9px; padding:7px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
 .rpoi-go:hover{ background:#15803d; }
+
+/* Ricerca via/luogo dentro il pannello (filtro locale + geocoding online) */
+.rpoi-search-wrap{ position:relative; display:flex; align-items:center; gap:6px; padding:10px 12px; border-bottom:1px solid #e2e8f0; flex-shrink:0; }
+.rpoi-search-ic{ position:absolute; left:23px; color:#94a3b8; font-size:0.82rem; pointer-events:none; }
+.rpoi-search{ flex:1; min-width:0; padding:9px 10px 9px 32px; border:1px solid #cbd5e1; border-radius:9px; font-size:0.85rem; color:#0f172a; background:#fff; outline:none; }
+.rpoi-search::placeholder{ color:#94a3b8; }
+.rpoi-search:focus{ border-color:#0284c7; box-shadow:0 0 0 3px rgba(2,132,199,.15); }
+.rpoi-search-go{ flex-shrink:0; background:#0284c7; color:#fff; border:none; border-radius:9px; width:38px; height:36px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.rpoi-search-go:hover{ background:#0369a1; }
+
+/* "Vai al centro di <Città>" (modalità città) */
+.rpoi-citycenter{ margin:10px 12px 2px; padding:11px 12px; background:#0284c7; color:#fff; border:none; border-radius:10px; font-size:0.86rem; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.rpoi-citycenter:hover{ background:#0369a1; }
+
+/* Intestazione + tasto "torna all'elenco" dei risultati online */
+.rpoi-online-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; font-size:0.8rem; font-weight:700; color:#475569; }
+.rpoi-back{ background:#f1f5f9; border:1px solid #e2e8f0; color:#334155; border-radius:8px; padding:5px 10px; font-size:0.78rem; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
+.rpoi-back:hover{ background:#e2e8f0; }
+
 @media (max-width:560px){ .radar-poi-panel{ top:8px; right:8px; left:8px; width:auto; max-height:70%; } }
 
 /* ==========================================================================

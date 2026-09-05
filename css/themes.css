@@ -302,6 +302,9 @@
   color: var(--brand-primary);
   background: var(--brand-primary-soft);
 }
+/* Segmenti a 4 opzioni (Destinazione in Città): vanno a capo in griglia 2×2 e restano compatti */
+#czCityDestSeg { flex-wrap: wrap; }
+#czCityDestSeg .cz-seg-btn { flex: 1 1 calc(50% - 4px); padding: 10px 8px; font-size: 0.8rem; gap: 6px; }
 
 /* Accento personalizzato */
 .cz-accent-row {

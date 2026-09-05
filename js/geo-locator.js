@@ -37,6 +37,7 @@ class GeoLocatorEngine {
     this.userLatLng = null;
     this.nearestStop = null;
     this.selectedDestination = null;
+    this._cityArrival = null;         // { lat, lng, name, dest, triggered } quando una CITTÀ è meta e il pannello va aperto all'arrivo
     this.activeRouteInfo = null;
     this.walkSeconds = null;
     this.countdownTimer = null;
@@ -204,6 +205,8 @@ class GeoLocatorEngine {
 
   clearDestination() {
     this.selectedDestination = null;
+    this._cityArrival = null;
+    if (window.radarEngine && typeof window.radarEngine.closePOIPanel === 'function') window.radarEngine.closePOIPanel();
     this.activeRouteInfo = null;
     if (this.destInput) this.destInput.value = "";
     if (this.btnClearDest) this.btnClearDest.style.display = "none";
@@ -844,11 +847,73 @@ class GeoLocatorEngine {
     if (this.btnClearDest) this.btnClearDest.style.display = "flex";
     this.closeDropdown();
 
+    // Se la meta è una CITTÀ (comune, non una via/fermata precisa) apri il pannello
+    // "Dove vuoi andare in <Città>?" per scegliere la destinazione finale reale.
+    // Comportamento regolabile da Personalizza: alla scelta / all'arrivo / entrambi / mai.
+    if (this._isCityDest(dest)) {
+      const mode = this._cityDestSetting();
+      if ((mode === 'select' || mode === 'both') && window.radarEngine && typeof window.radarEngine.openCityDestinationPanel === 'function') {
+        if (window.app && typeof window.app.switchTab === 'function') window.app.switchTab('map');
+        this._armCityArrival(dest); // in modalità "entrambi" resta armato se poi va comunque in città
+        window.radarEngine.openCityDestinationPanel(dest);
+        return; // non instradiamo subito verso l'intero comune: l'utente sceglie il punto
+      }
+      if (mode === 'arrival') this._armCityArrival(dest);
+      else this._cityArrival = null;
+    } else {
+      // meta precisa: nessun pannello città in avvicinamento
+      this._cityArrival = null;
+    }
+
     if (autoRoute) {
       if (window.transitMap && typeof window.transitMap.isolateRouteView === 'function') {
         window.transitMap.isolateRouteView(true);
       }
       this.routeToDestination(dest);
+    }
+  }
+
+  /* Preferenza utente (Personalizza) su quando aprire il pannello destinazione-città. */
+  _cityDestSetting() {
+    let v;
+    try {
+      v = (typeof safeStorageGet === 'function')
+        ? safeStorageGet('italiabus_city_dest_panel', 'both')
+        : ((typeof localStorage !== 'undefined' && localStorage.getItem('italiabus_city_dest_panel')) || 'both');
+    } catch (e) { v = 'both'; }
+    return (v === 'select' || v === 'arrival' || v === 'off' || v === 'both') ? v : 'both';
+  }
+
+  /* True se `dest` è un comune/città (non una via o fermata già precisa). */
+  _isCityDest(dest) {
+    return !!(dest && dest.isStop === false && dest._cityRefined !== true && typeof dest.lat === 'number');
+  }
+
+  /* Arma l'apertura del pannello città quando l'utente entra in città (guida attiva). */
+  _armCityArrival(dest) {
+    if (!dest || typeof dest.lat !== 'number') { this._cityArrival = null; return; }
+    this._cityArrival = { lat: dest.lat, lng: dest.lng, name: dest.name || 'città', dest: dest, triggered: false };
+  }
+
+  /* Chiamato ad ogni tick GPS: se sto entrando nella città-meta, apre il pannello. */
+  _checkCityArrival(lat, lng) {
+    const ca = this._cityArrival;
+    if (!ca || ca.triggered) return;
+    const mode = this._cityDestSetting();
+    if (mode !== 'arrival' && mode !== 'both') return;
+    const d = this.haversine([lat, lng], [ca.lat, ca.lng]);
+    if (d <= 2500) { // ~2,5 km dal centro = sei entrato in città
+      ca.triggered = true;
+      if (window.notificationManager) {
+        window.notificationManager.send(
+          `Sei quasi a ${ca.name} 🏙️`,
+          "Scegli dove andare in città: vie e luoghi reali disponibili.",
+          { type: "info", icon: "fa-city", tabTarget: "map", showToast: true, sendNative: false }
+        );
+      }
+      if (window.radarEngine && typeof window.radarEngine.openCityDestinationPanel === 'function') {
+        window.radarEngine.openCityDestinationPanel(ca.dest);
+      }
     }
   }
 
@@ -4076,6 +4141,9 @@ class GeoLocatorEngine {
     if ((lat === 0 && lng === 0) || isNaN(lat) || isNaN(lng)) return;
 
     this.userLatLng = [lat, lng];
+
+    // Città-meta: se sto entrando in città, apri il pannello "dove vuoi andare?".
+    this._checkCityArrival(lat, lng);
 
     // Allarme discesa ("Svegliami alla fermata"): valuta la vicinanza alla destinazione.
     if (window.getOffAlarm) window.getOffAlarm.notifyPosition(lat, lng);
